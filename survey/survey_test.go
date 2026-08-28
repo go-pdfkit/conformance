@@ -318,3 +318,99 @@ func TestTheCapStopsPartWayThroughADocument(t *testing.T) {
 		t.Errorf("capped at 2: %d pages", c.Pages)
 	}
 }
+
+func TestAMaskIsCountedByItsOwnFilter(t *testing.T) {
+	// The metric that was missing, and its absence cost a release. A scanned
+	// page's ink layer is shaped by a JBIG2 stencil in /Mask; counting filters
+	// by what they encode as CONTENT said JBIG2 was almost nowhere, while it
+	// shapes the text of every page those scanners produce.
+	for _, key := range []string{"Mask", "SMask"} {
+		t.Run(key, func(t *testing.T) {
+			var path string
+			w := reader.NewWriter("1.7")
+			pagesRef := w.Reserve()
+			mask := w.Add(&reader.Stream{Dict: reader.Dict{
+				"Type": reader.Name("XObject"), "Subtype": reader.Name("Image"),
+				"Width": reader.Integer(4), "Height": reader.Integer(4),
+				"ImageMask": reader.Bool(true), "Filter": reader.Name("JBIG2Decode"),
+			}, Raw: []byte{0}})
+			img := w.Add(&reader.Stream{Dict: reader.Dict{
+				"Type": reader.Name("XObject"), "Subtype": reader.Name("Image"),
+				"Width": reader.Integer(4), "Height": reader.Integer(4),
+				"Filter": reader.Name("JPXDecode"), reader.Name(key): mask,
+			}, Raw: []byte{0}})
+			pageRef := w.Add(reader.Dict{"Type": reader.Name("Page"), "Parent": pagesRef,
+				"MediaBox":  reader.Array{reader.Integer(0), reader.Integer(0), reader.Integer(9), reader.Integer(9)},
+				"Contents":  w.Add(&reader.Stream{Dict: reader.Dict{}, Raw: []byte("")}),
+				"Resources": reader.Dict{"XObject": reader.Dict{"I": img}}})
+			w.Put(pagesRef, reader.Dict{"Type": reader.Name("Pages"),
+				"Kids": reader.Array{pageRef}, "Count": reader.Integer(1)})
+			out, err := w.Finish(reader.Dict{"Root": w.Add(reader.Dict{
+				"Type": reader.Name("Catalog"), "Pages": pagesRef})})
+			if err != nil {
+				t.Fatal(err)
+			}
+			path = filepath.Join(t.TempDir(), "scan.pdf")
+			if err := os.WriteFile(path, out, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			c := Survey([]string{path}, 0)
+			// The picture is counted by what IT is in, and the mask by what
+			// the MASK is in. Both matter, and they are not the same question.
+			if c.Images["JPXDecode"] != 1 {
+				t.Errorf("the picture was counted as %v", c.Images)
+			}
+			if c.MaskedBy["JBIG2Decode"] != 1 {
+				t.Errorf("the mask was counted as %v", c.MaskedBy)
+			}
+			if len(c.Masks()) != 1 {
+				t.Errorf("masks %v", c.Masks())
+			}
+		})
+	}
+}
+
+func TestAnImageWithNoMaskIsCountedAsHavingNone(t *testing.T) {
+	path := page(t, "", nil)
+	if c := Survey([]string{path}, 0); len(c.MaskedBy) != 0 {
+		t.Errorf("masks found where there are none: %v", c.MaskedBy)
+	}
+}
+
+func TestAMaskThatIsNotAnImageIsNotOne(t *testing.T) {
+	// /Mask may also be an array — a range of colours to treat as absent —
+	// which is not a stream and has no filter of its own.
+	var path string
+	{
+		w := reader.NewWriter("1.7")
+		pagesRef := w.Reserve()
+		img := w.Add(&reader.Stream{Dict: reader.Dict{
+			"Type": reader.Name("XObject"), "Subtype": reader.Name("Image"),
+			"Width": reader.Integer(4), "Height": reader.Integer(4),
+			"Filter": reader.Name("JPXDecode"),
+			"Mask":   reader.Array{reader.Integer(0), reader.Integer(10)},
+		}, Raw: []byte{0}})
+		pageRef := w.Add(reader.Dict{"Type": reader.Name("Page"), "Parent": pagesRef,
+			"MediaBox":  reader.Array{reader.Integer(0), reader.Integer(0), reader.Integer(9), reader.Integer(9)},
+			"Contents":  w.Add(&reader.Stream{Dict: reader.Dict{}, Raw: []byte("")}),
+			"Resources": reader.Dict{"XObject": reader.Dict{"I": img}}})
+		w.Put(pagesRef, reader.Dict{"Type": reader.Name("Pages"),
+			"Kids": reader.Array{pageRef}, "Count": reader.Integer(1)})
+		out, err := w.Finish(reader.Dict{"Root": w.Add(reader.Dict{
+			"Type": reader.Name("Catalog"), "Pages": pagesRef})})
+		if err != nil {
+			t.Fatal(err)
+		}
+		path = filepath.Join(t.TempDir(), "keyed.pdf")
+		if err := os.WriteFile(path, out, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	c := Survey([]string{path}, 0)
+	if len(c.MaskedBy) != 0 {
+		t.Errorf("a colour-key mask was counted as an image: %v", c.MaskedBy)
+	}
+	if c.Images["JPXDecode"] != 1 {
+		t.Errorf("the picture itself was not counted: %v", c.Images)
+	}
+}

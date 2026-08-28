@@ -57,6 +57,9 @@ func report(out io.Writer, name string, c survey.Counts) {
 	for _, r := range c.Reasons() {
 		fmt.Fprintf(out, "\trefused: %5d  %s\n", c.Refused[r], r)
 	}
+	for _, f := range c.Masks() {
+		fmt.Fprintf(out, "\t%-16s %5d images are SHAPED BY a mask in it\n", f, c.MaskedBy[f])
+	}
 	for _, f := range c.Filters() {
 		share := 0.0
 		if c.Documents > 0 {

@@ -185,3 +185,16 @@ func TestACorpusItCannotWalkIsReported(t *testing.T) {
 		t.Errorf("exit %d, want 1", code)
 	}
 }
+
+func TestTheMasksAreReportedBesideTheFilters(t *testing.T) {
+	var out bytes.Buffer
+	report(&out, "scans", survey.Counts{
+		Files: 1, Documents: 1, Pages: 1,
+		UsedBy: map[string]int{"JPXDecode": 1}, Images: map[string]int{"JPXDecode": 1},
+		BlankWithout: map[string]int{}, Refused: map[string]int{},
+		MaskedBy: map[string]int{"JBIG2Decode": 4089},
+	})
+	if !strings.Contains(out.String(), "4089 images are SHAPED BY") {
+		t.Errorf("the mask count is not reported: %q", out.String())
+	}
+}

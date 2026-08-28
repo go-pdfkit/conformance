@@ -32,6 +32,21 @@ type Counts struct {
 	// but images in that filter — the pages that come out blank when it is not
 	// decoded. This is the harm, as against the presence.
 	BlankWithout map[string]int
+	// MaskedBy is, per image filter, how many images are shaped by a MASK in
+	// that filter — and it is here because its absence cost a release.
+	//
+	// A modern scanned page is not one image. It is a low-resolution colour
+	// background with a high-resolution bitonal ink layer over it, and the ink
+	// layer is a dark rectangle whose shape comes entirely from a JBIG2
+	// stencil in /Mask. Counting filters by what they encode as CONTENT said
+	// JBIG2 was in twenty documents of three thousand and blanked three pages,
+	// so it was set aside — while in truth it shapes the text of every page of
+	// every book those scanners produce, and without it that dark rectangle is
+	// painted over the whole page.
+	//
+	// A filter can matter enormously while appearing almost nowhere in the
+	// count that was being kept.
+	MaskedBy map[string]int
 	// Refused is, per reason, how many documents would not open. A population's
 	// refusals are part of what it is, and their REASONS decide whether they
 	// are ours to fix: eleven per cent of scanned books refuse because they
@@ -46,12 +61,16 @@ func newCounts() Counts {
 		UsedBy:       map[string]int{},
 		Images:       map[string]int{},
 		BlankWithout: map[string]int{},
+		MaskedBy:     map[string]int{},
 		Refused:      map[string]int{},
 	}
 }
 
 // Filters returns the filter names seen, in a stable order.
 func (c Counts) Filters() []string { return keys(c.UsedBy) }
+
+// Masks returns the filters seen shaping an image, in a stable order.
+func (c Counts) Masks() []string { return keys(c.MaskedBy) }
 
 // Reasons returns the refusals seen, in a stable order.
 func (c Counts) Reasons() []string { return keys(c.Refused) }
@@ -148,6 +167,9 @@ func surveyPage(d *reader.Document, p int, c *Counts, inThisDocument map[string]
 			c.Images[name]++
 			onThisPage[name] = true
 			inThisDocument[name] = true
+			if m, ok := maskFilter(d, streamOf(d, v)); ok {
+				c.MaskedBy[m]++
+			}
 		}
 	}
 	if images == 0 || marks(d, p) > 0 {
@@ -183,6 +205,31 @@ func imageFilter(d *reader.Document, v reader.Object) (string, bool) {
 		}
 	}
 	return "none", true
+}
+
+// streamOf is the stream behind an object the caller knows is one.
+func streamOf(d *reader.Document, v reader.Object) *reader.Stream {
+	o, _ := d.Resolve(v)
+	st, _ := reader.ToStream(o)
+	return st
+}
+
+// maskFilter answers with the filter an image's mask is encoded in, and
+// whether it has one. Both spellings count: /Mask is a stencil and /SMask is a
+// soft mask, and an image is equally undrawable when either cannot be read.
+// The stream is passed rather than the object because the caller has already
+// established that it is one: imageFilter answers only for an image XObject.
+func maskFilter(d *reader.Document, st *reader.Stream) (string, bool) {
+	for _, key := range []reader.Name{"Mask", "SMask"} {
+		entry, named := st.Dict[key]
+		if !named {
+			continue
+		}
+		if name, ok := imageFilter(d, entry); ok {
+			return name, true
+		}
+	}
+	return "", false
 }
 
 // marks counts the operators on a page that put something on it.
