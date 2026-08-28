@@ -1,0 +1,146 @@
+package main
+
+import (
+	"bytes"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/go-pdfkit/conformance/compare"
+	"github.com/go-pdfkit/conformance/corpus"
+)
+
+// tinyCorpus writes a manifest naming two populations and a file for each.
+func tinyCorpus(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	for _, sub := range []string{"alpha", "beta"} {
+		if err := os.MkdirAll(filepath.Join(dir, sub), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, sub, "one.pdf"), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := corpus.Write(dir, []corpus.Entry{
+		{Path: "alpha/one.pdf", Origin: "alpha", Source: "u", SHA256: "x"},
+		{Path: "beta/one.pdf", Origin: "beta", Source: "u", SHA256: "x"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
+// judge stands in for the comparison so these run without poppler.
+func judge(t *testing.T, rs ...compare.Result) {
+	t.Helper()
+	was := compareOne
+	t.Cleanup(func() { compareOne = was })
+	compareOne = func(string, compare.Options) []compare.Result { return rs }
+}
+
+func TestRunJudgesEachPopulationSeparately(t *testing.T) {
+	judge(t, compare.Result{Share: 0.004, Ours: time.Second})
+	var out, errOut bytes.Buffer
+	if code := run([]string{"-dir", tinyCorpus(t)}, &out, &errOut); code != 0 {
+		t.Fatalf("exit %d: %s", code, errOut.String())
+	}
+	got := out.String()
+	if !strings.Contains(got, "alpha\t1 compared") || !strings.Contains(got, "beta\t1 compared") {
+		t.Errorf("got %q", got)
+	}
+	if !strings.Contains(got, "median") || !strings.Contains(got, "slowest page") {
+		t.Errorf("the distribution is not reported: %q", got)
+	}
+}
+
+func TestRunReportsWhatCouldNotBeJudged(t *testing.T) {
+	judge(t, compare.Result{Share: -1, Note: "we drew nothing"})
+	var out, errOut bytes.Buffer
+	run([]string{"-dir", tinyCorpus(t), "-only", "alpha"}, &out, &errOut)
+	if !strings.Contains(out.String(), "we drew nothing") {
+		t.Errorf("got %q", out.String())
+	}
+	// And with nothing compared, no distribution is invented.
+	if strings.Contains(out.String(), "median") {
+		t.Errorf("a distribution was printed for nothing: %q", out.String())
+	}
+}
+
+func TestRunSaysWhatIsWrong(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args func(t *testing.T) []string
+		want int
+	}{
+		{"no directory", func(*testing.T) []string { return nil }, 2},
+		{"a flag that is not one", func(*testing.T) []string { return []string{"-nonsense"} }, 2},
+		{"a population that is not in it", func(t *testing.T) []string {
+			return []string{"-dir", tinyCorpus(t), "-only", "gamma"}
+		}, 1},
+		{"a manifest that will not parse", func(t *testing.T) []string {
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, corpus.ManifestName),
+				[]byte("nothing\tuseful\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			return []string{"-dir", dir}
+		}, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			judge(t)
+			var out, errOut bytes.Buffer
+			if code := run(tc.args(t), &out, &errOut); code != tc.want {
+				t.Errorf("exit %d, want %d", code, tc.want)
+			}
+		})
+	}
+}
+
+func TestOnlySoManyDocumentsCanBeAskedFor(t *testing.T) {
+	// A population of two, judged with a limit of one: a corpus of a hundred
+	// thousand is surveyed by sampling it, not by waiting for it.
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "alpha"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var entries []corpus.Entry
+	for _, name := range []string{"one.pdf", "two.pdf"} {
+		if err := os.WriteFile(filepath.Join(dir, "alpha", name), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		entries = append(entries, corpus.Entry{
+			Path: filepath.Join("alpha", name), Origin: "alpha", Source: "u", SHA256: "x"})
+	}
+	if err := corpus.Write(dir, entries); err != nil {
+		t.Fatal(err)
+	}
+	seen := 0
+	was := compareOne
+	defer func() { compareOne = was }()
+	compareOne = func(string, compare.Options) []compare.Result {
+		seen++
+		return []compare.Result{{Share: 0.1}}
+	}
+	var out, errOut bytes.Buffer
+	if code := run([]string{"-dir", dir, "-limit", "1"}, &out, &errOut); code != 0 {
+		t.Fatalf("exit %d", code)
+	}
+	if seen != 1 {
+		t.Errorf("judged %d documents with a limit of 1", seen)
+	}
+}
+
+func TestMainCallsRun(t *testing.T) {
+	oldExit, oldArgs := osExit, os.Args
+	defer func() { osExit, os.Args = oldExit, oldArgs }()
+	got := -1
+	osExit = func(code int) { got = code }
+	os.Args = []string{"compare"}
+	main()
+	if got != 2 {
+		t.Errorf("main exited %d, want 2", got)
+	}
+}
