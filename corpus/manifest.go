@@ -37,14 +37,24 @@ type Entry struct {
 	Source string
 	Bytes  int64
 	// SHA256 is of the bytes as fetched, so a figure can be tied to the exact
-	// document that produced it.
-	SHA256  string
+	// document that produced it. Empty when the manifest did not say.
+	SHA256 string
+	// Fetched is when it was taken. The zero time means the manifest did not
+	// say — some documents predate the record that describes them.
 	Fetched time.Time
 }
 
-// Read loads a corpus's manifest. A directory with no manifest is an empty
-// corpus rather than an error: that is what a corpus about to be built looks
-// like.
+// Read loads a corpus's manifest.
+//
+// The header says what the columns are, so a manifest written by an earlier
+// tool is still readable: the forms corpus gathered before this repository
+// existed says "issuer|file|url|bytes|sha256-8|fetched", which is the same six
+// facts under other names. Making the format self-describing was cheaper than
+// re-fetching two thousand documents, and a corpus that has to be re-fetched to
+// be read is not much of a record.
+//
+// A directory with no manifest is an empty corpus rather than an error: that is
+// what a corpus about to be built looks like.
 func Read(dir string) ([]Entry, error) {
 	f, err := os.Open(filepath.Join(dir, ManifestName))
 	if err != nil {
@@ -55,41 +65,139 @@ func Read(dir string) ([]Entry, error) {
 	}
 	defer f.Close()
 
-	var out []Entry
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
-	for line := 0; sc.Scan(); line++ {
+	if !sc.Scan() {
+		return nil, sc.Err()
+	}
+	cols, err := columns(sc.Text())
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", ManifestName, err)
+	}
+
+	var out []Entry
+	for line := 2; sc.Scan(); line++ {
 		text := sc.Text()
-		if line == 0 && strings.HasPrefix(text, "path\t") {
-			continue // the header
-		}
 		if strings.TrimSpace(text) == "" {
 			continue
 		}
-		e, err := parse(text)
+		e, err := cols.parse(text)
 		if err != nil {
-			return nil, fmt.Errorf("%s line %d: %w", ManifestName, line+1, err)
+			return nil, fmt.Errorf("%s line %d: %w", ManifestName, line, err)
 		}
 		out = append(out, e)
 	}
 	return out, sc.Err()
 }
 
-// parse reads one manifest row.
-func parse(line string) (Entry, error) {
+// A layout is where each fact sits in a row, worked out from the header.
+type layout struct{ path, origin, source, bytes, sha, fetched int }
+
+// known maps every column name any manifest of ours has used onto the fact it
+// carries.
+var known = map[string]func(*layout, int){
+	"path":     func(l *layout, i int) { l.path = i },
+	"file":     func(l *layout, i int) { l.path = i },
+	"origin":   func(l *layout, i int) { l.origin = i },
+	"issuer":   func(l *layout, i int) { l.origin = i },
+	"source":   func(l *layout, i int) { l.source = i },
+	"url":      func(l *layout, i int) { l.source = i },
+	"bytes":    func(l *layout, i int) { l.bytes = i },
+	"sha256":   func(l *layout, i int) { l.sha = i },
+	"sha256-8": func(l *layout, i int) { l.sha = i },
+	"fetched":  func(l *layout, i int) { l.fetched = i },
+}
+
+// columns reads the header. Every fact must be named: a manifest that does not
+// say where its documents came from is a list, and the point of a manifest is
+// that it is not one.
+func columns(header string) (layout, error) {
+	l := layout{-1, -1, -1, -1, -1, -1}
+	for i, name := range strings.Split(header, "\t") {
+		if set, ok := known[strings.TrimSpace(name)]; ok {
+			set(&l, i)
+		}
+	}
+	for _, c := range []struct {
+		at   int
+		name string
+	}{
+		{l.path, "path"}, {l.origin, "origin"}, {l.source, "source"},
+		{l.bytes, "bytes"}, {l.sha, "sha256"}, {l.fetched, "fetched"},
+	} {
+		if c.at < 0 {
+			return l, fmt.Errorf("the header names no %s column: %q", c.name, header)
+		}
+	}
+	return l, nil
+}
+
+// at reads one field, or reports that the row is short.
+func at(f []string, i int) (string, error) {
+	if i >= len(f) {
+		return "", fmt.Errorf("%d fields, and the header names %d", len(f), i+1)
+	}
+	return f[i], nil
+}
+
+// parse reads one row by the layout the header declared.
+func (l layout) parse(line string) (Entry, error) {
 	f := strings.Split(line, "\t")
-	if len(f) != 6 {
-		return Entry{}, fmt.Errorf("%d fields, want 6", len(f))
+	var e Entry
+	var err error
+	if e.Path, err = at(f, l.path); err != nil {
+		return e, err
 	}
-	n, err := strconv.ParseInt(f[3], 10, 64)
+	if e.Origin, err = at(f, l.origin); err != nil {
+		return e, err
+	}
+	if e.Source, err = at(f, l.source); err != nil {
+		return e, err
+	}
+	if e.SHA256, err = at(f, l.sha); err != nil {
+		return e, err
+	}
+	size, err := at(f, l.bytes)
 	if err != nil {
-		return Entry{}, fmt.Errorf("size: %w", err)
+		return e, err
 	}
-	when, err := time.Parse(time.RFC3339, f[5])
+	if e.Bytes, err = strconv.ParseInt(size, 10, 64); err != nil {
+		return e, fmt.Errorf("size: %w", err)
+	}
+	when, err := at(f, l.fetched)
 	if err != nil {
-		return Entry{}, fmt.Errorf("time: %w", err)
+		return e, err
 	}
-	return Entry{Path: f[0], Origin: f[1], Source: f[2], Bytes: n, SHA256: f[4], Fetched: when}, nil
+	// A fact the manifest does not give is recorded as absent rather than
+	// refused. The forms corpus has rows whose digest is "-" and whose date is
+	// free text, because those documents were already on disk when it was
+	// assembled; throwing the whole record away over that would leave two
+	// thousand documents with no provenance at all, which is worse than a
+	// missing date. What must be there is where a document is, which
+	// population it belongs to and where it came from.
+	e.Fetched, _ = parseTime(when)
+	if e.SHA256 == "-" {
+		e.SHA256 = ""
+	}
+	// An older manifest keeps the population in one column and the bare file
+	// name in another, the population being the directory. Rejoin them so a
+	// path is a path whichever tool wrote it.
+	if e.Origin != "" && !strings.ContainsRune(e.Path, filepath.Separator) {
+		e.Path = filepath.Join(e.Origin, e.Path)
+	}
+	return e, nil
+}
+
+// parseTime accepts the shapes a manifest has been written in, and reports the
+// zero time for anything else — which Entry.Fetched documents as "the manifest
+// did not say".
+func parseTime(s string) (time.Time, bool) {
+	for _, layout := range []string{time.RFC3339, "2006-01-02T15:04"} {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
 }
 
 // Write records a corpus, sorted by path so that two runs that fetched the same
