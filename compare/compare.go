@@ -211,7 +211,18 @@ type Summary struct {
 	Slowest time.Duration
 	// Over is how many pages took longer than the threshold given.
 	Over int
+	// Slow names the pages that took longest, worst first.
+	//
+	// A count of pages over a threshold says a corpus has a problem and gives
+	// nobody a way to go and look at it. What is wanted is the document and
+	// the page, so this keeps them.
+	Slow []Result
 }
+
+// slowKept is how many slow pages are named. Enough to see whether they are
+// one document's doing or spread across a population, and few enough that a
+// report of a bad run stays readable.
+const slowKept = 5
 
 // Summarise turns results into the distribution worth quoting.
 func Summarise(rs []Result, slow time.Duration) Summary {
@@ -223,6 +234,7 @@ func Summarise(rs []Result, slow time.Duration) Summary {
 		}
 		if slow > 0 && r.Ours > slow {
 			s.Over++
+			s.Slow = append(s.Slow, r)
 		}
 		if r.Share < 0 {
 			s.NotCompared++
@@ -234,6 +246,20 @@ func Summarise(rs []Result, slow time.Duration) Summary {
 	s.Compared = len(shares)
 	if len(shares) == 0 {
 		return s
+	}
+	// Worst first, and then by document, so a rerun names them in the same
+	// order when two pages took the same time.
+	sort.Slice(s.Slow, func(i, j int) bool {
+		if s.Slow[i].Ours != s.Slow[j].Ours {
+			return s.Slow[i].Ours > s.Slow[j].Ours
+		}
+		if s.Slow[i].Path != s.Slow[j].Path {
+			return s.Slow[i].Path < s.Slow[j].Path
+		}
+		return s.Slow[i].Page < s.Slow[j].Page
+	})
+	if len(s.Slow) > slowKept {
+		s.Slow = s.Slow[:slowKept]
 	}
 	sort.Float64s(shares)
 	at := func(p float64) float64 { return shares[int(p*float64(len(shares)-1))] }
