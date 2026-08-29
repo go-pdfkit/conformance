@@ -67,6 +67,15 @@ Measured that way, four JBIG2 decoders over 403 real streams: one was exact on
 every stream it read, and one decoded *more* streams and was wrong on 91% of
 them, with nothing in its output saying so.
 
+What the two sides do **not** share is counted apart rather than as
+disagreement. `/Decode` maps the stored samples onto the range the colour space
+wants; a viewer applies it and `pdfimages` writes the samples as stored, so on a
+one-bit mask a `/Decode` of `[1 0]` inverts every pixel. Eight of twenty-three
+JBIG2 masks first came out differing at exactly 1.0000 — on pages that match
+poppler's *rendering* to a median of 0.0000. Those are **remapped**, not wrong,
+and a filter with nothing comparable left is not reported as the worst thing in
+the corpus.
+
 ## How it is checked
 
 Exact 100% statement coverage including every error branch, `go vet`, `-race`,
