@@ -295,3 +295,50 @@ func TestPixelsDifferInBothDirections(t *testing.T) {
 		t.Errorf("a picture differs from itself by %v", d)
 	}
 }
+
+func TestTheSlowPagesAreNamed(t *testing.T) {
+	// A count of pages over a threshold says a corpus has a problem and gives
+	// nobody a way to go and look at it.
+	s := Summarise([]Result{
+		{Path: "/c/three.pdf", Page: 1, Ours: 3 * time.Second},
+		{Path: "/a/one.pdf", Page: 2, Ours: 9 * time.Second},
+		{Path: "/b/two.pdf", Page: 1, Ours: 100 * time.Millisecond},
+	}, time.Second)
+	if s.Over != 2 || len(s.Slow) != 2 {
+		t.Fatalf("%d over the threshold, %d named", s.Over, len(s.Slow))
+	}
+	if s.Slow[0].Path != "/a/one.pdf" || s.Slow[0].Page != 2 {
+		t.Errorf("the worst page is %s page %d", s.Slow[0].Path, s.Slow[0].Page)
+	}
+}
+
+func TestOnlySoManySlowPagesAreNamed(t *testing.T) {
+	// Enough to see whether they are one document's doing or spread across a
+	// population, and few enough that the report of a bad run stays readable.
+	var rs []Result
+	for i := 0; i < slowKept+4; i++ {
+		rs = append(rs, Result{Path: "x.pdf", Page: i, Ours: 2 * time.Second})
+	}
+	s := Summarise(rs, time.Second)
+	if s.Over != slowKept+4 {
+		t.Errorf("counted %d over the threshold", s.Over)
+	}
+	if len(s.Slow) != slowKept {
+		t.Errorf("named %d of them", len(s.Slow))
+	}
+	// Pages that took the same time are named in document order, so a rerun
+	// says the same thing.
+	if s.Slow[0].Page != 0 || s.Slow[1].Page != 1 {
+		t.Errorf("named page %d then %d", s.Slow[0].Page, s.Slow[1].Page)
+	}
+}
+
+func TestPagesOfTheSameLengthInDifferentDocuments(t *testing.T) {
+	s := Summarise([]Result{
+		{Path: "/z.pdf", Page: 1, Ours: 2 * time.Second},
+		{Path: "/a.pdf", Page: 1, Ours: 2 * time.Second},
+	}, time.Second)
+	if len(s.Slow) != 2 || s.Slow[0].Path != "/a.pdf" {
+		t.Errorf("named %s first", s.Slow[0].Path)
+	}
+}

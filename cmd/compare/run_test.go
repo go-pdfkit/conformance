@@ -144,3 +144,19 @@ func TestMainCallsRun(t *testing.T) {
 		t.Errorf("main exited %d, want 2", got)
 	}
 }
+
+func TestTheReportNamesTheSlowPages(t *testing.T) {
+	judge(t, compare.Result{Path: "/corpus/slow.pdf", Page: 3,
+		Share: 0.004, Ours: 30 * time.Second})
+	var out, errOut bytes.Buffer
+	if code := run([]string{"-dir", tinyCorpus(t), "-slow", "1s"}, &out, &errOut); code != 0 {
+		t.Fatalf("exit %d: %s", code, errOut.String())
+	}
+	got := out.String()
+	if !strings.Contains(got, "slow.pdf page 3") {
+		t.Errorf("the slow page is not named: %q", got)
+	}
+	if strings.Contains(got, "/corpus/") {
+		t.Errorf("the whole path is in the way: %q", got)
+	}
+}

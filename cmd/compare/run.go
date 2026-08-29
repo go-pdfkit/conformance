@@ -81,4 +81,8 @@ func report(out io.Writer, name string, s compare.Summary) {
 			s.Under[0.01], s.Under[0.02], s.Under[0.05], s.Under[0.10])
 	}
 	fmt.Fprintf(out, "\tslowest page %v, %d over the threshold\n", s.Slowest.Round(time.Millisecond), s.Over)
+	for _, r := range s.Slow {
+		fmt.Fprintf(out, "\t%12v  %s page %d\n",
+			r.Ours.Round(time.Millisecond), filepath.Base(r.Path), r.Page)
+	}
 }
