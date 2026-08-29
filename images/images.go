@@ -43,6 +43,10 @@ type Result struct {
 	Filter string
 	// Stencil says it is a one-bit mask rather than a picture.
 	Stencil bool
+	// Decoded says a /Decode array shaped our samples. pdfimages writes the
+	// samples as stored, so this picture and theirs are not the same question
+	// and are counted apart rather than as a disagreement.
+	Decoded bool
 	// Size is what the picture came out as.
 	W, H int
 	// Share is the fraction of pixels differing, or -1 when the picture could
@@ -103,7 +107,8 @@ func judgePage(d *reader.Document, path string, p int) []Result {
 	out := make([]Result, 0, len(ours))
 	for _, im := range ours {
 		r := Result{Path: path, Page: p, Name: im.Name, Filter: im.Filter,
-			Stencil: im.Stencil, W: im.Pic.W, H: im.Pic.H, Share: -1}
+			Stencil: im.Stencil, Decoded: im.Decoded,
+			W: im.Pic.W, H: im.Pic.H, Share: -1}
 		j := match(theirs, claimed, im.Pic)
 		if j < 0 {
 			r.Note = "they took out nothing this size"
@@ -222,6 +227,12 @@ type Counts struct {
 	Exact int
 	// Unmatched is how many the other implementation had no picture for.
 	Unmatched int
+	// Remapped is how many carried a /Decode array, which we apply and
+	// pdfimages does not, so the two sides were not asked the same question.
+	// They are counted here rather than as disagreements: on a one-bit mask a
+	// /Decode of [1 0] inverts every pixel, which reads as total disagreement
+	// and is none.
+	Remapped int
 	// Shares holds the difference of each picture that differed.
 	Shares []float64
 }
@@ -247,6 +258,8 @@ func Tally(rs []Result) map[string]*Counts {
 		}
 		c.Pictures++
 		switch {
+		case r.Decoded:
+			c.Remapped++
 		case r.Share < 0:
 			c.Unmatched++
 		case r.Share == 0:
@@ -266,9 +279,7 @@ func Report(by map[string]*Counts) string {
 		keys = append(keys, k)
 	}
 	sort.Slice(keys, func(i, j int) bool {
-		a, b := by[keys[i]], by[keys[j]]
-		ai := float64(a.Exact) / float64(max(a.Pictures, 1))
-		bi := float64(b.Exact) / float64(max(b.Pictures, 1))
+		ai, bi := rightness(by[keys[i]]), rightness(by[keys[j]])
 		if ai != bi {
 			return ai < bi
 		}
@@ -277,8 +288,8 @@ func Report(by map[string]*Counts) string {
 	var sb strings.Builder
 	for _, k := range keys {
 		c := by[k]
-		fmt.Fprintf(&sb, "%-22s %5d pictures  %5d exact  %5d differing  %5d unmatched",
-			k, c.Pictures, c.Exact, len(c.Shares), c.Unmatched)
+		fmt.Fprintf(&sb, "%-22s %5d pictures  %5d exact  %5d differing  %5d unmatched  %5d remapped",
+			k, c.Pictures, c.Exact, len(c.Shares), c.Unmatched, c.Remapped)
 		if len(c.Shares) > 0 {
 			s := append([]float64(nil), c.Shares...)
 			sort.Float64s(s)
@@ -289,11 +300,17 @@ func Report(by map[string]*Counts) string {
 	return sb.String()
 }
 
-// max is here because the report divides by a count that a caller could have
-// left at zero.
-func max(a, b int) int {
-	if a > b {
-		return a
+// rightness is the share of a filter's comparable pictures that came out
+// identical, and it decides what is read first.
+//
+// A picture that was never comparable is not evidence either way, so it is left
+// out. A filter with NOTHING comparable is therefore not evidence at all, and
+// counting it as nought right would put it at the top of the report, above
+// every filter actually known to be wrong.
+func rightness(c *Counts) float64 {
+	comparable := c.Pictures - c.Remapped
+	if comparable <= 0 {
+		return 1
 	}
-	return b
+	return float64(c.Exact) / float64(comparable)
 }

@@ -243,6 +243,40 @@ func TestWhatIsSeenThroughIsPaper(t *testing.T) {
 	}
 }
 
+func TestAPictureRemappedOnOneSideIsNotADisagreement(t *testing.T) {
+	// /Decode maps the stored samples onto the range the colour space wants.
+	// We apply it, as a viewer must; pdfimages writes the samples as stored.
+	// On a one-bit mask a /Decode of [1 0] inverts every pixel, which reads as
+	// total disagreement and is none — 8 of 23 JBIG2 masks in a corpus of
+	// scanned medical pages came out at exactly 1.0000 that way, on pages that
+	// match poppler's rendering to a median of 0.0000.
+	by := Tally([]Result{
+		{Name: "a", Filter: "JBIG2Decode", Stencil: true, Decoded: true, Share: 1},
+		{Name: "b", Filter: "JBIG2Decode", Stencil: true, Share: 0},
+	})
+	c := by["JBIG2Decode mask"]
+	if c == nil || c.Remapped != 1 || c.Exact != 1 || len(c.Shares) != 0 {
+		t.Fatalf("got %+v", c)
+	}
+	if got := Report(by); !strings.Contains(got, "1 remapped") {
+		t.Errorf("the report does not say so: %q", got)
+	}
+}
+
+func TestWhatWasNeverComparableDoesNotDecideTheOrder(t *testing.T) {
+	// A filter whose every picture was remapped is not evidence of anything,
+	// and must not be reported as the worst thing in the corpus.
+	got := Report(Tally([]Result{
+		{Name: "a", Filter: "RemappedDecode", Decoded: true, Share: 1},
+		{Name: "b", Filter: "WrongDecode", Share: 0.5},
+		{Name: "c", Filter: "WrongDecode", Share: 0},
+	}))
+	lines := strings.Split(strings.TrimSpace(got), "\n")
+	if len(lines) != 2 || !strings.HasPrefix(lines[0], "WrongDecode") {
+		t.Errorf("the report reads %q", got)
+	}
+}
+
 func TestTheTallyGroupsByWhatReadThePicture(t *testing.T) {
 	by := Tally([]Result{
 		{Name: "a", Filter: "JBIG2Decode", Stencil: true, Share: 0},
@@ -289,8 +323,8 @@ func TestATallyOfNothing(t *testing.T) {
 	if got := Report(Tally(nil)); got != "" {
 		t.Errorf("an empty tally reported %q", got)
 	}
-	if got := max(0, 0); got != 0 {
-		t.Errorf("max(0,0) = %d", got)
+	if got := rightness(&Counts{}); got != 1 {
+		t.Errorf("a filter with nothing in it is %v right", got)
 	}
 }
 
