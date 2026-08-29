@@ -50,9 +50,19 @@ type Result struct {
 	// Size is what the picture came out as.
 	W, H int
 	// Share is the fraction of pixels differing, or -1 when the picture could
-	// not be judged, which Note explains.
+	// not be judged, which Note explains. A Share of 1 with Inverted set means
+	// the two are exact complements.
 	Share float64
-	Note  string
+	// Inverted says the picture and theirs are the same everywhere, read the
+	// other way round.
+	//
+	// pdfimages writes a JBIG2 mask's bitmap with the opposite polarity to the
+	// one the samples have when that stream is used as a soft mask. That is a
+	// convention, not a disagreement — and it is worth telling apart from a
+	// real one, because "identical up to inversion" and "wrong" look the same
+	// in a count of differing pixels and only one of them needs looking into.
+	Inverted bool
+	Note     string
 }
 
 // Options say how much to look at.
@@ -117,6 +127,9 @@ func judgePage(d *reader.Document, path string, p int) []Result {
 		}
 		claimed[j] = true
 		r.Share = difference(im.Pic, theirs[j])
+		if r.Share == 1 {
+			r.Inverted = true
+		}
 		out = append(out, r)
 	}
 	return out
@@ -227,6 +240,8 @@ type Counts struct {
 	Exact int
 	// Unmatched is how many the other implementation had no picture for.
 	Unmatched int
+	// Inverted is how many came out as the other's exact complement.
+	Inverted int
 	// Remapped is how many carried a /Decode array, which we apply and
 	// pdfimages does not, so the two sides were not asked the same question.
 	// They are counted here rather than as disagreements: on a one-bit mask a
@@ -264,6 +279,8 @@ func Tally(rs []Result) map[string]*Counts {
 			c.Unmatched++
 		case r.Share == 0:
 			c.Exact++
+		case r.Inverted:
+			c.Inverted++
 		default:
 			c.Shares = append(c.Shares, r.Share)
 		}
@@ -288,8 +305,8 @@ func Report(by map[string]*Counts) string {
 	var sb strings.Builder
 	for _, k := range keys {
 		c := by[k]
-		fmt.Fprintf(&sb, "%-22s %5d pictures  %5d exact  %5d differing  %5d unmatched  %5d remapped",
-			k, c.Pictures, c.Exact, len(c.Shares), c.Unmatched, c.Remapped)
+		fmt.Fprintf(&sb, "%-22s %5d pictures  %5d exact  %5d inverted  %5d differing  %5d unmatched  %5d remapped",
+			k, c.Pictures, c.Exact, c.Inverted, len(c.Shares), c.Unmatched, c.Remapped)
 		if len(c.Shares) > 0 {
 			s := append([]float64(nil), c.Shares...)
 			sort.Float64s(s)
@@ -304,11 +321,12 @@ func Report(by map[string]*Counts) string {
 // identical, and it decides what is read first.
 //
 // A picture that was never comparable is not evidence either way, so it is left
-// out. A filter with NOTHING comparable is therefore not evidence at all, and
+// out — the remapped ones and the ones that came back as an exact complement
+// alike. A filter with NOTHING comparable is therefore not evidence at all, and
 // counting it as nought right would put it at the top of the report, above
 // every filter actually known to be wrong.
 func rightness(c *Counts) float64 {
-	comparable := c.Pictures - c.Remapped
+	comparable := c.Pictures - c.Remapped - c.Inverted
 	if comparable <= 0 {
 		return 1
 	}

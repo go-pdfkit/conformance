@@ -68,6 +68,27 @@ func standIn(t *testing.T, pics ...image.Image) {
 	}
 }
 
+// wide adds a four-pixel picture: dark, light, dark, light.
+func wide(w *reader.Writer) reader.Object {
+	return w.Add(&reader.Stream{Dict: reader.Dict{
+		"Type": reader.Name("XObject"), "Subtype": reader.Name("Image"),
+		"Width": reader.Integer(4), "Height": reader.Integer(1),
+		"ColorSpace": reader.Name("DeviceGray"), "BitsPerComponent": reader.Integer(8),
+	}, Raw: []byte{0x00, 0xff, 0x00, 0xff}})
+}
+
+// threeQuartersWrong is that picture with three of its four pixels changed,
+// which is a defect and not a convention.
+func threeQuartersWrong() image.Image {
+	im := image.NewRGBA(image.Rect(0, 0, 4, 1))
+	black, white := color.RGBA{0, 0, 0, 255}, color.RGBA{255, 255, 255, 255}
+	im.Set(0, 0, black)
+	im.Set(1, 0, black)
+	im.Set(2, 0, white)
+	im.Set(3, 0, black)
+	return im
+}
+
 // twoPixels builds the picture the fixture decodes to, or its opposite.
 func twoPixels(darkFirst bool) image.Image {
 	im := image.NewRGBA(image.Rect(0, 0, 2, 1))
@@ -96,15 +117,54 @@ func TestAPictureBothSidesReadTheSameWayIsExact(t *testing.T) {
 	}
 }
 
-func TestAPictureReadTheOtherWayRoundIsCaught(t *testing.T) {
+func TestAPictureInTheWrongPlacesIsCaught(t *testing.T) {
 	// The failure this whole package exists for: the ink is there, and it is
 	// in the wrong places. A page comparison averages that away; this does not.
+	//
+	// Three pixels of four, so it is not the exact complement that a
+	// convention produces.
+	standIn(t, threeQuartersWrong())
+	got := Judge(pageOfPictures(t, func(w *reader.Writer) reader.Dict {
+		return reader.Dict{"I": wide(w)}
+	}), Options{})
+	if len(got) != 1 || got[0].Share != 0.75 || got[0].Inverted {
+		t.Fatalf("a picture read wrongly came out as %+v", got)
+	}
+}
+
+func TestAnExactComplementIsSaidToBeOne(t *testing.T) {
+	// pdfimages writes a JBIG2 mask's bitmap with the opposite polarity to the
+	// one the samples have when that stream is used as a soft mask. Ours reads
+	// 98% dark where its extraction reads 0.03%, and ours is the right
+	// reading: the pages carrying those masks match poppler's own RENDERING to
+	// a median of 0.0000.
+	//
+	// So an exact complement is a convention and not a disagreement. It has to
+	// be told apart from a real one, because the two look the same in a count
+	// of differing pixels.
 	standIn(t, twoPixels(false))
 	got := Judge(pageOfPictures(t, func(w *reader.Writer) reader.Dict {
 		return reader.Dict{"I": grey(w)}
 	}), Options{})
-	if len(got) != 1 || got[0].Share != 1 {
-		t.Fatalf("a picture read backwards came out as %+v", got)
+	if len(got) != 1 || got[0].Share != 1 || !got[0].Inverted {
+		t.Fatalf("got %+v", got)
+	}
+	by := Tally(got)
+	c := by["(samples)"]
+	if c == nil || c.Inverted != 1 || len(c.Shares) != 0 {
+		t.Fatalf("tallied as %+v", c)
+	}
+	if r := Report(by); !strings.Contains(r, "1 inverted") {
+		t.Errorf("the report does not say so: %q", r)
+	}
+}
+
+func TestAPictureMostlyWrongIsNotAComplement(t *testing.T) {
+	// Only EVERY pixel differing is a convention. Nearly every pixel is a
+	// defect, and must stay in the differing count where it will be read.
+	got := Tally([]Result{{Name: "a", Filter: "F", Share: 0.99}})
+	if c := got["F"]; c == nil || c.Inverted != 0 || len(c.Shares) != 1 {
+		t.Errorf("got %+v", c)
 	}
 }
 

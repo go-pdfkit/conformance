@@ -68,13 +68,22 @@ every stream it read, and one decoded *more* streams and was wrong on 91% of
 them, with nothing in its output saying so.
 
 What the two sides do **not** share is counted apart rather than as
-disagreement. `/Decode` maps the stored samples onto the range the colour space
-wants; a viewer applies it and `pdfimages` writes the samples as stored, so on a
-one-bit mask a `/Decode` of `[1 0]` inverts every pixel. Eight of twenty-three
-JBIG2 masks first came out differing at exactly 1.0000 — on pages that match
-poppler's *rendering* to a median of 0.0000. Those are **remapped**, not wrong,
-and a filter with nothing comparable left is not reported as the worst thing in
-the corpus.
+disagreement. An **exact complement** is one of those: `pdfimages` writes a
+JBIG2 mask's bitmap with the opposite polarity to the one the samples have when
+that stream is used as a soft mask. Ours reads 98% dark where its extraction
+reads 0.03%, and ours is the right reading — the pages carrying those masks
+match poppler's own *rendering* to a median of 0.0000. "Identical up to
+inversion" and "wrong" look the same in a count of differing pixels, and only
+one of them needs looking into.
+
+A **remapped** picture is the other: `/Decode` maps the stored samples onto the
+range the colour space wants; a viewer applies it and `pdfimages` writes the
+samples as stored, so on a one-bit mask a `/Decode` of `[1 0]` inverts every
+pixel. Of the 248 JBIG2 masks on the first pages of the medical population, 22
+carry one, and all 22 are soft masks.
+
+A filter with nothing comparable left is not reported as the worst thing in the
+corpus: nothing to compare is not evidence of being wrong.
 
 ## How it is checked
 
