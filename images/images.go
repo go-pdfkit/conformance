@@ -137,6 +137,7 @@ func judgePage(d *reader.Document, path string, p int) []Result {
 	if err != nil {
 		return []Result{{Path: path, Page: p, Share: -1, Missing: Ours, Note: "no page: " + err.Error()}}
 	}
+	ours = distinct(ours)
 	if len(ours) == 0 {
 		return nil
 	}
@@ -166,6 +167,39 @@ func judgePage(d *reader.Document, path string, p int) []Result {
 			r.Inverted = true
 		}
 		out = append(out, r)
+	}
+	return out
+}
+
+// distinct keeps one entry per picture the page draws, in the order it first
+// draws them.
+//
+// The two sides count different things and only one of them is the question
+// here. render.Images answers per DRAW: a page that stamps the same logo five
+// hundred times yields five hundred entries, all decoded from the same bytes.
+// pdfimages answers per IMAGE and extracts it once. Comparing those directly
+// judges identical bytes over and over, and reports every repeat after the
+// first as unmatched, because the judge has only the one to pair with.
+//
+// It is not a small effect. On one page of the French forms population
+// (cerfa_10103.pdf) three images are drawn 511 times each: ours came to 1533
+// pictures against pdfimages's 3, and 1530 of them landed in the unmatched
+// column — enough on its own to make DCTDecode look 57% unjudged across a
+// whole corpus. Left in, it also lets a picture pair with a mask of the same
+// size once the real partner is claimed, which is a wrong comparison and not
+// merely a missing one.
+//
+// A repeated draw is the same picture, and asking about it once is the whole
+// of the question.
+func distinct(ims []render.Image) []render.Image {
+	seen := make(map[string]bool, len(ims))
+	out := make([]render.Image, 0, len(ims))
+	for _, im := range ims {
+		if seen[im.Name] {
+			continue
+		}
+		seen[im.Name] = true
+		out = append(out, im)
 	}
 	return out
 }

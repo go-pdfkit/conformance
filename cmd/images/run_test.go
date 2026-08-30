@@ -184,6 +184,9 @@ func TestRunWritesABaselineThatCanBeComparedAgainst(t *testing.T) {
 	if p.Documents != 1 || len(p.Filters) != 1 || p.Filters[0].Differing != 1 {
 		t.Errorf("alpha came out as %+v", p)
 	}
+	if p.Refused != 0 || p.Unopenable != 0 || p.Declined != 0 {
+		t.Errorf("a population that was judged reports something missing: %+v", p)
+	}
 	// The record replaces the report rather than joining it, or it would not
 	// parse.
 	if strings.Contains(out.String(), "pictures  ") {
@@ -193,6 +196,37 @@ func TestRunWritesABaselineThatCanBeComparedAgainst(t *testing.T) {
 	// rebuild, so the record is useless without one.
 	if len(got.Modules) == 0 {
 		t.Error("the record names no module it was built against")
+	}
+}
+
+func TestWhatCouldNotBeComparedReachesTheRecord(t *testing.T) {
+	// The whole point of the split is that it survives to the file somebody
+	// reads a year later, so it is checked where it lands and not only where
+	// it is counted.
+	judge(t,
+		images.Result{Share: -1, Missing: images.Ours, Note: "refused: x"},
+		images.Result{Share: -1, Missing: images.Neither, Note: "refused: y"},
+		images.Result{Share: -1, Missing: images.Theirs, Note: "they took nothing out"},
+	)
+	atTime(t, "2026-08-30T15:04:05Z")
+	var out, errOut bytes.Buffer
+	if code := run([]string{"-dir", tinyCorpus(t), "-only", "alpha", "-json"},
+		&out, &errOut); code != 0 {
+		t.Fatalf("exit %d: %s", code, errOut.String())
+	}
+	var got baseline
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("the record is not JSON: %v", err)
+	}
+	p := got.Populations[0]
+	if p.Refused != 1 || p.Unopenable != 1 || p.Declined != 1 {
+		t.Errorf("refused %d, unopenable %d, declined %d; want one of each",
+			p.Refused, p.Unopenable, p.Declined)
+	}
+	// Nothing was comparable, so nothing may be reported as a filter that
+	// agreed or disagreed.
+	if len(p.Filters) != 0 {
+		t.Errorf("it invented filters out of what it could not compare: %+v", p.Filters)
 	}
 }
 
