@@ -1,6 +1,6 @@
 {
   "corpus": "/Users/Shared/pdfforms",
-  "taken": "2026-08-30T16:14:32Z",
+  "taken": "2026-08-30T16:35:25Z",
   "pages": 1,
   "judge": "pdfimages version 26.04.0",
   "modules": [
@@ -78,23 +78,23 @@
         },
         {
           "filter": "(samples)",
-          "pictures": 64,
+          "pictures": 46,
           "exact": 18,
           "inverted": 0,
           "differing": 6,
           "unmatched": 0,
-          "remapped": 40,
+          "remapped": 22,
           "median": 0.0877431026684758,
           "worst": 0.21483491632745363
         },
         {
           "filter": "(samples) mask",
-          "pictures": 29,
+          "pictures": 11,
           "exact": 4,
           "inverted": 0,
           "differing": 0,
           "unmatched": 0,
-          "remapped": 25
+          "remapped": 7
         },
         {
           "filter": "JPXDecode",
