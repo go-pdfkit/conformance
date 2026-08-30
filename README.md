@@ -219,7 +219,7 @@ spec_err = is_idct && (err_inf > 1 || omse > 0.02 || fabs(ome) > 0.0015);
 Two conformant decoders sit on either side of that reference, so **2** is what
 they may legitimately differ by, and it is a bound to be *derived* rather than
 guessed. JPEG 2000 is tighter still: most of the ISO/IEC 15444-4 Table C.6
-PEAK limits are **0**, per OpenJPEG's `tests/conformance/CMakeLists.txt:309`,
+PEAK limits are **0**, per OpenJPEG's `tests/conformance/CMakeLists.txt:310`,
 so JPX is required exact on most conformance files and permitted a small
 bounded error on a few.
 
