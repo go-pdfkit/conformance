@@ -1,0 +1,142 @@
+{
+  "corpus": "/Users/Shared/pdfscans",
+  "taken": "2026-08-30T18:16:00Z",
+  "pages": 1,
+  "judge": "pdfimages version 26.04.0",
+  "modules": [
+    {
+      "path": "github.com/ajroetker/go-highway",
+      "version": "v0.0.4"
+    },
+    {
+      "path": "github.com/ajroetker/go-jpeg2000",
+      "version": "v0.0.2"
+    },
+    {
+      "path": "github.com/go-gfx/gfx",
+      "version": "v0.16.0"
+    },
+    {
+      "path": "github.com/go-opentype/fonts",
+      "version": "v0.9.0"
+    },
+    {
+      "path": "github.com/go-opentype/opentype",
+      "version": "v0.10.0"
+    },
+    {
+      "path": "github.com/go-pdfkit/pdffont",
+      "version": "v0.3.0"
+    },
+    {
+      "path": "github.com/go-pdfkit/reader",
+      "version": "v0.6.0"
+    },
+    {
+      "path": "github.com/go-pdfkit/render",
+      "version": "v0.19.0"
+    },
+    {
+      "path": "github.com/sergeymakinen/go-bmp",
+      "version": "v1.0.0"
+    },
+    {
+      "path": "github.com/sergeymakinen/go-ico",
+      "version": "v1.0.0"
+    },
+    {
+      "path": "github.com/tannevaled/gobig2",
+      "version": "v0.1.0"
+    },
+    {
+      "path": "golang.org/x/image",
+      "version": "v0.45.0"
+    },
+    {
+      "path": "golang.org/x/sys",
+      "version": "v0.47.0"
+    }
+  ],
+  "populations": [
+    {
+      "population": "ia-uscourts",
+      "documents": 250,
+      "refused": 0,
+      "unopenable": 0,
+      "declined": 0,
+      "filters": [
+        {
+          "filter": "JPXDecode",
+          "pictures": 4,
+          "exact": 1,
+          "inverted": 0,
+          "differing": 3,
+          "unmatched": 0,
+          "remapped": 0,
+          "median": 0.0002962566844919786,
+          "worst": 0.0007496251874062968
+        },
+        {
+          "filter": "DCTDecode",
+          "pictures": 22,
+          "exact": 8,
+          "inverted": 0,
+          "differing": 14,
+          "unmatched": 0,
+          "remapped": 0,
+          "median": 0.00008611657313449974,
+          "worst": 0.0021064301552106432
+        },
+        {
+          "filter": "(samples) mask",
+          "pictures": 51,
+          "exact": 13,
+          "inverted": 34,
+          "differing": 3,
+          "unmatched": 1,
+          "remapped": 0,
+          "median": 0.9583333333333334,
+          "worst": 0.9583333333333334
+        },
+        {
+          "filter": "(samples)",
+          "pictures": 44,
+          "exact": 38,
+          "inverted": 0,
+          "differing": 4,
+          "unmatched": 0,
+          "remapped": 2,
+          "median": 0.0021212121212121214,
+          "worst": 0.11921648091860858
+        },
+        {
+          "filter": "JBIG2Decode",
+          "pictures": 9,
+          "exact": 9,
+          "inverted": 0,
+          "differing": 0,
+          "unmatched": 0,
+          "remapped": 0
+        },
+        {
+          "filter": "JBIG2Decode mask",
+          "pictures": 3,
+          "exact": 0,
+          "inverted": 3,
+          "differing": 0,
+          "unmatched": 0,
+          "remapped": 0
+        },
+        {
+          "filter": "JPXDecode mask",
+          "pictures": 1,
+          "exact": 1,
+          "inverted": 0,
+          "differing": 0,
+          "unmatched": 0,
+          "remapped": 0
+        }
+      ]
+    }
+  ]
+}
