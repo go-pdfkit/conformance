@@ -77,8 +77,21 @@ type Missing string
 const (
 	// Judged means there was a picture on both sides and they were compared.
 	Judged Missing = ""
-	// Ours means ours would not open the document or draw the page.
+	// Ours means ours would not open the document or draw the page and the
+	// judge would. That is a defect and the only one of these that is: a
+	// document the field can read and we cannot.
 	Ours Missing = "ours"
+	// Neither means no implementation would open it — ours refused, and so
+	// did the judge, asked separately about the same file.
+	//
+	// This has to be told apart from Ours or the count misleads in the
+	// direction of comfort in one direction and panic in the other. Seven of
+	// the twelve documents of the ia-texts population are refused by ours;
+	// all seven carry Adobe's proprietary EBX_HANDLER and poppler refuses
+	// every one of them too. Folded together with a real refusal, that reads
+	// as a decoder failing on 58% of a population. Counted apart, it says
+	// what is true: that population is five documents, not twelve.
+	Neither Missing = "neither"
 	// Theirs means the judge took no picture out of a page ours drew pictures
 	// for. That is not a disagreement and not a fault of ours: it is a page
 	// this cannot get an answer about, and one that must be counted so that a
@@ -105,7 +118,8 @@ func Judge(path string, opt Options) []Result {
 	}
 	d, err := reader.Open(b)
 	if err != nil {
-		return []Result{{Path: path, Share: -1, Missing: Ours, Note: "refused: " + err.Error()}}
+		return []Result{{Path: path, Share: -1, Missing: blame(path),
+			Note: "refused: " + err.Error()}}
 	}
 	if n := d.PageCount(); pages > n {
 		pages = n
@@ -195,6 +209,27 @@ func dark(im *raster.Image, i int) bool {
 		return false
 	}
 	return (uint32(r)*299+uint32(g)*587+uint32(b)*114)/1000 < 128
+}
+
+// infoCommand is a variable so a test can ask without poppler installed.
+//
+// pdfinfo rather than pdfimages, because the question is only whether the
+// document opens: pdfimages answers "no pictures came out" for a document it
+// read perfectly well and one it could not read at all, and those are the two
+// things that must not be confused here.
+var infoCommand = func(path string) error { return exec.Command("pdfinfo", path).Run() }
+
+// blame says whose refusal it was, by asking the judge the same question.
+//
+// A document ours refuses is not evidence of a defect until it is known that
+// something else could read it. Encrypted-with-DRM, truncated and malformed
+// documents are ordinary in a mass-digitisation corpus, and a refusal every
+// implementation makes is a fact about the corpus.
+func blame(path string) Missing {
+	if infoCommand(path) != nil {
+		return Neither
+	}
+	return Ours
 }
 
 // popplerCommand is a variable so a test can stand in for the other
@@ -350,8 +385,14 @@ type Summary struct {
 	// Documents is how many were looked at, which is not how many were
 	// judged: a document that draws no pictures contributes none.
 	Documents int `json:"documents"`
-	// Refused is how many documents ours would not open, or drew no page of.
+	// Refused is how many documents ours would not open or draw, and the
+	// judge would. This is the count that is a defect.
 	Refused int `json:"refused"`
+	// Unopenable is how many neither would open. A corpus is full of these
+	// and they say nothing about a decoder, but a population's real size is
+	// its documents minus these and a rate quoted without them is quoted over
+	// the wrong denominator.
+	Unopenable int `json:"unopenable"`
 	// Declined is how many pages ours drew pictures for and the judge took
 	// none out of, so there was nothing to compare them with.
 	Declined int            `json:"declined"`
@@ -383,6 +424,8 @@ func Summarize(population string, documents int, rs []Result) Summary {
 		switch r.Missing {
 		case Ours:
 			s.Refused++
+		case Neither:
+			s.Unopenable++
 		case Theirs:
 			s.Declined++
 		}

@@ -195,27 +195,36 @@ func TestEachPictureIsMatchedOnlyOnce(t *testing.T) {
 }
 
 func TestADocumentThatCannotBeLookedAt(t *testing.T) {
+	notAPDF := func(t *testing.T) string {
+		p := filepath.Join(t.TempDir(), "no.pdf")
+		os.WriteFile(p, []byte("hello"), 0o644)
+		return p
+	}
 	for _, tc := range []struct {
 		name, want string
 		path       func(t *testing.T) string
+		// opens is what the judge says when asked the same file.
+		opens error
+		blame Missing
 	}{
 		{"a file that is not there", "unreadable",
-			func(t *testing.T) string { return filepath.Join(t.TempDir(), "gone.pdf") }},
-		{"a file that is not a PDF", "refused", func(t *testing.T) string {
-			p := filepath.Join(t.TempDir(), "no.pdf")
-			os.WriteFile(p, []byte("hello"), 0o644)
-			return p
-		}},
+			func(t *testing.T) string { return filepath.Join(t.TempDir(), "gone.pdf") },
+			nil, Ours},
+		// Refused by ours and read by the judge is the one shape of this
+		// that is a defect, and it must not read the same as the others.
+		{"a document only ours refuses", "refused", notAPDF, nil, Ours},
+		{"a document neither will open", "refused", notAPDF, os.ErrInvalid, Neither},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			was := infoCommand
+			defer func() { infoCommand = was }()
+			infoCommand = func(string) error { return tc.opens }
 			got := Judge(tc.path(t), Options{})
 			if len(got) != 1 || got[0].Share != -1 || !strings.Contains(got[0].Note, tc.want) {
 				t.Fatalf("got %+v", got)
 			}
-			// It is ours that had nothing, and a baseline counts that
-			// apart from the judge having nothing.
-			if got[0].Missing != Ours {
-				t.Errorf("blamed %q", got[0].Missing)
+			if got[0].Missing != tc.blame {
+				t.Errorf("blamed %q, want %q", got[0].Missing, tc.blame)
 			}
 		})
 	}
@@ -445,6 +454,12 @@ func TestAPageThatIsNotThereSaysSo(t *testing.T) {
 	}
 }
 
+func TestTheRealJudgeIsTheOneAskedWhoRefused(t *testing.T) {
+	// Whether poppler is installed decides the answer, not whether the
+	// statement runs.
+	_ = infoCommand(filepath.Join(t.TempDir(), "gone.pdf"))
+}
+
 func TestTheRealCommandIsTheOneThatIsRun(t *testing.T) {
 	// The default reaches for pdfimages. Whether it is installed decides the
 	// error, not whether the statement runs — so this covers the wiring on a
@@ -463,6 +478,7 @@ func TestSummarizeKeepsWhatTheReportSays(t *testing.T) {
 		{Name: "E", Filter: "DCTDecode", Share: 1, Inverted: true},
 		{Name: "F", Filter: "DCTDecode", Decoded: true},
 		{Share: -1, Missing: Ours, Note: "refused: x"},
+		{Share: -1, Missing: Neither, Note: "refused: y"},
 		{Share: -1, Missing: Theirs, Note: "they took nothing out: x"},
 		{Share: -1, Missing: Theirs, Note: "they took nothing out: y"},
 	})
@@ -472,8 +488,9 @@ func TestSummarizeKeepsWhatTheReportSays(t *testing.T) {
 	// What could not be compared is counted by the side that had nothing, so
 	// a corpus that got harder cannot be read as a decoder that got worse.
 	// A picture that was compared is neither, whichever way it came out.
-	if got.Refused != 1 || got.Declined != 2 {
-		t.Errorf("refused %d and declined %d, want 1 and 2", got.Refused, got.Declined)
+	if got.Refused != 1 || got.Unopenable != 1 || got.Declined != 2 {
+		t.Errorf("refused %d, unopenable %d, declined %d; want 1, 1 and 2",
+			got.Refused, got.Unopenable, got.Declined)
 	}
 	if len(got.Filters) != 3 || got.Filters[0].Filter != "JBIG2Decode" {
 		t.Fatalf("the worst filter is not first: %+v", got.Filters)
