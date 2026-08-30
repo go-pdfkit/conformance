@@ -25,13 +25,21 @@ a drop is otherwise as likely to be a newer poppler or a corpus that grew.
 | pages per document | 1 (the first page of each document) |
 | corpora | `/Users/Shared/pdfscans` (MANIFEST.tsv), `/Users/Shared/pdfforms` (MANIFEST.tsv) |
 
-**The threshold is exact equality**, and that choice decides the answer, so it
-is stated rather than assumed. A picture counts as agreeing only when every
-pixel agrees on whether it is ink. That is defensible here and would not be for
-a page: `pdfimages` extracts rather than renders, so there is no rasteriser
-between the codec and the pixels, and two implementations of one image format
-either agree bit for bit or one of them is wrong. `compare`, which draws whole
-pages, cannot use this threshold and does not.
+**The threshold used for every filter in these records is exact equality**, and
+that choice decides the answer, so it is stated rather than assumed. A picture
+counts as agreeing only when every pixel agrees on whether it is ink. That is
+defensible here and would not be for a page: `pdfimages` extracts rather than
+renders, so there is no rasteriser between the codec and the pixels. `compare`,
+which draws whole pages, cannot use this threshold and does not.
+
+It is defensible for a **lossless** filter, where the bytes determine the
+pixels and two implementations either agree bit for bit or one of them is
+wrong. It is **not** defensible for `DCTDecode` and `JPXDecode`, and finding 2
+below is the measurement that says so. The repository has since settled the
+question the other way for those two — [the README](../README.md) states a
+tolerance of 1% of pixels, read off the very numbers in this document — but
+**these records predate it and every rate in them is an exact-equality rate**,
+including the two lossy ones.
 
 **There are deliberately no timings in this document.** Another job was running
 on the machine throughout, so every duration measured here would be a
@@ -149,15 +157,58 @@ tolerance, not to a value — so two conformant implementations *may* differ and
 counting that as a failure measures conformance to poppler rather than to the
 format.
 
-**This contradicts the premise stated in the repository's README**, that "two
+**This contradicted the premise stated in the repository's README**, that "two
 implementations of one image format either agree bit for bit or one of them is
 wrong". That is true of `CCITTFaxDecode` and `JBIG2Decode`, which are lossless
-and where the corpus duly reads 100%. It is false of `DCTDecode` and
-`JPXDecode`. Those two need a tolerance, and until they have one their rates
-here are a floor and not a verdict.
+and where the corpus duly reads 100%. It was false of `DCTDecode` and
+`JPXDecode`. Those two need a tolerance, and **the two rates above are a floor
+and not a verdict**.
 
 The tail is where the real question is: `ia-medical` JPX has a worst of 0.37
 and `gh-pdfbox` a median of 0.899, and those are not rounding.
+
+**The premise has since been corrected, using this table.** The README now
+judges the lossless filters bit-exact and the two lossy ones by a tolerance of
+1% of pixels, chosen because the eighteen lossy rows of these records fall into
+a group of fourteen whose medians run from 0.000011 to 0.001966 and a group of
+four running from 0.047161 to 0.898821, with nothing between — and 1% is the
+round number at the middle of that empty band. **Every rate printed in this
+document is still the exact-equality rate**, because that is what the run
+recorded; the tolerance changes how they are read, not what they are.
+
+One population was re-measured to check that, with every picture's share
+written out instead of summarised. **It is one population — `fr-cerfa`, 450
+documents, first page — taken at `render` v0.20.0**, and it is reported as one:
+nothing here is a new corpus figure. Its 105 differing `DCTDecode` pictures run
+from 0.00000046 to 0.0086996 and then jump to 0.094990, so the empty band is
+there at picture level too and 1% falls inside it. Under the tolerance that
+population's DCT agreement reads 97.4% (188 of 193 comparable) where this
+document records 45.6% (88 of 193).
+
+**Each of the 105 was then checked against what `pdfimages -list` says its page
+holds**, because finding 3 above shows `match` manufactures disagreements when
+a page draws many pictures of one size. Ten had an ambiguous size and 95 did
+not, and the split is the whole tail: of the 95 unambiguous, 94 are at or below
+0.0087 and **one** is above — `cerfa_12711.pdf`'s single 418×357 picture, at
+0.094990. The four largest shares in this population's DCT column — 0.750000,
+0.571429, 0.375000, 0.250000 — are all 7×1 and 8×1 slivers on page 1 of
+`cerfa_12626.pdf`, where `pdfimages` extracts 2122 pictures of size 8×1 and 81
+of size 7×1, so they are paired at random and are two to six differing pixels
+out of eight. **The worst DCT disagreement in `fr-cerfa` is 0.095, not 0.750**,
+and the 0.750 recorded above is the matcher.
+
+That run is also the only measurement of how far the version seam moved a
+population, and the answer for this one is: barely. At v0.20.0 with the
+name-collapsing removed, `fr-cerfa` reproduces the table above exactly for
+`DCTDecode` (206 pictures, 88 exact, 105 differing, median 0.000135, worst
+0.750000), for `(samples) mask`, for `DCTDecode mask` and for `JPXDecode`. Only
+`(samples)` moved, from 3414 pictures to 3404 and from 45 remapped to 35, with
+its exact, inverted, differing, median and worst all unchanged — including the
+173 in the `inverted` column, which finding 3 above and
+[conformance#13](https://github.com/go-pdfkit/conformance/issues/13) show are
+144 parts matcher and 29 parts `pdfimages`, and no part decoder. **One
+population is not the corpus**, and the other nineteen are not re-measured
+here.
 
 **One caveat was checked before any of this was written.** `decodeJPEG` prefers
 the codestream's dimensions over the dictionary's when the two disagree, while

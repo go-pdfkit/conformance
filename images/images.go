@@ -14,9 +14,26 @@
 // stored in, because "our CCITT is right and our JBIG2 is wrong" is the
 // finding a per-page number cannot produce.
 //
-// Exact equality IS the question here, unlike the page comparison. There is no
-// rasteriser between the codec and the pixels: two implementations of the same
-// image format either agree bit for bit or one of them is wrong.
+// The threshold is not the same for every filter, because the formats do not
+// promise the same thing. There is no rasteriser between the codec and the
+// pixels here, unlike the page comparison, so for a LOSSLESS filter —
+// CCITTFaxDecode, JBIG2Decode, raw samples — exact equality is the question:
+// two implementations either agree bit for bit or one of them is wrong.
+//
+// DCTDecode and JPXDecode promise less. Neither JPEG nor JPEG 2000 requires a
+// bit-exact decoder — the standards fix the inverse transform to a tolerance
+// and not to a value — so two conformant implementations may differ in the
+// last bits of every pixel and neither is wrong. Asking those two for
+// bit-exactness measures conformance to poppler rather than to the format: a
+// corpus of scanned pages reads 15.4% for JPXDecode behind a median
+// disagreement of 0.0020, one pixel in five hundred.
+//
+// The repository's README settles that at a tolerance of 1% of pixels for
+// those two filters, read off the landed baseline. This package does not yet
+// apply it: it counts the exact matches and records the median and the worst
+// of the shares that differed, which is enough to place the cut and not enough
+// to recompute a rate under it. Counting the pictures inside the tolerance is
+// what a run should record next.
 package images
 
 import (
