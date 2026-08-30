@@ -52,8 +52,9 @@ rather than folded into a disagreement:
 - **declined** — ours drew pictures and `pdfimages` took none out, so there was
   nothing to compare against.
 - **inverted** — ours and theirs are exact complements. `pdfimages` writes a
-  JBIG2 mask's bitmap with the opposite polarity when that stream is a soft
-  mask; that is a convention, not a disagreement.
+  **stencil** — `/ImageMask true`, or a stream named as a picture's `/Mask` —
+  with the opposite polarity to its samples, whatever filter it arrived in;
+  that is a convention, not a disagreement. Soft masks are not affected.
 - **remapped** — the picture carries a `/Decode` array, which a viewer applies
   and `pdfimages` does not. The two sides were not asked the same question.
 - **unmatched** — theirs had no picture of that size to pair with.
@@ -187,12 +188,25 @@ occurs says whether it is understood. It is not thinly spread:
 | `(samples) mask` | 81 | `ia-uscourts` 34 of 51, `us-opm` **28 of 29**, `fr-cerfa` 15 of 762 |
 | `DCTDecode` | 1 | `uk-govuk` |
 
-The JBIG2 concentration is the documented soft-mask polarity convention and is
-expected. The other two are not yet explained. `us-opm` inverts 28 of its 29
-masks — a population that is essentially *all* inversion — and every one of the
-173 raw-sample inversions is in `fr-cerfa` and none anywhere else. A convention
-that applies to one issuer's forms and no others is worth a look before it is
-assumed to be a convention at all.
+The two mask concentrations are the stencil polarity convention: `pdfimages`
+writes every stencil with the opposite polarity to its samples, and `us-opm`'s
+28 are 28 of 28 `/ImageMask true`. They are expected, and the JBIG2 line is the
+same thing rather than a JBIG2 thing.
+
+**The `(samples)` line is not an inversion at all**, and the concentration was
+the clue. All 173 are in 8 documents; 168 of them are 2x2 pixels and none is
+larger than four. Those documents set coloured text by stretching a solid
+2x2 swatch under a large `/SMask`, and page 1 of `cerfa_10074.pdf` draws 211 of
+them, every one uniform. `match` pairs a picture with the first unclaimed
+picture of the same size, so a black swatch of ours is paired with a white
+swatch of theirs and `difference` reads 1.0. Matched by object identity
+instead, the 8 documents come to 3414 agreeing, 29 complements and 6 differing,
+where this instrument reads 2906, 173 and 370. **144 of the 173 are the
+matcher.** The 29 that survive are a second `pdfimages` behaviour: a one-bit
+`/Indexed` picture is written black only when the palette entry is exactly
+`#000000`, so a `#333333` swatch comes out as paper. Both are recorded in
+[conformance#13](https://github.com/go-pdfkit/conformance/issues/13), with the
+minimal documents that reproduce them.
 
 ### 4. The comparison reduces colour to one bit, which makes colour pictures fragile
 

@@ -134,11 +134,12 @@ func TestAPictureInTheWrongPlacesIsCaught(t *testing.T) {
 }
 
 func TestAnExactComplementIsSaidToBeOne(t *testing.T) {
-	// pdfimages writes a JBIG2 mask's bitmap with the opposite polarity to the
-	// one the samples have when that stream is used as a soft mask. Ours reads
-	// 98% dark where its extraction reads 0.03%, and ours is the right
-	// reading: the pages carrying those masks match poppler's own RENDERING to
-	// a median of 0.0000.
+	// pdfimages writes a stencil — /ImageMask true, or a stream a picture
+	// names as its /Mask — with the opposite polarity to its samples. Ours is
+	// the right reading: on a document whose mask has one half painted and
+	// one half masked out, poppler's own pdftoppm paints the half PDF
+	// 32000-1 8.9.6.2 says to paint, pdfimages writes the other, and ours
+	// agrees with the rendering.
 	//
 	// So an exact complement is a convention and not a disagreement. It has to
 	// be told apart from a real one, because the two look the same in a count

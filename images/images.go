@@ -56,11 +56,29 @@ type Result struct {
 	// Inverted says the picture and theirs are the same everywhere, read the
 	// other way round.
 	//
-	// pdfimages writes a JBIG2 mask's bitmap with the opposite polarity to the
-	// one the samples have when that stream is used as a soft mask. That is a
-	// convention, not a disagreement — and it is worth telling apart from a
-	// real one, because "identical up to inversion" and "wrong" look the same
-	// in a count of differing pixels and only one of them needs looking into.
+	// pdfimages writes a STENCIL with the opposite polarity to the samples it
+	// holds: an image with /ImageMask true, or a stream a picture names as its
+	// /Mask. That is a convention, not a disagreement — and it is worth
+	// telling apart from a real one, because "identical up to inversion" and
+	// "wrong" look the same in a count of differing pixels and only one of
+	// them needs looking into.
+	//
+	// Which side is right was measured rather than assumed. On a 644-byte
+	// document whose 8x8 mask has its left half masked out and its right half
+	// painted, poppler's own pdftoppm paints the right half, which is what
+	// PDF 32000-1 8.9.6.2 says, pdfimages writes the left one, and ours
+	// agrees with the rendering.
+	//
+	// It is about being a stencil and nothing else. Not about JBIG2: 27 of
+	// the 28 in us-opm are CCITT, one is Flate, and the minimal document has
+	// no filter. Not about soft masks, which are the one kind pdfimages
+	// leaves alone — 0 of 734 /SMask streams across fr-cerfa and us-opm came
+	// out inverted, against 13 of 13 /ImageMask and 2 of 2 /Mask.
+	//
+	// Not every complement this reports is that convention. When a page draws
+	// many uniform pictures of one size, match pairs them by size and order
+	// and pairs a black one with a white one; see
+	// https://github.com/go-pdfkit/conformance/issues/13.
 	Inverted bool
 	// Missing says which side had nothing, when nothing could be compared.
 	// It is a field rather than a reading of Note because a baseline has to
