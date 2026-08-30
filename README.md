@@ -69,12 +69,20 @@ them, with nothing in its output saying so.
 
 What the two sides do **not** share is counted apart rather than as
 disagreement. An **exact complement** is one of those: `pdfimages` writes a
-JBIG2 mask's bitmap with the opposite polarity to the one the samples have when
-that stream is used as a soft mask. Ours reads 98% dark where its extraction
-reads 0.03%, and ours is the right reading — the pages carrying those masks
-match poppler's own *rendering* to a median of 0.0000. "Identical up to
+**stencil** — an image with `/ImageMask true`, or a stream a picture names as
+its `/Mask` — with the opposite polarity to the samples it holds. Ours is the
+right reading: on a 644-byte document whose mask is half painted and half not,
+poppler's own `pdftoppm` paints the half the spec says to paint, `pdfimages`
+writes the other one, and ours agrees with the rendering. "Identical up to
 inversion" and "wrong" look the same in a count of differing pixels, and only
 one of them needs looking into.
+
+The convention is about being a stencil and nothing else. It is **not** about
+JBIG2: of 28 such masks in the `us-opm` population, 27 arrived in
+`/CCITTFaxDecode` and one in `/FlateDecode`, and the minimal document carries
+no filter at all. And it is **not** about soft masks, which are the one kind
+`pdfimages` leaves alone — 0 of 734 `/SMask` streams in `fr-cerfa` and
+`us-opm` came out inverted, against 13 of 13 `/ImageMask` and 2 of 2 `/Mask`.
 
 A **remapped** picture is the other: `/Decode` maps the stored samples onto the
 range the colour space wants; a viewer applies it and `pdfimages` writes the
