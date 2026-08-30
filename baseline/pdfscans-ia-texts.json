@@ -1,6 +1,6 @@
 {
   "corpus": "/Users/Shared/pdfscans",
-  "taken": "2026-08-30T16:18:23Z",
+  "taken": "2026-08-30T16:38:35Z",
   "pages": 1,
   "judge": "pdfimages version 26.04.0",
   "modules": [
@@ -67,14 +67,14 @@
       "filters": [
         {
           "filter": "JPXDecode",
-          "pictures": 10,
+          "pictures": 9,
           "exact": 3,
           "inverted": 0,
-          "differing": 7,
+          "differing": 6,
           "unmatched": 0,
           "remapped": 0,
           "median": 0.00001683596161400752,
-          "worst": 0.0033856441369090854
+          "worst": 0.0008526826708644891
         },
         {
           "filter": "JBIG2Decode mask",
