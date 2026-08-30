@@ -27,19 +27,33 @@ a drop is otherwise as likely to be a newer poppler or a corpus that grew.
 
 **The threshold used for every filter in these records is exact equality**, and
 that choice decides the answer, so it is stated rather than assumed. A picture
-counts as agreeing only when every pixel agrees on whether it is ink. That is
-defensible here and would not be for a page: `pdfimages` extracts rather than
-renders, so there is no rasteriser between the codec and the pixels. `compare`,
-which draws whole pages, cannot use this threshold and does not.
+counts as agreeing only when every pixel agrees **on whether it is ink** —
+alpha at least 128, luminance below 128. Comparing at all is defensible here
+and would not be for a page: `pdfimages` extracts rather than renders, so there
+is no rasteriser between the codec and the pixels. `compare`, which draws whole
+pages, cannot use this threshold and does not.
 
-It is defensible for a **lossless** filter, where the bytes determine the
-pixels and two implementations either agree bit for bit or one of them is
-wrong. It is **not** defensible for `DCTDecode` and `JPXDecode`, and finding 2
-below is the measurement that says so. The repository has since settled the
-question the other way for those two — [the README](../README.md) states a
-tolerance of 1% of pixels, read off the very numbers in this document — but
-**these records predate it and every rate in them is an exact-equality rate**,
-including the two lossy ones.
+**But "exact" here is narrower than a reader will assume, and every rate in
+this document is that narrower thing.** The comparison reduces each pixel to
+one bit, so `exact` means *no pixel's ink classification differs*, not *no
+pixel differs*. For a **bilevel** picture the two are the same claim — a
+stencil, a CCITT page, a JBIG2 page hold nothing the bisection can lose — so
+the 100% both JBIG2 columns read is bit equality. For a **greyscale or colour**
+picture it is strictly weaker: a decoder rendering every pixel at luminance 120
+where poppler renders 20 would score 0.000 here, on an error of 100 levels
+everywhere. `exact`, `agreement`, `differing`, `median`, `worst` and `inverted`
+all inherit that; `documents`, `refused`, `unopenable`, `declined`, `unmatched`
+and `remapped` do not compare pixels and are unaffected.
+
+Exact equality is also the wrong shape for `DCTDecode` and `JPXDecode`, and
+finding 2 below is the measurement that says so. A previous revision of
+[the README](../README.md) answered it with a tolerance of 1% of pixels, read
+off the very numbers in this document; **that rule has since been withdrawn**,
+because it was read off the ink-classification statistic above and because a
+count of differing pixels with no bound on how much each differs is a shape the
+field avoids. The README carries the survey and the replacement. Nothing in
+this document changes either way: no threshold was ever applied to these
+records.
 
 **There are deliberately no timings in this document.** Another job was running
 on the machine throughout, so every duration measured here would be a
@@ -167,23 +181,28 @@ and not a verdict**.
 The tail is where the real question is: `ia-medical` JPX has a worst of 0.37
 and `gh-pdfbox` a median of 0.899, and those are not rounding.
 
-**The premise has since been corrected, using this table.** The README now
-judges the lossless filters bit-exact and the two lossy ones by a tolerance of
-1% of pixels, chosen because the eighteen lossy rows of these records fall into
-a group of fourteen whose medians run from 0.000011 to 0.001966 and a group of
-four running from 0.047161 to 0.898821, with nothing between — and 1% is the
-round number at the middle of that empty band. **Every rate printed in this
-document is still the exact-equality rate**, because that is what the run
-recorded; the tolerance changes how they are read, not what they are.
+**A correction was made using this table and has since been withdrawn.** The
+README judged the two lossy filters by a tolerance of 1% of pixels, chosen
+because the eighteen lossy rows of these records fall into a group of fourteen
+whose medians run from 0.000011 to 0.001966 and a group of four running from
+0.047161 to 0.898821, with nothing between. **That band is a property of the
+ink-classification statistic**, not of decode fidelity: binarisation flips
+cluster where a picture has content near luminance 128, so the band describes
+how this corpus's tone distribution meets one threshold. A number read off it
+cannot be carried onto a measure with magnitude in it, and the field bounds
+magnitude before it counts anything. The README now states a per-channel rule
+and claims no figure under it. **Every rate printed in this document is the
+exact-equality rate** either way, because that is what the run recorded.
 
 One population was re-measured to check that, with every picture's share
 written out instead of summarised. **It is one population — `fr-cerfa`, 450
 documents, first page — taken at `render` v0.20.0**, and it is reported as one:
 nothing here is a new corpus figure. Its 105 differing `DCTDecode` pictures run
 from 0.00000046 to 0.0086996 and then jump to 0.094990, so the empty band is
-there at picture level too and 1% falls inside it. Under the tolerance that
-population's DCT agreement reads 97.4% (188 of 193 comparable) where this
-document records 45.6% (88 of 193).
+there at picture level too and 1% would have fallen inside it. Under that
+withdrawn tolerance the population's DCT agreement would read 97.4% (188 of 193
+comparable) where this document records 45.6% (88 of 193). It is quoted to
+record what the number did, not to claim it.
 
 **Each of the 105 was then checked against what `pdfimages -list` says its page
 holds**, because finding 3 above shows `match` manufactures disagreements when
@@ -276,6 +295,14 @@ of the pixels while both being right.
 **So this is named as the top candidate and explicitly not as a defect.** It
 has not been established either way, and the check that would settle it is a
 per-channel comparison rather than an ink/paper one.
+
+**The same bisection is what the two lossy columns are measured through**, and
+there it is worse than fragile: it cannot see a uniform level or chroma shift
+at all, which is the characteristic failure of a lossy decoder. `DCTDecode` and
+`JPXDecode` therefore have a rate in the table above that could be 100% on a
+decoder wrong by 100 levels everywhere. Per-channel comparison is the fix for
+those two as much as for `(samples)`, and it is why the 1% tolerance read off
+these numbers was withdrawn rather than kept with a second condition.
 
 ## The version seam: these records are v0.19.0, the instrument is now v0.20.0
 

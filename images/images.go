@@ -14,26 +14,37 @@
 // stored in, because "our CCITT is right and our JBIG2 is wrong" is the
 // finding a per-page number cannot produce.
 //
-// The threshold is not the same for every filter, because the formats do not
-// promise the same thing. There is no rasteriser between the codec and the
-// pixels here, unlike the page comparison, so for a LOSSLESS filter —
-// CCITTFaxDecode, JBIG2Decode, raw samples — exact equality is the question:
-// two implementations either agree bit for bit or one of them is wrong.
+// The comparison reduces every pixel to one bit. difference asks of each
+// pixel, on each side, whether it is INK — alpha at least 128, luminance below
+// 128 — and counts the pixels whose answer differs. So Share is not the
+// fraction of pixels that differ; it is the fraction whose black/white
+// CLASSIFICATION differs, and "exact" means no pixel's classification differs.
 //
-// DCTDecode and JPXDecode promise less. Neither JPEG nor JPEG 2000 requires a
-// bit-exact decoder — the standards fix the inverse transform to a tolerance
-// and not to a value — so two conformant implementations may differ in the
-// last bits of every pixel and neither is wrong. Asking those two for
-// bit-exactness measures conformance to poppler rather than to the format: a
-// corpus of scanned pages reads 15.4% for JPXDecode behind a median
-// disagreement of 0.0020, one pixel in five hundred.
+// For a BILEVEL picture those are the same claim. A stencil, a CCITT page, a
+// JBIG2 page hold nothing the bisection can lose, so exact there is bit
+// equality and the 100% both JBIG2 columns read means what a reader takes it
+// to mean.
 //
-// The repository's README settles that at a tolerance of 1% of pixels for
-// those two filters, read off the landed baseline. This package does not yet
-// apply it: it counts the exact matches and records the median and the worst
-// of the shares that differed, which is enough to place the cut and not enough
-// to recompute a rate under it. Counting the pictures inside the tolerance is
-// what a run should record next.
+// For a greyscale or colour picture it is strictly weaker, and weaker in one
+// direction. A decoder rendering every pixel of a scan at luminance 120 where
+// poppler renders 20 scores 0.000 — perfect agreement — because both sides are
+// ink. That is an error of 100 levels on every single pixel and this cannot
+// see it. A systematic level or chroma shift is the characteristic failure of
+// a lossy decoder, so on DCTDecode, JPXDecode and (samples) the measure is
+// blind in exactly the direction those codecs fail.
+//
+// An earlier revision of the README settled DCTDecode and JPXDecode at a
+// tolerance of 1% of pixels, read off that statistic. It is WITHDRAWN — the
+// empty band it was read from is a property of the bisection and not of decode
+// fidelity, and a count over a predicate with no severity in it is the one
+// construction pdf.js, pdfium, Ghostscript, Cairo, OpenJPEG, FFmpeg, poppler,
+// pixelmatch, Playwright and reg-cli all independently avoid. It was never
+// implemented here: this counts Share == 0 and applies no threshold.
+//
+// The replacement is a per-channel comparison with a magnitude gate, an
+// aggregate bound and a count budget defaulting to zero, defended in the
+// README. Its design and the re-measurement it requires are
+// https://github.com/go-pdfkit/conformance/issues/16.
 package images
 
 import (
@@ -66,9 +77,10 @@ type Result struct {
 	Decoded bool
 	// Size is what the picture came out as.
 	W, H int
-	// Share is the fraction of pixels differing, or -1 when the picture could
-	// not be judged, which Note explains. A Share of 1 with Inverted set means
-	// the two are exact complements.
+	// Share is the fraction of pixels whose INK CLASSIFICATION differs — not
+	// the fraction that differ; see the package comment — or -1 when the
+	// picture could not be judged, which Note explains. A Share of 1 with
+	// Inverted set means the two are exact complements.
 	Share float64
 	// Inverted says the picture and theirs are the same everywhere, read the
 	// other way round.
@@ -235,11 +247,18 @@ func match(theirs []*raster.Image, claimed []bool, ours *raster.Image) int {
 
 // difference is the fraction of pixels that are not the same ink.
 //
-// It reads only whether a pixel is dark, not how dark. The two sides disagree
-// about depth and colour space in ways that are not errors: poppler writes a
-// stencil out as one bit and this carries the shape in an alpha channel, and a
-// CMYK picture comes back converted by two different sets of arithmetic. What
-// both agree on, when they agree at all, is where the ink is.
+// It reads only whether a pixel is dark, NOT HOW DARK, and that is the limit of
+// everything this package reports. The reason it was written this way is real:
+// the two sides disagree about depth and colour space in ways that are not
+// errors — poppler writes a stencil out as one bit and this carries the shape
+// in an alpha channel, and a CMYK picture comes back converted by two different
+// sets of arithmetic — so what both agree on, when they agree at all, is where
+// the ink is.
+//
+// The cost is that a uniform level shift is invisible. Every pixel 100 levels
+// darker on one side scores 0. That is exact for a bilevel picture, where there
+// is nothing else in it, and blind for every other kind. Comparing per channel
+// is the fix; see the package comment and conformance#16.
 func difference(a, b *raster.Image) float64 {
 	if a.W != b.W || a.H != b.H || a.W*a.H == 0 {
 		return -1
@@ -345,7 +364,8 @@ func readPNG(name string) (*raster.Image, error) {
 type Counts struct {
 	// Pictures is how many were judged.
 	Pictures int
-	// Exact is how many came out identical.
+	// Exact is how many had no pixel differ in ink classification, which is
+	// bit equality only where the picture is bilevel.
 	Exact int
 	// Unmatched is how many the other implementation had no picture for.
 	Unmatched int
