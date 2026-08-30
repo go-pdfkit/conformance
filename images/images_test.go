@@ -210,7 +210,12 @@ func TestADocumentThatCannotBeLookedAt(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got := Judge(tc.path(t), Options{})
 			if len(got) != 1 || got[0].Share != -1 || !strings.Contains(got[0].Note, tc.want) {
-				t.Errorf("got %+v", got)
+				t.Fatalf("got %+v", got)
+			}
+			// It is ours that had nothing, and a baseline counts that
+			// apart from the judge having nothing.
+			if got[0].Missing != Ours {
+				t.Errorf("blamed %q", got[0].Missing)
 			}
 		})
 	}
@@ -233,7 +238,12 @@ func TestTheOtherSideRefusing(t *testing.T) {
 		return reader.Dict{"I": grey(w)}
 	}), Options{})
 	if len(got) != 1 || got[0].Share != -1 || !strings.Contains(got[0].Note, "took nothing out") {
-		t.Errorf("got %+v", got)
+		t.Fatalf("got %+v", got)
+	}
+	// Ours drew a picture and the judge did not, which is a page there is no
+	// answer about rather than one ours got wrong.
+	if got[0].Missing != Theirs {
+		t.Errorf("blamed %q", got[0].Missing)
 	}
 }
 
@@ -428,7 +438,10 @@ func TestAPageThatIsNotThereSaysSo(t *testing.T) {
 	}
 	got := judgePage(d, path, 9)
 	if len(got) != 1 || got[0].Share != -1 || !strings.Contains(got[0].Note, "no page") {
-		t.Errorf("page nine of a one-page document came back as %+v", got)
+		t.Fatalf("page nine of a one-page document came back as %+v", got)
+	}
+	if got[0].Missing != Ours {
+		t.Errorf("blamed %q", got[0].Missing)
 	}
 }
 
@@ -437,4 +450,52 @@ func TestTheRealCommandIsTheOneThatIsRun(t *testing.T) {
 	// error, not whether the statement runs — so this covers the wiring on a
 	// machine with nothing installed as well as on one with poppler.
 	_ = popplerCommand("-h")
+}
+
+func TestSummarizeKeepsWhatTheReportSays(t *testing.T) {
+	// The record and the report are the same measurement, so a filter that
+	// reads worst in one must come first in the other.
+	got := Summarize("ia-medical", 4, []Result{
+		{Name: "A", Filter: "CCITTFaxDecode", Share: 0, Missing: Judged},
+		{Name: "B", Filter: "JBIG2Decode", Share: 0.5},
+		{Name: "C", Filter: "JBIG2Decode", Share: 0.25},
+		{Name: "D", Filter: "JBIG2Decode", Share: -1},
+		{Name: "E", Filter: "DCTDecode", Share: 1, Inverted: true},
+		{Name: "F", Filter: "DCTDecode", Decoded: true},
+		{Share: -1, Missing: Ours, Note: "refused: x"},
+		{Share: -1, Missing: Theirs, Note: "they took nothing out: x"},
+		{Share: -1, Missing: Theirs, Note: "they took nothing out: y"},
+	})
+	if got.Population != "ia-medical" || got.Documents != 4 {
+		t.Errorf("the record does not say what was judged: %+v", got)
+	}
+	// What could not be compared is counted by the side that had nothing, so
+	// a corpus that got harder cannot be read as a decoder that got worse.
+	// A picture that was compared is neither, whichever way it came out.
+	if got.Refused != 1 || got.Declined != 2 {
+		t.Errorf("refused %d and declined %d, want 1 and 2", got.Refused, got.Declined)
+	}
+	if len(got.Filters) != 3 || got.Filters[0].Filter != "JBIG2Decode" {
+		t.Fatalf("the worst filter is not first: %+v", got.Filters)
+	}
+	j := got.Filters[0]
+	if j.Pictures != 3 || j.Differing != 2 || j.Unmatched != 1 || j.Exact != 0 {
+		t.Errorf("JBIG2 counted as %+v", j)
+	}
+	if j.Median == nil || *j.Median != 0.5 || j.Worst == nil || *j.Worst != 0.5 {
+		t.Errorf("the spread of two differing pictures is %v/%v", j.Median, j.Worst)
+	}
+	for _, f := range got.Filters[1:] {
+		if f.Median != nil || f.Worst != nil {
+			t.Errorf("%s differed nowhere yet carries a spread", f.Filter)
+		}
+	}
+}
+
+func TestSummarizeSaysNothingAboutAnEmptyTally(t *testing.T) {
+	// A population whose documents draw no pictures is not a population that
+	// disagreed, and its record must not invent a filter to say so.
+	if got := Summarize("empty", 0, nil); len(got.Filters) != 0 {
+		t.Errorf("got %+v", got.Filters)
+	}
 }
