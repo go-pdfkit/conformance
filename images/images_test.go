@@ -11,7 +11,6 @@ import (
 
 	"github.com/go-gfx/gfx/raster"
 	"github.com/go-pdfkit/reader"
-	"github.com/go-pdfkit/render"
 )
 
 // pageOfPictures writes a document whose page draws the given image XObjects,
@@ -516,33 +515,5 @@ func TestSummarizeSaysNothingAboutAnEmptyTally(t *testing.T) {
 	// disagreed, and its record must not invent a filter to say so.
 	if got := Summarize("empty", 0, nil); len(got.Filters) != 0 {
 		t.Errorf("got %+v", got.Filters)
-	}
-}
-
-func TestARepeatedDrawIsOnePicture(t *testing.T) {
-	// render.Images answers per draw and pdfimages answers per image. A page
-	// that stamps the same logo repeatedly must be judged once, or every
-	// repeat after the first lands in the unmatched column and the corpus
-	// reads as unjudged when it was only counted twice.
-	got := distinct([]render.Image{
-		{Name: "Im1", Filter: "DCTDecode"},
-		{Name: "Im2"},
-		{Name: "Im1", Filter: "DCTDecode"},
-		{Name: "Im1", Filter: "DCTDecode"},
-		{Name: "Im2"},
-	})
-	if len(got) != 2 {
-		t.Fatalf("kept %d pictures, want 2: %+v", len(got), got)
-	}
-	// The order it first draws them in is the order kept, because that is the
-	// order the names read in and a record is compared by eye as well.
-	if got[0].Name != "Im1" || got[1].Name != "Im2" {
-		t.Errorf("kept %q then %q", got[0].Name, got[1].Name)
-	}
-}
-
-func TestDistinctKeepsAPageThatRepeatsNothing(t *testing.T) {
-	if got := distinct([]render.Image{{Name: "A"}, {Name: "B"}}); len(got) != 2 {
-		t.Errorf("got %+v", got)
 	}
 }

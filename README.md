@@ -107,6 +107,33 @@ images -dir /Users/Shared/pdfscans -only ia-medical -json
 
 [`baseline/README.md`](baseline/README.md) reads it out.
 
+### Those numbers were taken at `render` v0.19.0, and this is v0.20.0
+
+Every record under `baseline/` carries the versions it was built against in its
+own `modules` block, and every one of them says **`render` v0.19.0**. This
+repository is now built against **v0.20.0**, and a run taken here is across a
+seam from them.
+
+The seam is `render.Images`. Under v0.19.0 it answered per **draw**: a page
+that stamped one logo five hundred times yielded five hundred entries decoded
+from the same bytes, against `pdfimages`'s one, so this repository kept one
+entry per resource name to compensate. v0.20.0 removed the cause — a page's
+resources were being walked as a tree when they are a graph, so a picture
+reached through two forms was decoded once per path — and each picture now
+comes back once however many forms reach it.
+
+**So the compensation is gone, and it had to go.** A resource name is unique
+within one dictionary and not across them. Under v0.20.0, over the whole
+`/Users/Shared/pdfforms` corpus, **40 of its 2268 documents draw two different
+pictures sharing a name on their first page, and collapsing on the name would
+have dropped 64 of them** — 28 in `gh-qpdf`, where qpdf's form-XObject fixtures
+give two forms an `Im1` each, and 36 in `fr-impots`, where one issuer's real
+forms do the same with `Im0`. The second half of that is the part that matters:
+this is not only a property of a test corpus.
+
+A later reader comparing a fresh run against `baseline/` without noticing the
+seam would be reading a change in what is counted as a change in what is right.
+
 ## How it is checked
 
 Exact 100% statement coverage including every error branch, `go vet`, `-race`,

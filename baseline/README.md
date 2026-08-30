@@ -226,24 +226,44 @@ of the pixels while both being right.
 has not been established either way, and the check that would settle it is a
 per-channel comparison rather than an ink/paper one.
 
-## The version seam
+## The version seam: these records are v0.19.0, the instrument is now v0.20.0
 
 These records were taken against **`render` v0.19.0**, which is what the
 `modules` block of every JSON file says and what the conditions table above
-repeats. It matters more than usual right now: **v0.20.0 changes what `Images`
-returns.** Under v0.19.0 a page that draws the same XObject repeatedly yields
-one entry per draw; under v0.20.0 it yields one per picture. A later reader
-comparing a v0.20.0 run against these numbers without noticing would be
-comparing across that seam.
+repeats. **The instrument that took them has since moved to v0.20.0**, so a run
+taken today is on the far side of a seam from every number in this document,
+and the two must not be subtracted from one another without saying so.
 
-The instrument compensates for v0.19.0's behaviour by taking each picture once,
-keyed on the name the page draws it by. **That compensation must be removed
-when this repository moves to v0.20.0**, and it is not merely redundant there
-but wrong: names are unique within a resource dictionary and not across them.
-Measured under v0.20.0 over 368 documents, 16 of them have two pictures sharing
-a name — qpdf's `form-xobjects-some-resources` fixtures, where two different
-form XObjects each name their own `Im1` — and collapsing on the name would drop
-28 distinct pictures.
+The seam is what `Images` returns. Under v0.19.0 a page that draws the same
+XObject repeatedly yields one entry per draw; under v0.20.0 it yields one per
+picture. The instrument compensated for v0.19.0's behaviour by taking each
+picture once, keyed on the name the page draws it by, and **that compensation
+has been removed**, because against v0.20.0 it is not merely redundant but
+wrong: a name is unique within a resource dictionary and not across them.
+
+The figure that decided it was re-measured rather than inherited. An earlier
+note here read *"over 368 documents, 16 of them have two pictures sharing a
+name … collapsing on the name would drop 28 distinct pictures"*. Measured again
+under v0.20.0 over the **whole** forms corpus — 2268 documents, first page,
+825 of which draw any picture at all — the count is larger:
+
+| population | documents whose first page shares a name | pictures the compensation would drop |
+|---|---:|---:|
+| `gh-qpdf` | 16 | 28 |
+| `fr-impots` | 24 | 36 |
+| **total** | **40 of 2268** | **64** |
+
+The 16 and the 28 are exactly the earlier note's figure: it was counting
+`gh-qpdf` alone. `gh-qpdf` is qpdf's `form-xobjects-*` and `shared-form-*`
+fixtures, where two form XObjects each name their own `Im1`, and a fixture
+corpus is meant to hold cases like that. **`fr-impots` is not a fixture
+corpus.** Twenty-four of its fifty documents — one issuer's real tax forms —
+put two different pictures under `Im0` on their first page, and it is that half
+of the count which says the compensation had to go rather than merely could.
+
+The same sweep over `/Users/Shared/pdfscans` was started and stopped before it
+finished, so **there is no scanned-corpus figure here**; the number above is
+the forms corpus and says nothing about the other one.
 
 ## What is not measured, and why
 
