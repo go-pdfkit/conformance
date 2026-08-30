@@ -14,9 +14,26 @@
 // stored in, because "our CCITT is right and our JBIG2 is wrong" is the
 // finding a per-page number cannot produce.
 //
-// Exact equality IS the question here, unlike the page comparison. There is no
-// rasteriser between the codec and the pixels: two implementations of the same
-// image format either agree bit for bit or one of them is wrong.
+// The threshold is not the same for every filter, because the formats do not
+// promise the same thing. There is no rasteriser between the codec and the
+// pixels here, unlike the page comparison, so for a LOSSLESS filter —
+// CCITTFaxDecode, JBIG2Decode, raw samples — exact equality is the question:
+// two implementations either agree bit for bit or one of them is wrong.
+//
+// DCTDecode and JPXDecode promise less. Neither JPEG nor JPEG 2000 requires a
+// bit-exact decoder — the standards fix the inverse transform to a tolerance
+// and not to a value — so two conformant implementations may differ in the
+// last bits of every pixel and neither is wrong. Asking those two for
+// bit-exactness measures conformance to poppler rather than to the format: a
+// corpus of scanned pages reads 15.4% for JPXDecode behind a median
+// disagreement of 0.0020, one pixel in five hundred.
+//
+// The repository's README settles that at a tolerance of 1% of pixels for
+// those two filters, read off the landed baseline. This package does not yet
+// apply it: it counts the exact matches and records the median and the worst
+// of the shares that differed, which is enough to place the cut and not enough
+// to recompute a rate under it. Counting the pictures inside the tolerance is
+// what a run should record next.
 package images
 
 import (
@@ -150,12 +167,29 @@ func Judge(path string, opt Options) []Result {
 }
 
 // judgePage judges the pictures of one page.
+//
+// Nothing deduplicates the pictures here, and that is a decision about which
+// version of render this is built against. Under v0.19.0 render.Images
+// answered per DRAW — a page that stamped the same logo five hundred times
+// yielded five hundred entries decoded from the same bytes, against
+// pdfimages's one, and every repeat after the first landed in the unmatched
+// column. This package compensated by keeping one entry per resource name.
+//
+// v0.20.0 removed the cause: a page's resources are a graph and were being
+// walked as a tree, so a picture reached through two forms was decoded twice.
+// Each picture now comes back once however many forms reach it, and the
+// compensation is not merely redundant but WRONG — a name is unique within one
+// resource dictionary and not across them. Measured under v0.20.0 over the
+// whole forms corpus, 40 of its 2268 documents draw two different pictures
+// that share a name on their first page, and collapsing on the name would drop
+// 64 of them: 28 in qpdf's form-XObject fixtures, where two forms each name
+// their own Im1, and 36 in fr-impots, where one issuer's real forms do the
+// same with Im0.
 func judgePage(d *reader.Document, path string, p int) []Result {
 	ours, err := render.Images(d, p)
 	if err != nil {
 		return []Result{{Path: path, Page: p, Share: -1, Missing: Ours, Note: "no page: " + err.Error()}}
 	}
-	ours = distinct(ours)
 	if len(ours) == 0 {
 		return nil
 	}
@@ -185,39 +219,6 @@ func judgePage(d *reader.Document, path string, p int) []Result {
 			r.Inverted = true
 		}
 		out = append(out, r)
-	}
-	return out
-}
-
-// distinct keeps one entry per picture the page draws, in the order it first
-// draws them.
-//
-// The two sides count different things and only one of them is the question
-// here. render.Images answers per DRAW: a page that stamps the same logo five
-// hundred times yields five hundred entries, all decoded from the same bytes.
-// pdfimages answers per IMAGE and extracts it once. Comparing those directly
-// judges identical bytes over and over, and reports every repeat after the
-// first as unmatched, because the judge has only the one to pair with.
-//
-// It is not a small effect. On one page of the French forms population
-// (cerfa_10103.pdf) three images are drawn 511 times each: ours came to 1533
-// pictures against pdfimages's 3, and 1530 of them landed in the unmatched
-// column — enough on its own to make DCTDecode look 57% unjudged across a
-// whole corpus. Left in, it also lets a picture pair with a mask of the same
-// size once the real partner is claimed, which is a wrong comparison and not
-// merely a missing one.
-//
-// A repeated draw is the same picture, and asking about it once is the whole
-// of the question.
-func distinct(ims []render.Image) []render.Image {
-	seen := make(map[string]bool, len(ims))
-	out := make([]render.Image, 0, len(ims))
-	for _, im := range ims {
-		if seen[im.Name] {
-			continue
-		}
-		seen[im.Name] = true
-		out = append(out, im)
 	}
 	return out
 }
