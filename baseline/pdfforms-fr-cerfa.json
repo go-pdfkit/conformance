@@ -1,6 +1,6 @@
 {
   "corpus": "/Users/Shared/pdfforms",
-  "taken": "2026-08-30T16:13:45Z",
+  "taken": "2026-08-30T16:34:43Z",
   "pages": 1,
   "judge": "pdfimages version 26.04.0",
   "modules": [
@@ -67,25 +67,14 @@
       "filters": [
         {
           "filter": "DCTDecode",
-          "pictures": 716,
+          "pictures": 206,
           "exact": 88,
           "inverted": 0,
           "differing": 105,
-          "unmatched": 510,
+          "unmatched": 0,
           "remapped": 13,
           "median": 0.0001349527665317139,
           "worst": 0.75
-        },
-        {
-          "filter": "(samples)",
-          "pictures": 3924,
-          "exact": 2659,
-          "inverted": 173,
-          "differing": 535,
-          "unmatched": 512,
-          "remapped": 45,
-          "median": 0.2857142857142857,
-          "worst": 0.8571428571428571
         },
         {
           "filter": "JPXDecode",
@@ -99,13 +88,24 @@
           "worst": 0.0002479543763947434
         },
         {
+          "filter": "(samples)",
+          "pictures": 3414,
+          "exact": 2659,
+          "inverted": 173,
+          "differing": 535,
+          "unmatched": 2,
+          "remapped": 45,
+          "median": 0.2857142857142857,
+          "worst": 0.8571428571428571
+        },
+        {
           "filter": "(samples) mask",
-          "pictures": 1272,
+          "pictures": 762,
           "exact": 692,
           "inverted": 15,
           "differing": 41,
           "unmatched": 0,
-          "remapped": 524,
+          "remapped": 14,
           "median": 0.07222358121330724,
           "worst": 0.2482741617357002
         },
