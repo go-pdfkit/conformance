@@ -85,6 +85,20 @@ carry one, and all 22 are soft masks.
 A filter with nothing comparable left is not reported as the worst thing in the
 corpus: nothing to compare is not evidence of being wrong.
 
+## What it comes to today
+
+A number that is not written down cannot be regressed against. `baseline/`
+holds a whole run of `images` over both corpora — the counts per population
+per filter, and beside them the corpus, the poppler that judged it, every
+module version it was built against and when it was taken, because a figure
+that drops between two runs means a regression only if everything else held.
+
+```
+images -dir /Users/Shared/pdfscans -only ia-medical -json
+```
+
+[`baseline/README.md`](baseline/README.md) reads it out.
+
 ## How it is checked
 
 Exact 100% statement coverage including every error branch, `go vet`, `-race`,

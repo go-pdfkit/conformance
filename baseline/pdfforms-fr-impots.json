@@ -1,0 +1,111 @@
+{
+  "corpus": "/Users/Shared/pdfforms",
+  "taken": "2026-08-30T16:35:25Z",
+  "pages": 1,
+  "judge": "pdfimages version 26.04.0",
+  "modules": [
+    {
+      "path": "github.com/ajroetker/go-highway",
+      "version": "v0.0.4"
+    },
+    {
+      "path": "github.com/ajroetker/go-jpeg2000",
+      "version": "v0.0.2"
+    },
+    {
+      "path": "github.com/go-gfx/gfx",
+      "version": "v0.16.0"
+    },
+    {
+      "path": "github.com/go-opentype/fonts",
+      "version": "v0.9.0"
+    },
+    {
+      "path": "github.com/go-opentype/opentype",
+      "version": "v0.10.0"
+    },
+    {
+      "path": "github.com/go-pdfkit/pdffont",
+      "version": "v0.3.0"
+    },
+    {
+      "path": "github.com/go-pdfkit/reader",
+      "version": "v0.6.0"
+    },
+    {
+      "path": "github.com/go-pdfkit/render",
+      "version": "v0.19.0"
+    },
+    {
+      "path": "github.com/sergeymakinen/go-bmp",
+      "version": "v1.0.0"
+    },
+    {
+      "path": "github.com/sergeymakinen/go-ico",
+      "version": "v1.0.0"
+    },
+    {
+      "path": "github.com/tannevaled/gobig2",
+      "version": "v0.1.0"
+    },
+    {
+      "path": "golang.org/x/image",
+      "version": "v0.45.0"
+    },
+    {
+      "path": "golang.org/x/sys",
+      "version": "v0.47.0"
+    }
+  ],
+  "populations": [
+    {
+      "population": "fr-impots",
+      "documents": 50,
+      "refused": 0,
+      "unopenable": 0,
+      "declined": 0,
+      "filters": [
+        {
+          "filter": "DCTDecode",
+          "pictures": 44,
+          "exact": 5,
+          "inverted": 0,
+          "differing": 11,
+          "unmatched": 28,
+          "remapped": 0,
+          "median": 0.18845159436943407,
+          "worst": 0.8804503729202524
+        },
+        {
+          "filter": "(samples)",
+          "pictures": 46,
+          "exact": 18,
+          "inverted": 0,
+          "differing": 6,
+          "unmatched": 0,
+          "remapped": 22,
+          "median": 0.0877431026684758,
+          "worst": 0.21483491632745363
+        },
+        {
+          "filter": "(samples) mask",
+          "pictures": 11,
+          "exact": 4,
+          "inverted": 0,
+          "differing": 0,
+          "unmatched": 0,
+          "remapped": 7
+        },
+        {
+          "filter": "JPXDecode",
+          "pictures": 1,
+          "exact": 1,
+          "inverted": 0,
+          "differing": 0,
+          "unmatched": 0,
+          "remapped": 0
+        }
+      ]
+    }
+  ]
+}

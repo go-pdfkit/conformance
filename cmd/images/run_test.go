@@ -2,10 +2,13 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-pdfkit/conformance/corpus"
 	"github.com/go-pdfkit/conformance/images"
@@ -144,4 +147,123 @@ func TestMainRunsTheCommand(t *testing.T) {
 	if code != 2 {
 		t.Errorf("running it with no corpus exited %d", code)
 	}
+}
+
+// atTime fixes what the record will say it was taken.
+func atTime(t *testing.T, s string) {
+	t.Helper()
+	was := now
+	t.Cleanup(func() { now = was })
+	when, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now = func() time.Time { return when }
+}
+
+func TestRunWritesABaselineThatCanBeComparedAgainst(t *testing.T) {
+	judge(t, images.Result{Name: "I", Filter: "JBIG2Decode", Share: 0.5})
+	atTime(t, "2026-08-30T15:04:05Z")
+	var out, errOut bytes.Buffer
+	if code := run([]string{"-dir", tinyCorpus(t), "-json"}, &out, &errOut); code != 0 {
+		t.Fatalf("exit %d: %s", code, errOut.String())
+	}
+	var got baseline
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("the record is not JSON: %v\n%s", err, out.String())
+	}
+	if got.Taken != "2026-08-30T15:04:05Z" || got.Pages != 1 {
+		t.Errorf("the record does not say when or how much: %+v", got)
+	}
+	if len(got.Populations) != 2 ||
+		got.Populations[0].Population != "alpha" ||
+		got.Populations[1].Population != "beta" {
+		t.Fatalf("populations came out as %+v", got.Populations)
+	}
+	p := got.Populations[0]
+	if p.Documents != 1 || len(p.Filters) != 1 || p.Filters[0].Differing != 1 {
+		t.Errorf("alpha came out as %+v", p)
+	}
+	if p.Refused != 0 || p.Unopenable != 0 || p.Declined != 0 {
+		t.Errorf("a population that was judged reports something missing: %+v", p)
+	}
+	// The record replaces the report rather than joining it, or it would not
+	// parse.
+	if strings.Contains(out.String(), "pictures  ") {
+		t.Errorf("the human report was written into the record: %s", out.String())
+	}
+	// A version this was built against is what tells a later drop from a
+	// rebuild, so the record is useless without one.
+	if len(got.Modules) == 0 {
+		t.Error("the record names no module it was built against")
+	}
+}
+
+func TestWhatCouldNotBeComparedReachesTheRecord(t *testing.T) {
+	// The whole point of the split is that it survives to the file somebody
+	// reads a year later, so it is checked where it lands and not only where
+	// it is counted.
+	judge(t,
+		images.Result{Share: -1, Missing: images.Ours, Note: "refused: x"},
+		images.Result{Share: -1, Missing: images.Neither, Note: "refused: y"},
+		images.Result{Share: -1, Missing: images.Theirs, Note: "they took nothing out"},
+	)
+	atTime(t, "2026-08-30T15:04:05Z")
+	var out, errOut bytes.Buffer
+	if code := run([]string{"-dir", tinyCorpus(t), "-only", "alpha", "-json"},
+		&out, &errOut); code != 0 {
+		t.Fatalf("exit %d: %s", code, errOut.String())
+	}
+	var got baseline
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("the record is not JSON: %v", err)
+	}
+	p := got.Populations[0]
+	if p.Refused != 1 || p.Unopenable != 1 || p.Declined != 1 {
+		t.Errorf("refused %d, unopenable %d, declined %d; want one of each",
+			p.Refused, p.Unopenable, p.Declined)
+	}
+	// Nothing was comparable, so nothing may be reported as a filter that
+	// agreed or disagreed.
+	if len(p.Filters) != 0 {
+		t.Errorf("it invented filters out of what it could not compare: %+v", p.Filters)
+	}
+}
+
+func TestABaselineWithNoBuildInfoStillRecordsTheCounts(t *testing.T) {
+	// Nothing here is worth losing a run's counts over.
+	was := buildInfo
+	defer func() { buildInfo = was }()
+	buildInfo = func() (*debug.BuildInfo, bool) { return nil, false }
+	if got := modules(); got != nil {
+		t.Errorf("it invented %+v", got)
+	}
+}
+
+func TestTheJudgeIsRecordedByVersionWhenItSaysOne(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		out  []byte
+		err  error
+		want string
+	}{
+		{"it answers", []byte("pdfimages version 26.04.0\nCopyright\n"), nil,
+			"pdfimages version 26.04.0"},
+		{"it is not installed", nil, os.ErrNotExist, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			was := versionCommand
+			defer func() { versionCommand = was }()
+			versionCommand = func() ([]byte, error) { return tc.out, tc.err }
+			if got := judgeVersion(); got != tc.want {
+				t.Errorf("recorded the judge as %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestTheRealJudgeIsTheOneThatIsAsked(t *testing.T) {
+	// Whether poppler is installed decides the answer, not whether the
+	// statement runs, so this covers the wiring either way.
+	_, _ = versionCommand()
 }

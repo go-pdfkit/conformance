@@ -62,8 +62,42 @@ type Result struct {
 	// real one, because "identical up to inversion" and "wrong" look the same
 	// in a count of differing pixels and only one of them needs looking into.
 	Inverted bool
-	Note     string
+	// Missing says which side had nothing, when nothing could be compared.
+	// It is a field rather than a reading of Note because a baseline has to
+	// count these apart: a run that agrees less because ours stopped opening
+	// documents and a run that agrees less because it decoded them wrongly
+	// are different events, and a total that lumps them says neither.
+	Missing Missing
+	Note    string
 }
+
+// A Missing says which side produced nothing.
+type Missing string
+
+const (
+	// Judged means there was a picture on both sides and they were compared.
+	Judged Missing = ""
+	// Ours means ours would not open the document or draw the page and the
+	// judge would. That is a defect and the only one of these that is: a
+	// document the field can read and we cannot.
+	Ours Missing = "ours"
+	// Neither means no implementation would open it — ours refused, and so
+	// did the judge, asked separately about the same file.
+	//
+	// This has to be told apart from Ours or the count misleads in the
+	// direction of comfort in one direction and panic in the other. Seven of
+	// the twelve documents of the ia-texts population are refused by ours;
+	// all seven carry Adobe's proprietary EBX_HANDLER and poppler refuses
+	// every one of them too. Folded together with a real refusal, that reads
+	// as a decoder failing on 58% of a population. Counted apart, it says
+	// what is true: that population is five documents, not twelve.
+	Neither Missing = "neither"
+	// Theirs means the judge took no picture out of a page ours drew pictures
+	// for. That is not a disagreement and not a fault of ours: it is a page
+	// this cannot get an answer about, and one that must be counted so that a
+	// corpus getting harder is not read as a decoder getting worse.
+	Theirs Missing = "theirs"
+)
 
 // Options say how much to look at.
 type Options struct {
@@ -80,11 +114,12 @@ func Judge(path string, opt Options) []Result {
 	}
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return []Result{{Path: path, Share: -1, Note: "unreadable: " + err.Error()}}
+		return []Result{{Path: path, Share: -1, Missing: Ours, Note: "unreadable: " + err.Error()}}
 	}
 	d, err := reader.Open(b)
 	if err != nil {
-		return []Result{{Path: path, Share: -1, Note: "refused: " + err.Error()}}
+		return []Result{{Path: path, Share: -1, Missing: blame(path),
+			Note: "refused: " + err.Error()}}
 	}
 	if n := d.PageCount(); pages > n {
 		pages = n
@@ -100,14 +135,15 @@ func Judge(path string, opt Options) []Result {
 func judgePage(d *reader.Document, path string, p int) []Result {
 	ours, err := render.Images(d, p)
 	if err != nil {
-		return []Result{{Path: path, Page: p, Share: -1, Note: "no page: " + err.Error()}}
+		return []Result{{Path: path, Page: p, Share: -1, Missing: Ours, Note: "no page: " + err.Error()}}
 	}
+	ours = distinct(ours)
 	if len(ours) == 0 {
 		return nil
 	}
 	theirs, err := poppler(path, p)
 	if err != nil {
-		return []Result{{Path: path, Page: p, Share: -1, Note: "they took nothing out: " + err.Error()}}
+		return []Result{{Path: path, Page: p, Share: -1, Missing: Theirs, Note: "they took nothing out: " + err.Error()}}
 	}
 	// The two do not agree on an order, and neither has a name the other
 	// knows, so a picture is matched to a picture of the same size. Where
@@ -131,6 +167,39 @@ func judgePage(d *reader.Document, path string, p int) []Result {
 			r.Inverted = true
 		}
 		out = append(out, r)
+	}
+	return out
+}
+
+// distinct keeps one entry per picture the page draws, in the order it first
+// draws them.
+//
+// The two sides count different things and only one of them is the question
+// here. render.Images answers per DRAW: a page that stamps the same logo five
+// hundred times yields five hundred entries, all decoded from the same bytes.
+// pdfimages answers per IMAGE and extracts it once. Comparing those directly
+// judges identical bytes over and over, and reports every repeat after the
+// first as unmatched, because the judge has only the one to pair with.
+//
+// It is not a small effect. On one page of the French forms population
+// (cerfa_10103.pdf) three images are drawn 511 times each: ours came to 1533
+// pictures against pdfimages's 3, and 1530 of them landed in the unmatched
+// column — enough on its own to make DCTDecode look 57% unjudged across a
+// whole corpus. Left in, it also lets a picture pair with a mask of the same
+// size once the real partner is claimed, which is a wrong comparison and not
+// merely a missing one.
+//
+// A repeated draw is the same picture, and asking about it once is the whole
+// of the question.
+func distinct(ims []render.Image) []render.Image {
+	seen := make(map[string]bool, len(ims))
+	out := make([]render.Image, 0, len(ims))
+	for _, im := range ims {
+		if seen[im.Name] {
+			continue
+		}
+		seen[im.Name] = true
+		out = append(out, im)
 	}
 	return out
 }
@@ -174,6 +243,27 @@ func dark(im *raster.Image, i int) bool {
 		return false
 	}
 	return (uint32(r)*299+uint32(g)*587+uint32(b)*114)/1000 < 128
+}
+
+// infoCommand is a variable so a test can ask without poppler installed.
+//
+// pdfinfo rather than pdfimages, because the question is only whether the
+// document opens: pdfimages answers "no pictures came out" for a document it
+// read perfectly well and one it could not read at all, and those are the two
+// things that must not be confused here.
+var infoCommand = func(path string) error { return exec.Command("pdfinfo", path).Run() }
+
+// blame says whose refusal it was, by asking the judge the same question.
+//
+// A document ours refuses is not evidence of a defect until it is known that
+// something else could read it. Encrypted-with-DRM, truncated and malformed
+// documents are ordinary in a mass-digitisation corpus, and a refusal every
+// implementation makes is a fact about the corpus.
+func blame(path string) Missing {
+	if infoCommand(path) != nil {
+		return Neither
+	}
+	return Ours
 }
 
 // popplerCommand is a variable so a test can stand in for the other
@@ -291,26 +381,14 @@ func Tally(rs []Result) map[string]*Counts {
 // Report writes a tally in the order that reads best: worst first, because a
 // filter that is right everywhere is not the one to read about.
 func Report(by map[string]*Counts) string {
-	keys := make([]string, 0, len(by))
-	for k := range by {
-		keys = append(keys, k)
-	}
-	sort.Slice(keys, func(i, j int) bool {
-		ai, bi := rightness(by[keys[i]]), rightness(by[keys[j]])
-		if ai != bi {
-			return ai < bi
-		}
-		return keys[i] < keys[j]
-	})
 	var sb strings.Builder
-	for _, k := range keys {
+	for _, k := range order(by) {
 		c := by[k]
 		fmt.Fprintf(&sb, "%-22s %5d pictures  %5d exact  %5d inverted  %5d differing  %5d unmatched  %5d remapped",
 			k, c.Pictures, c.Exact, c.Inverted, len(c.Shares), c.Unmatched, c.Remapped)
 		if len(c.Shares) > 0 {
-			s := append([]float64(nil), c.Shares...)
-			sort.Float64s(s)
-			fmt.Fprintf(&sb, "  median %.4f  worst %.4f", s[len(s)/2], s[len(s)-1])
+			median, worst := spread(c.Shares)
+			fmt.Fprintf(&sb, "  median %.4f  worst %.4f", median, worst)
 		}
 		sb.WriteByte('\n')
 	}
@@ -331,4 +409,96 @@ func rightness(c *Counts) float64 {
 		return 1
 	}
 	return float64(c.Exact) / float64(comparable)
+}
+
+// A Summary is one population's tally in a shape that keeps: named fields, a
+// settled order, and no map. A baseline is only worth writing down if a later
+// run can be diffed against it, and a Go map ordered by chance cannot be.
+type Summary struct {
+	Population string `json:"population"`
+	// Documents is how many were looked at, which is not how many were
+	// judged: a document that draws no pictures contributes none.
+	Documents int `json:"documents"`
+	// Refused is how many documents ours would not open or draw, and the
+	// judge would. This is the count that is a defect.
+	Refused int `json:"refused"`
+	// Unopenable is how many neither would open. A corpus is full of these
+	// and they say nothing about a decoder, but a population's real size is
+	// its documents minus these and a rate quoted without them is quoted over
+	// the wrong denominator.
+	Unopenable int `json:"unopenable"`
+	// Declined is how many pages ours drew pictures for and the judge took
+	// none out of, so there was nothing to compare them with.
+	Declined int            `json:"declined"`
+	Filters  []FilterCounts `json:"filters"`
+}
+
+// FilterCounts is one filter's line of a report, as data.
+type FilterCounts struct {
+	Filter    string `json:"filter"`
+	Pictures  int    `json:"pictures"`
+	Exact     int    `json:"exact"`
+	Inverted  int    `json:"inverted"`
+	Differing int    `json:"differing"`
+	Unmatched int    `json:"unmatched"`
+	Remapped  int    `json:"remapped"`
+	// Median and Worst are the differing pictures' shares, absent when none
+	// differed. A pointer because 0.0 is a real answer here — a filter whose
+	// worst disagreement is nought pixels is not the same as one with nothing
+	// to disagree about — and omitempty cannot tell those apart.
+	Median *float64 `json:"median,omitempty"`
+	Worst  *float64 `json:"worst,omitempty"`
+}
+
+// Summarize turns a population's results into the record of it, worst filter
+// first, which is the same order Report reads in.
+func Summarize(population string, documents int, rs []Result) Summary {
+	s := Summary{Population: population, Documents: documents}
+	for _, r := range rs {
+		switch r.Missing {
+		case Ours:
+			s.Refused++
+		case Neither:
+			s.Unopenable++
+		case Theirs:
+			s.Declined++
+		}
+	}
+	by := Tally(rs)
+	for _, k := range order(by) {
+		c := by[k]
+		f := FilterCounts{Filter: k, Pictures: c.Pictures, Exact: c.Exact,
+			Inverted: c.Inverted, Differing: len(c.Shares),
+			Unmatched: c.Unmatched, Remapped: c.Remapped}
+		if len(c.Shares) > 0 {
+			median, worst := spread(c.Shares)
+			f.Median, f.Worst = &median, &worst
+		}
+		s.Filters = append(s.Filters, f)
+	}
+	return s
+}
+
+// spread is the middle and the end of the differing shares.
+func spread(shares []float64) (median, worst float64) {
+	s := append([]float64(nil), shares...)
+	sort.Float64s(s)
+	return s[len(s)/2], s[len(s)-1]
+}
+
+// order puts the filters worst first, because a filter that is right
+// everywhere is not the one to read about.
+func order(by map[string]*Counts) []string {
+	keys := make([]string, 0, len(by))
+	for k := range by {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		ai, bi := rightness(by[keys[i]]), rightness(by[keys[j]])
+		if ai != bi {
+			return ai < bi
+		}
+		return keys[i] < keys[j]
+	})
+	return keys
 }

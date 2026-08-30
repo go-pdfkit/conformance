@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-gfx/gfx/raster"
 	"github.com/go-pdfkit/reader"
+	"github.com/go-pdfkit/render"
 )
 
 // pageOfPictures writes a document whose page draws the given image XObjects,
@@ -195,22 +196,36 @@ func TestEachPictureIsMatchedOnlyOnce(t *testing.T) {
 }
 
 func TestADocumentThatCannotBeLookedAt(t *testing.T) {
+	notAPDF := func(t *testing.T) string {
+		p := filepath.Join(t.TempDir(), "no.pdf")
+		os.WriteFile(p, []byte("hello"), 0o644)
+		return p
+	}
 	for _, tc := range []struct {
 		name, want string
 		path       func(t *testing.T) string
+		// opens is what the judge says when asked the same file.
+		opens error
+		blame Missing
 	}{
 		{"a file that is not there", "unreadable",
-			func(t *testing.T) string { return filepath.Join(t.TempDir(), "gone.pdf") }},
-		{"a file that is not a PDF", "refused", func(t *testing.T) string {
-			p := filepath.Join(t.TempDir(), "no.pdf")
-			os.WriteFile(p, []byte("hello"), 0o644)
-			return p
-		}},
+			func(t *testing.T) string { return filepath.Join(t.TempDir(), "gone.pdf") },
+			nil, Ours},
+		// Refused by ours and read by the judge is the one shape of this
+		// that is a defect, and it must not read the same as the others.
+		{"a document only ours refuses", "refused", notAPDF, nil, Ours},
+		{"a document neither will open", "refused", notAPDF, os.ErrInvalid, Neither},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			was := infoCommand
+			defer func() { infoCommand = was }()
+			infoCommand = func(string) error { return tc.opens }
 			got := Judge(tc.path(t), Options{})
 			if len(got) != 1 || got[0].Share != -1 || !strings.Contains(got[0].Note, tc.want) {
-				t.Errorf("got %+v", got)
+				t.Fatalf("got %+v", got)
+			}
+			if got[0].Missing != tc.blame {
+				t.Errorf("blamed %q, want %q", got[0].Missing, tc.blame)
 			}
 		})
 	}
@@ -233,7 +248,12 @@ func TestTheOtherSideRefusing(t *testing.T) {
 		return reader.Dict{"I": grey(w)}
 	}), Options{})
 	if len(got) != 1 || got[0].Share != -1 || !strings.Contains(got[0].Note, "took nothing out") {
-		t.Errorf("got %+v", got)
+		t.Fatalf("got %+v", got)
+	}
+	// Ours drew a picture and the judge did not, which is a page there is no
+	// answer about rather than one ours got wrong.
+	if got[0].Missing != Theirs {
+		t.Errorf("blamed %q", got[0].Missing)
 	}
 }
 
@@ -428,8 +448,17 @@ func TestAPageThatIsNotThereSaysSo(t *testing.T) {
 	}
 	got := judgePage(d, path, 9)
 	if len(got) != 1 || got[0].Share != -1 || !strings.Contains(got[0].Note, "no page") {
-		t.Errorf("page nine of a one-page document came back as %+v", got)
+		t.Fatalf("page nine of a one-page document came back as %+v", got)
 	}
+	if got[0].Missing != Ours {
+		t.Errorf("blamed %q", got[0].Missing)
+	}
+}
+
+func TestTheRealJudgeIsTheOneAskedWhoRefused(t *testing.T) {
+	// Whether poppler is installed decides the answer, not whether the
+	// statement runs.
+	_ = infoCommand(filepath.Join(t.TempDir(), "gone.pdf"))
 }
 
 func TestTheRealCommandIsTheOneThatIsRun(t *testing.T) {
@@ -437,4 +466,82 @@ func TestTheRealCommandIsTheOneThatIsRun(t *testing.T) {
 	// error, not whether the statement runs — so this covers the wiring on a
 	// machine with nothing installed as well as on one with poppler.
 	_ = popplerCommand("-h")
+}
+
+func TestSummarizeKeepsWhatTheReportSays(t *testing.T) {
+	// The record and the report are the same measurement, so a filter that
+	// reads worst in one must come first in the other.
+	got := Summarize("ia-medical", 4, []Result{
+		{Name: "A", Filter: "CCITTFaxDecode", Share: 0, Missing: Judged},
+		{Name: "B", Filter: "JBIG2Decode", Share: 0.5},
+		{Name: "C", Filter: "JBIG2Decode", Share: 0.25},
+		{Name: "D", Filter: "JBIG2Decode", Share: -1},
+		{Name: "E", Filter: "DCTDecode", Share: 1, Inverted: true},
+		{Name: "F", Filter: "DCTDecode", Decoded: true},
+		{Share: -1, Missing: Ours, Note: "refused: x"},
+		{Share: -1, Missing: Neither, Note: "refused: y"},
+		{Share: -1, Missing: Theirs, Note: "they took nothing out: x"},
+		{Share: -1, Missing: Theirs, Note: "they took nothing out: y"},
+	})
+	if got.Population != "ia-medical" || got.Documents != 4 {
+		t.Errorf("the record does not say what was judged: %+v", got)
+	}
+	// What could not be compared is counted by the side that had nothing, so
+	// a corpus that got harder cannot be read as a decoder that got worse.
+	// A picture that was compared is neither, whichever way it came out.
+	if got.Refused != 1 || got.Unopenable != 1 || got.Declined != 2 {
+		t.Errorf("refused %d, unopenable %d, declined %d; want 1, 1 and 2",
+			got.Refused, got.Unopenable, got.Declined)
+	}
+	if len(got.Filters) != 3 || got.Filters[0].Filter != "JBIG2Decode" {
+		t.Fatalf("the worst filter is not first: %+v", got.Filters)
+	}
+	j := got.Filters[0]
+	if j.Pictures != 3 || j.Differing != 2 || j.Unmatched != 1 || j.Exact != 0 {
+		t.Errorf("JBIG2 counted as %+v", j)
+	}
+	if j.Median == nil || *j.Median != 0.5 || j.Worst == nil || *j.Worst != 0.5 {
+		t.Errorf("the spread of two differing pictures is %v/%v", j.Median, j.Worst)
+	}
+	for _, f := range got.Filters[1:] {
+		if f.Median != nil || f.Worst != nil {
+			t.Errorf("%s differed nowhere yet carries a spread", f.Filter)
+		}
+	}
+}
+
+func TestSummarizeSaysNothingAboutAnEmptyTally(t *testing.T) {
+	// A population whose documents draw no pictures is not a population that
+	// disagreed, and its record must not invent a filter to say so.
+	if got := Summarize("empty", 0, nil); len(got.Filters) != 0 {
+		t.Errorf("got %+v", got.Filters)
+	}
+}
+
+func TestARepeatedDrawIsOnePicture(t *testing.T) {
+	// render.Images answers per draw and pdfimages answers per image. A page
+	// that stamps the same logo repeatedly must be judged once, or every
+	// repeat after the first lands in the unmatched column and the corpus
+	// reads as unjudged when it was only counted twice.
+	got := distinct([]render.Image{
+		{Name: "Im1", Filter: "DCTDecode"},
+		{Name: "Im2"},
+		{Name: "Im1", Filter: "DCTDecode"},
+		{Name: "Im1", Filter: "DCTDecode"},
+		{Name: "Im2"},
+	})
+	if len(got) != 2 {
+		t.Fatalf("kept %d pictures, want 2: %+v", len(got), got)
+	}
+	// The order it first draws them in is the order kept, because that is the
+	// order the names read in and a record is compared by eye as well.
+	if got[0].Name != "Im1" || got[1].Name != "Im2" {
+		t.Errorf("kept %q then %q", got[0].Name, got[1].Name)
+	}
+}
+
+func TestDistinctKeepsAPageThatRepeatsNothing(t *testing.T) {
+	if got := distinct([]render.Image{{Name: "A"}, {Name: "B"}}); len(got) != 2 {
+		t.Errorf("got %+v", got)
+	}
 }
