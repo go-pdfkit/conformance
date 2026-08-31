@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-pdfkit/conformance/compare"
 	"github.com/go-pdfkit/conformance/corpus"
+	"github.com/go-pdfkit/conformance/internal/poppler"
 )
 
 // tinyCorpus writes a manifest naming two populations and a file for each.
@@ -158,5 +159,37 @@ func TestTheReportNamesTheSlowPages(t *testing.T) {
 	}
 	if strings.Contains(got, "/corpus/") {
 		t.Errorf("the whole path is in the way: %q", got)
+	}
+}
+
+func TestTheReportNamesEveryPageTheJudgeHungOn(t *testing.T) {
+	// conformance#21. A page the judge would not answer about is not a page
+	// that disagreed, and the two are the same absence in a count — so the
+	// document is named, with the tool, and with its whole path, because the
+	// point of naming it is to go and look at it.
+	judge(t, compare.Result{Path: "/corpus/gh-qpdf/hangs.pdf", Page: 1,
+		Share: -1, Tool: "pdftoppm", Note: "hung: pdftoppm did not finish within 2m0s"})
+	var out, errOut bytes.Buffer
+	if code := run([]string{"-dir", tinyCorpus(t)}, &out, &errOut); code != 0 {
+		t.Fatalf("exit %d: %s", code, errOut.String())
+	}
+	got := out.String()
+	if !strings.Contains(got, "hung  pdftoppm  /corpus/gh-qpdf/hangs.pdf page 1") {
+		t.Errorf("the hang is not named with its tool and path: %q", got)
+	}
+}
+
+func TestTheBoundOnTheJudgeCanBeSaid(t *testing.T) {
+	// A corpus of larger pages may want a larger bound, and a run that used
+	// one has to be able to say so.
+	was := poppler.Timeout
+	defer func() { poppler.Timeout = was }()
+	judge(t, compare.Result{Path: "a.pdf", Page: 1, Share: 0})
+	var out, errOut bytes.Buffer
+	if code := run([]string{"-dir", tinyCorpus(t), "-timeout", "9m"}, &out, &errOut); code != 0 {
+		t.Fatalf("exit %d: %s", code, errOut.String())
+	}
+	if poppler.Timeout != 9*time.Minute {
+		t.Errorf("the judge is bounded at %v", poppler.Timeout)
 	}
 }

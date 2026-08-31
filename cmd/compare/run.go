@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-pdfkit/conformance/compare"
 	"github.com/go-pdfkit/conformance/corpus"
+	"github.com/go-pdfkit/conformance/internal/poppler"
 )
 
 // compareOne is a variable so a test can judge without poppler installed.
@@ -25,6 +26,7 @@ func run(args []string, out, errOut io.Writer) int {
 	dpi := fs.Float64("dpi", 72, "what to ask both renderers for")
 	budget := fs.Duration("budget", 20*time.Second, "how long a page may be drawn for")
 	slow := fs.Duration("slow", 20*time.Second, "report pages we took longer than this on")
+	judgeTimeout := fs.Duration("timeout", poppler.Timeout, "how long the judge may take on one page before it is called a hang")
 	limit := fs.Int("limit", 0, "judge no more than this many documents per population")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -33,6 +35,10 @@ func run(args []string, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, "compare: -dir is needed")
 		return 2
 	}
+	// The judge is bounded rather than left to the caller's patience, because
+	// pdftoppm hangs on at least one document of this corpus and a hang looks
+	// exactly like a slow run; see conformance#21.
+	poppler.Timeout = *judgeTimeout
 	entries, err := corpus.Read(*dir)
 	if err != nil {
 		fmt.Fprintf(errOut, "compare: %v\n", err)
@@ -84,5 +90,11 @@ func report(out io.Writer, name string, s compare.Summary) {
 	for _, r := range s.Slow {
 		fmt.Fprintf(out, "\t%12v  %s page %d\n",
 			r.Ours.Round(time.Millisecond), filepath.Base(r.Path), r.Page)
+	}
+	// Every hang is named, and none is summarised away: a page the judge
+	// would not answer about is not a page that disagreed, and a reader who
+	// cannot tell those apart has a report that misleads.
+	for _, r := range s.Hung {
+		fmt.Fprintf(out, "\thung  %s  %s page %d\n", r.Tool, r.Path, r.Page)
 	}
 }

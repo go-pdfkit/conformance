@@ -91,6 +91,56 @@ carry one, and all 22 are soft masks.
 A filter with nothing comparable left is not reported as the worst thing in the
 corpus: nothing to compare is not evidence of being wrong.
 
+## The judge can hang, and a hang looks like a slow run
+
+`pdfimages -list` **does not return** on
+`pdfforms/gh-qpdf/qpdf_qtest_qpdf_shared-unnamed-field.pdf`, a document of
+**2496 bytes**. Neither does `pdfimages`, and neither does `pdfinfo`. Two
+sweeps of this repository stalled on it and had to be killed by hand
+([conformance#21](https://github.com/go-pdfkit/conformance/issues/21)).
+
+That is a property of the judge rather than a defect of ours, and the danger is
+not the hang: it is that **a hang and a long job are indistinguishable from
+outside**. A sweep that stops dead at document 900 of 2268 is waited on rather
+than investigated, and the wait has no end.
+
+So every invocation of a poppler tool here goes through
+[`internal/poppler`](internal/poppler/poppler.go), under one bound, and a
+document that exceeds it is **recorded by name with the tool that hung** —
+never dropped, never retried silently. `images` reports it as `hung`, the
+baseline record carries the list in `hung`, and `compare` names the page. A
+named timeout is data about the corpus; a silent one is a gap a reader cannot
+tell from a bad score, which is the distinction the record already makes
+between `refused` and `unopenable`.
+
+Three things follow from taking the hang seriously rather than merely surviving
+it.
+
+**The deadline is read off the context and not off the error.** A killed
+process reports a signal and a tool that merely failed reports a status, so the
+error alone cannot tell a hang from a refusal — and telling them apart is the
+whole point.
+
+**A `pdfinfo` that hangs is not an unopenable document.** `blame` asks poppler
+whether it would open what ours refused, and counting no answer as *"neither
+would open it"* would credit the document as `unopenable` — which is subtracted
+from a population's real size, so it would quietly shrink the denominator every
+rate is quoted over.
+
+**A listing that hangs does not make a page's pictures colour-converted.** The
+listing is half the instrument: it is what puts every picture into the `direct`
+bucket or the `converted` one. A page whose listing never came back would be
+tallied as wholly converted, which is a real number in a real column and
+indistinguishable from a page of CMYK. It is reported as a hang instead.
+
+**The bound is not calibrated from timings, and says so.** The machine these
+runs are made on is shared, so a duration measured on it measures the other job
+as much as this one, and a bound read off a loaded machine would fire on
+documents that are merely large. It is set far above any plausible handling of
+one page — two minutes, `-timeout` on both commands — so that a firing means a
+hang. The value the run used is recorded beside the gate, because a run under a
+shorter bound names documents as hung that a longer one measures.
+
 ## What is compared, and what `exact` asserts
 
 **The comparison is per channel**, and it landed with the re-measurement

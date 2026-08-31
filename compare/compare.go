@@ -10,18 +10,26 @@
 // pixel — so what is measured is the share of pixels differing by more than a
 // quarter of the range once both are reduced to grey and blurred slightly,
 // which is what "the same page" means to somebody looking at it.
+//
+// # The judge is bounded, and a hang is named
+//
+// A poppler tool can hang on a document this corpus holds; the reason and the
+// bound are in internal/poppler. So pdftoppm runs under it, and a page it does
+// not finish is named with the tool that hung — Result.Tool and Summary.Hung —
+// rather than dropped or retried. A named timeout is data about the corpus; a
+// silent one is a gap a reader cannot tell from a page that scored badly.
 package compare
 
 import (
 	"fmt"
 	"image/png"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"time"
 
 	"github.com/go-gfx/gfx/raster"
+	"github.com/go-pdfkit/conformance/internal/poppler"
 	"github.com/go-pdfkit/reader"
 	"github.com/go-pdfkit/render"
 )
@@ -38,14 +46,20 @@ type Result struct {
 	// Ours and Theirs are how long each renderer took, which is the other
 	// thing worth knowing: a page drawn in no time may be a page drawn blank.
 	Ours, Theirs time.Duration
+	// Tool is the poppler tool that did not finish within poppler.Timeout,
+	// empty when none did. A page the judge would not answer about is not a
+	// page that disagreed, and only the named ones can be gone and looked at.
+	Tool string
 }
 
 // Options say how to draw.
 type Options struct {
 	// DPI both renderers are asked for.
 	DPI float64
-	// MaxDuration bounds our own renderer. Poppler is bounded by the caller's
-	// patience.
+	// MaxDuration bounds our own renderer. The judge is bounded by
+	// poppler.Timeout, which is a repository-wide setting rather than an
+	// option because it is not a property of the comparison: it is the point
+	// at which the other implementation is declared to have hung.
 	MaxDuration time.Duration
 	// Pages is how many of each document to judge; 0 means the first only.
 	Pages int
@@ -96,8 +110,13 @@ func comparePage(d *reader.Document, path string, p int, opt Options) Result {
 		}
 		return r
 	}
-	theirs, took, err := poppler(path, p, opt.DPI)
+	theirs, took, hung, err := draw(path, p, opt.DPI)
 	r.Theirs = took
+	if hung {
+		r.Tool = "pdftoppm"
+		r.Note = "hung: " + poppler.DidNotFinish("pdftoppm").Error()
+		return r
+	}
 	if err != nil {
 		r.Note = "they drew nothing: " + err.Error()
 		return r
@@ -113,38 +132,45 @@ func comparePage(d *reader.Document, path string, p int, opt Options) Result {
 }
 
 // popplerCommand is a variable so a test can stand in for the other renderer
-// without one being installed.
-var popplerCommand = func(args ...string) error { return exec.Command("pdftoppm", args...).Run() }
+// without one being installed. It answers whether the tool hung, and then
+// whether it failed.
+var popplerCommand = func(args ...string) (bool, error) {
+	_, hung, err := poppler.Run("pdftoppm", args...)
+	return hung, err
+}
 
-// poppler draws one page with pdftoppm and reads the result back.
-func poppler(path string, page int, dpi float64) (*raster.Image, time.Duration, error) {
+// draw draws one page with pdftoppm and reads the result back.
+func draw(path string, page int, dpi float64) (*raster.Image, time.Duration, bool, error) {
 	dir, err := os.MkdirTemp("", "compare")
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, false, err
 	}
 	defer os.RemoveAll(dir)
 	stem := filepath.Join(dir, "p")
 	start := time.Now()
-	err = popplerCommand("-cropbox", "-r", fmt.Sprint(int(dpi)),
+	hung, err := popplerCommand("-cropbox", "-r", fmt.Sprint(int(dpi)),
 		"-f", fmt.Sprint(page), "-l", fmt.Sprint(page), "-png", path, stem)
 	took := time.Since(start)
+	if hung {
+		return nil, took, true, err
+	}
 	if err != nil {
-		return nil, took, err
+		return nil, took, false, err
 	}
 	matches, _ := filepath.Glob(stem + "*.png")
 	if len(matches) == 0 {
-		return nil, took, fmt.Errorf("it wrote no picture")
+		return nil, took, false, fmt.Errorf("it wrote no picture")
 	}
 	f, err := os.Open(matches[0])
 	if err != nil {
-		return nil, took, err
+		return nil, took, false, err
 	}
 	defer f.Close()
 	im, err := png.Decode(f)
 	if err != nil {
-		return nil, took, err
+		return nil, took, false, err
 	}
-	return raster.FromImage(im), took, nil
+	return raster.FromImage(im), took, false, nil
 }
 
 // difference is the share of pixels that differ materially once both pictures
@@ -217,6 +243,11 @@ type Summary struct {
 	// nobody a way to go and look at it. What is wanted is the document and
 	// the page, so this keeps them.
 	Slow []Result
+	// Hung names every page the judge would not finish drawing. Unlike Slow
+	// it is not capped: a cap is a way of dropping names, and a hang that is
+	// not named is indistinguishable from a page that scored badly, which is
+	// the whole reason the bound exists.
+	Hung []Result
 }
 
 // slowKept is how many slow pages are named. Enough to see whether they are
@@ -235,6 +266,9 @@ func Summarise(rs []Result, slow time.Duration) Summary {
 		if slow > 0 && r.Ours > slow {
 			s.Over++
 			s.Slow = append(s.Slow, r)
+		}
+		if r.Tool != "" {
+			s.Hung = append(s.Hung, r)
 		}
 		if r.Share < 0 {
 			s.NotCompared++

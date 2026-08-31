@@ -63,29 +63,29 @@ func standInSpaces(t *testing.T, space string, pics ...image.Image) {
 	t.Helper()
 	wasPictures, wasList := popplerCommand, listCommand
 	t.Cleanup(func() { popplerCommand, listCommand = wasPictures, wasList })
-	popplerCommand = func(args ...string) error {
+	popplerCommand = func(args ...string) (bool, error) {
 		stem := args[len(args)-1]
 		for i, pic := range pics {
 			f, err := os.Create(fmt.Sprintf("%s-%03d.png", stem, i))
 			if err != nil {
-				return err
+				return false, err
 			}
 			if err := png.Encode(f, pic); err != nil {
 				f.Close()
-				return err
+				return false, err
 			}
 			f.Close()
 		}
-		return nil
+		return false, nil
 	}
-	listCommand = func(...string) ([]byte, error) {
+	listCommand = func(...string) ([]byte, bool, error) {
 		var sb strings.Builder
 		sb.WriteString("page   num  type   width height color comp bpc  enc interp  object ID x-ppi y-ppi size ratio\n")
 		sb.WriteString("------\n")
 		for i := range pics {
 			fmt.Fprintf(&sb, "   1  %4d image      2     1  %s    1   8  image  no   7  0  72  72 9B 50%%\n", i, space)
 		}
-		return []byte(sb.String()), nil
+		return []byte(sb.String()), false, nil
 	}
 }
 
@@ -338,7 +338,7 @@ func TestAPictureWithNoListingRowIsNotCreditedAsAgreeing(t *testing.T) {
 	standIn(t, twoPixels(true))
 	was := listCommand
 	defer func() { listCommand = was }()
-	listCommand = func(...string) ([]byte, error) { return nil, os.ErrPermission }
+	listCommand = func(...string) ([]byte, bool, error) { return nil, false, os.ErrPermission }
 	got := Judge(pageOfPictures(t, func(w *reader.Writer) reader.Dict {
 		return reader.Dict{"I": grey(w)}
 	}), Options{})
@@ -363,13 +363,16 @@ func TestTheListingIsReadPastItsHeader(t *testing.T) {
 	// short to hold a colour space is not one either.
 	was := listCommand
 	defer func() { listCommand = was }()
-	listCommand = func(...string) ([]byte, error) {
+	listCommand = func(...string) ([]byte, bool, error) {
 		return []byte("page   num  type   width height color comp bpc\n" +
 			"-----------------\n" +
 			"   1     0 image     2     1  index   1   8\n" +
-			"   1     1\n"), nil
+			"   1     1\n"), false, nil
 	}
-	got := listing("whatever.pdf", 1)
+	got, hung := listing("whatever.pdf", 1)
+	if hung {
+		t.Fatal("a listing that came back was called a hang")
+	}
 	if len(got) != 1 || got[0] != "index" {
 		t.Errorf("the listing read as %v", got)
 	}
@@ -381,25 +384,25 @@ func TestPicturesAreOrderedByTheirNumberAndNotTheirName(t *testing.T) {
 	// lexical order pairs the wrong pictures.
 	wasPictures, wasList := popplerCommand, listCommand
 	defer func() { popplerCommand, listCommand = wasPictures, wasList }()
-	popplerCommand = func(args ...string) error {
+	popplerCommand = func(args ...string) (bool, error) {
 		stem := args[len(args)-1]
 		for i, n := range []string{"0999", "1000"} {
 			f, err := os.Create(stem + "-" + n + ".png")
 			if err != nil {
-				return err
+				return false, err
 			}
 			err = png.Encode(f, twoPixels(i == 0))
 			f.Close()
 			if err != nil {
-				return err
+				return false, err
 			}
 		}
-		return nil
+		return false, nil
 	}
-	listCommand = func(...string) ([]byte, error) { return nil, os.ErrPermission }
-	got, err := poppler("whatever.pdf", 1)
-	if err != nil {
-		t.Fatal(err)
+	listCommand = func(...string) ([]byte, bool, error) { return nil, false, os.ErrPermission }
+	got, tool, err := judgeShots("whatever.pdf", 1)
+	if err != nil || tool != "" {
+		t.Fatalf("poppler answered %q, %v", tool, err)
 	}
 	if len(got) != 2 || got[0].num != 999 || got[1].num != 1000 {
 		t.Fatalf("ordered as %+v", got)
@@ -456,7 +459,7 @@ func TestADocumentThatCannotBeLookedAt(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			was := infoCommand
 			defer func() { infoCommand = was }()
-			infoCommand = func(string) error { return tc.opens }
+			infoCommand = func(string) (bool, error) { return false, tc.opens }
 			got := Judge(tc.path(t), Options{})
 			if len(got) != 1 || got[0].Share != -1 || !strings.Contains(got[0].Note, tc.want) {
 				t.Fatalf("got %+v", got)
@@ -480,7 +483,7 @@ func TestAPageWithNoPicturesSaysNothing(t *testing.T) {
 func TestTheOtherSideRefusing(t *testing.T) {
 	was := popplerCommand
 	defer func() { popplerCommand = was }()
-	popplerCommand = func(...string) error { return os.ErrPermission }
+	popplerCommand = func(...string) (bool, error) { return false, os.ErrPermission }
 	got := Judge(pageOfPictures(t, func(w *reader.Writer) reader.Dict {
 		return reader.Dict{"I": grey(w)}
 	}), Options{})
@@ -497,7 +500,7 @@ func TestTheOtherSideRefusing(t *testing.T) {
 func TestTheOtherSideWritingNothing(t *testing.T) {
 	was := popplerCommand
 	defer func() { popplerCommand = was }()
-	popplerCommand = func(...string) error { return nil }
+	popplerCommand = func(...string) (bool, error) { return false, nil }
 	got := Judge(pageOfPictures(t, func(w *reader.Writer) reader.Dict {
 		return reader.Dict{"I": grey(w)}
 	}), Options{})
@@ -510,10 +513,10 @@ func TestAFileTheyWroteThatIsNotAPicture(t *testing.T) {
 	// A truncated PNG is skipped rather than taken for a picture of no size.
 	was := popplerCommand
 	defer func() { popplerCommand = was }()
-	popplerCommand = func(args ...string) error {
+	popplerCommand = func(args ...string) (bool, error) {
 		stem := args[len(args)-1]
 		os.WriteFile(stem+"-000.png", []byte("not a png"), 0o644)
-		return nil
+		return false, nil
 	}
 	got := Judge(pageOfPictures(t, func(w *reader.Writer) reader.Dict {
 		return reader.Dict{"I": grey(w)}
@@ -679,7 +682,7 @@ func TestNowhereToPutWhatTheyWrite(t *testing.T) {
 	// The pictures come back through the filesystem, so a machine with no
 	// temporary directory reports that rather than pretending.
 	t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "not-there"))
-	if _, err := poppler("whatever.pdf", 1); err == nil {
+	if _, _, err := judgeShots("whatever.pdf", 1); err == nil {
 		t.Error("pictures came out of a machine with nowhere to put them")
 	}
 }
@@ -724,7 +727,7 @@ func TestAPageThatIsNotThereSaysSo(t *testing.T) {
 func TestTheRealJudgeIsTheOneAskedWhoRefused(t *testing.T) {
 	// Whether poppler is installed decides the answer, not whether the
 	// statement runs.
-	_ = infoCommand(filepath.Join(t.TempDir(), "gone.pdf"))
+	_, _ = infoCommand(filepath.Join(t.TempDir(), "gone.pdf"))
 }
 
 func TestTheRealCommandsAreTheOnesThatAreRun(t *testing.T) {
@@ -732,8 +735,8 @@ func TestTheRealCommandsAreTheOnesThatAreRun(t *testing.T) {
 	// for what it says about them. Whether it is installed decides the error,
 	// not whether the statement runs — so this covers the wiring on a machine
 	// with nothing installed as well as on one with poppler.
-	_ = popplerCommand("-h")
-	_, _ = listCommand("-h")
+	_, _ = popplerCommand("-h")
+	_, _, _ = listCommand("-h")
 }
 
 func TestSummarizeKeepsWhatTheReportSays(t *testing.T) {
@@ -808,5 +811,93 @@ func TestSummarizeSaysNothingAboutAnEmptyTally(t *testing.T) {
 	// disagreed, and its record must not invent a filter to say so.
 	if got := Summarize("empty", 0, nil); len(got.Filters) != 0 {
 		t.Errorf("got %+v", got.Filters)
+	}
+}
+
+func TestATooLLongExtractionIsNamedAndNotDropped(t *testing.T) {
+	// conformance#21: pdfimages hangs for ever on at least one document of
+	// the forms corpus, and a hang looks exactly like a slow run. What the
+	// bound buys is only worth having if the document comes back BY NAME, so
+	// that it can be told from one that scored badly.
+	standIn(t, twoPixels(true))
+	was := popplerCommand
+	defer func() { popplerCommand = was }()
+	popplerCommand = func(...string) (bool, error) { return true, os.ErrDeadlineExceeded }
+	path := pageOfPictures(t, func(w *reader.Writer) reader.Dict {
+		return reader.Dict{"I": grey(w)}
+	})
+	got := Judge(path, Options{})
+	if len(got) != 1 || got[0].Missing != Hung {
+		t.Fatalf("a hang came back as %+v", got)
+	}
+	if got[0].Tool != "pdfimages" || got[0].Path != path {
+		t.Errorf("the hang does not say which tool on which document: %+v", got[0])
+	}
+	if !strings.Contains(got[0].Note, "did not finish within") {
+		t.Errorf("the note says %q", got[0].Note)
+	}
+	// It is not a disagreement and not a filter's doing, so nothing about it
+	// reaches the tally.
+	if by := Tally(got); len(by) != 0 {
+		t.Errorf("a hang was tallied as %+v", by)
+	}
+}
+
+func TestAListingThatHangsIsNamedRatherThanCountedAsConverted(t *testing.T) {
+	// The listing is what puts every picture on a page into the direct bucket
+	// or the converted one. A listing that never came back would otherwise
+	// tally the page as wholly converted, which is a real number in a real
+	// column and indistinguishable from a page of CMYK.
+	standIn(t, twoPixels(true))
+	was := listCommand
+	defer func() { listCommand = was }()
+	listCommand = func(...string) ([]byte, bool, error) { return nil, true, os.ErrDeadlineExceeded }
+	got := Judge(pageOfPictures(t, func(w *reader.Writer) reader.Dict {
+		return reader.Dict{"I": grey(w)}
+	}), Options{})
+	if len(got) != 1 || got[0].Missing != Hung || got[0].Tool != "pdfimages -list" {
+		t.Fatalf("a listing that hung came back as %+v", got)
+	}
+}
+
+func TestAJudgeThatHangsOnTheRefusalQuestionIsNotAnUnopenableDocument(t *testing.T) {
+	// blame asks pdfinfo whether the judge would open what ours refused.
+	// pdfinfo hangs on the same document pdfimages does, and counting that as
+	// "neither would open it" would credit the document as unopenable — which
+	// is subtracted from the population's real size, so it would shrink the
+	// denominator every rate is quoted over.
+	was := infoCommand
+	defer func() { infoCommand = was }()
+	infoCommand = func(string) (bool, error) { return true, os.ErrDeadlineExceeded }
+	path := filepath.Join(t.TempDir(), "not.pdf")
+	if err := os.WriteFile(path, []byte("not a pdf"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := Judge(path, Options{})
+	if len(got) != 1 || got[0].Missing != Hung || got[0].Tool != "pdfinfo" {
+		t.Fatalf("got %+v", got)
+	}
+	if !strings.Contains(got[0].Note, "whose refusal this is is not known") {
+		t.Errorf("the note claims to know whose refusal it was: %q", got[0].Note)
+	}
+}
+
+func TestTheRecordNamesEveryDocumentThatHung(t *testing.T) {
+	// A count would say a population had hangs. What is wanted is which
+	// documents, so somebody can go and look at them.
+	got := Summarize("gh-qpdf", 2, []Result{
+		{Path: "a.pdf", Page: 1, Missing: Hung, Tool: "pdfimages", Difference: unjudged()},
+		{Path: "b.pdf", Page: 3, Missing: Hung, Tool: "pdfinfo", Difference: unjudged()},
+	})
+	if len(got.Hung) != 2 || got.Hung[0] != (Hang{Path: "a.pdf", Page: 1, Tool: "pdfimages"}) {
+		t.Fatalf("the record says %+v", got.Hung)
+	}
+	if got.Hung[1].Tool != "pdfinfo" || got.Hung[1].Page != 3 {
+		t.Errorf("the second hang reads %+v", got.Hung[1])
+	}
+	// A hang is none of the other three, or the counts would say a decoder
+	// did something it did not.
+	if got.Refused != 0 || got.Unopenable != 0 || got.Declined != 0 {
+		t.Errorf("a hang was counted as something else: %+v", got)
 	}
 }
