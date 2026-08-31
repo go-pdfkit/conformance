@@ -1,7 +1,8 @@
 {
   "corpus": "/Users/Shared/pdfscans",
-  "taken": "2026-08-30T18:16:00Z",
+  "taken": "2026-08-31T09:43:25Z",
   "pages": 1,
+  "gate": 2,
   "judge": "pdfimages version 26.04.0",
   "modules": [
     {
@@ -22,11 +23,11 @@
     },
     {
       "path": "github.com/go-opentype/opentype",
-      "version": "v0.10.0"
+      "version": "v0.12.0"
     },
     {
       "path": "github.com/go-pdfkit/pdffont",
-      "version": "v0.3.0"
+      "version": "v0.3.1"
     },
     {
       "path": "github.com/go-pdfkit/reader",
@@ -34,7 +35,7 @@
     },
     {
       "path": "github.com/go-pdfkit/render",
-      "version": "v0.19.0"
+      "version": "v0.20.0"
     },
     {
       "path": "github.com/sergeymakinen/go-bmp",
@@ -66,75 +67,224 @@
       "declined": 0,
       "filters": [
         {
-          "filter": "JPXDecode",
-          "pictures": 4,
-          "exact": 1,
-          "inverted": 0,
-          "differing": 3,
-          "unmatched": 0,
-          "remapped": 0,
-          "median": 0.0002962566844919786,
-          "worst": 0.0007496251874062968
-        },
-        {
           "filter": "DCTDecode",
           "pictures": 22,
-          "exact": 8,
-          "inverted": 0,
-          "differing": 14,
           "unmatched": 0,
           "remapped": 0,
-          "median": 0.00008611657313449974,
-          "worst": 0.0021064301552106432
+          "direct": {
+            "pictures": 17,
+            "exact": 6,
+            "identical": 1,
+            "inverted": 0,
+            "differing": 11,
+            "terms": {
+              "share": {
+                "median": 0.0070241235888294715,
+                "worst": 0.22729237787152845
+              },
+              "peak": {
+                "median": 23,
+                "worst": 81
+              },
+              "mse": {
+                "median": 0.2898416320063379,
+                "worst": 4.080425157645235
+              },
+              "mean": {
+                "median": -0.00012597547380156077,
+                "worst": -0.07832969354401291
+              }
+            }
+          },
+          "converted": {
+            "pictures": 5,
+            "exact": 3,
+            "identical": 1,
+            "inverted": 0,
+            "differing": 2,
+            "terms": {
+              "share": {
+                "median": 0.1388580931263858,
+                "worst": 0.1388580931263858
+              },
+              "peak": {
+                "median": 105,
+                "worst": 105
+              },
+              "mse": {
+                "median": 95.06023651145603,
+                "worst": 95.06023651145603
+              },
+              "mean": {
+                "median": 0.9964523281596452,
+                "worst": 0.9964523281596452
+              }
+            }
+          }
         },
         {
           "filter": "(samples) mask",
           "pictures": 51,
-          "exact": 13,
-          "inverted": 34,
-          "differing": 3,
           "unmatched": 1,
           "remapped": 0,
-          "median": 0.9583333333333334,
-          "worst": 0.9583333333333334
+          "direct": {
+            "pictures": 49,
+            "exact": 13,
+            "identical": 13,
+            "inverted": 34,
+            "differing": 2,
+            "terms": {
+              "share": {
+                "median": 0.9583333333333334,
+                "worst": 0.9583333333333334
+              },
+              "peak": {
+                "median": 255,
+                "worst": 255
+              },
+              "mse": {
+                "median": 62315.625,
+                "worst": 62315.625
+              },
+              "mean": {
+                "median": -240.390625,
+                "worst": -240.390625
+              }
+            }
+          },
+          "converted": {
+            "pictures": 1,
+            "exact": 0,
+            "identical": 0,
+            "inverted": 0,
+            "differing": 1,
+            "terms": {
+              "share": {
+                "median": 1,
+                "worst": 1
+              },
+              "peak": {
+                "median": 207,
+                "worst": 207
+              },
+              "mse": {
+                "median": 16375.44343127322,
+                "worst": 16375.44343127322
+              },
+              "mean": {
+                "median": -98.18777440054036,
+                "worst": -98.18777440054036
+              }
+            }
+          }
         },
         {
           "filter": "(samples)",
           "pictures": 44,
-          "exact": 38,
-          "inverted": 0,
-          "differing": 4,
           "unmatched": 0,
           "remapped": 2,
-          "median": 0.0021212121212121214,
-          "worst": 0.11921648091860858
+          "direct": {
+            "pictures": 32,
+            "exact": 30,
+            "identical": 30,
+            "inverted": 0,
+            "differing": 2,
+            "terms": {
+              "share": {
+                "median": 1,
+                "worst": 1
+              },
+              "peak": {
+                "median": 207,
+                "worst": 207
+              },
+              "mse": {
+                "median": 16181.416075650119,
+                "worst": 16181.416075650119
+              },
+              "mean": {
+                "median": 96.87301587301587,
+                "worst": 96.87301587301587
+              }
+            }
+          },
+          "converted": {
+            "pictures": 10,
+            "exact": 8,
+            "identical": 8,
+            "inverted": 0,
+            "differing": 2,
+            "terms": {
+              "share": {
+                "median": 1,
+                "worst": 1
+              },
+              "peak": {
+                "median": 101,
+                "worst": 101
+              },
+              "mse": {
+                "median": 1089.9151515151516,
+                "worst": 1089.9151515151516
+              },
+              "mean": {
+                "median": 0.24666666666666667,
+                "worst": -28.91919191919192
+              }
+            }
+          }
         },
         {
           "filter": "JBIG2Decode",
           "pictures": 9,
-          "exact": 9,
-          "inverted": 0,
-          "differing": 0,
           "unmatched": 0,
-          "remapped": 0
+          "remapped": 0,
+          "direct": {
+            "pictures": 9,
+            "exact": 9,
+            "identical": 9,
+            "inverted": 0,
+            "differing": 0
+          }
         },
         {
           "filter": "JBIG2Decode mask",
           "pictures": 3,
-          "exact": 0,
-          "inverted": 3,
-          "differing": 0,
           "unmatched": 0,
-          "remapped": 0
+          "remapped": 0,
+          "direct": {
+            "pictures": 3,
+            "exact": 0,
+            "identical": 0,
+            "inverted": 3,
+            "differing": 0
+          }
+        },
+        {
+          "filter": "JPXDecode",
+          "pictures": 4,
+          "unmatched": 0,
+          "remapped": 0,
+          "direct": {
+            "pictures": 4,
+            "exact": 4,
+            "identical": 0,
+            "inverted": 0,
+            "differing": 0
+          }
         },
         {
           "filter": "JPXDecode mask",
           "pictures": 1,
-          "exact": 1,
-          "inverted": 0,
-          "differing": 0,
           "unmatched": 0,
-          "remapped": 0
+          "remapped": 0,
+          "direct": {
+            "pictures": 1,
+            "exact": 1,
+            "identical": 1,
+            "inverted": 0,
+            "differing": 0
+          }
         }
       ]
     }

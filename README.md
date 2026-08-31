@@ -91,36 +91,106 @@ carry one, and all 22 are soft masks.
 A filter with nothing comparable left is not reported as the worst thing in the
 corpus: nothing to compare is not evidence of being wrong.
 
-## What is compared, and what "exact" asserts
+## What is compared, and what `exact` asserts
 
-**The comparison reduces every pixel to one bit.** `difference` in
-[`images/images.go`](images/images.go) asks of each pixel, on each side,
-whether it is *ink* — alpha at least 128, luminance below 128 — and counts the
-pixels whose answer differs. So `Share` is **not** the fraction of pixels that
-differ. It is the fraction whose black/white classification differs, and
-**`exact` means no pixel's classification differs.**
+**The comparison is per channel**, and it landed with the re-measurement
+below. `difference` in [`images/images.go`](images/images.go) subtracts the two
+pictures channel by channel and carries four terms out of one walk:
 
-For a **bilevel** picture those are the same claim. A one-bit stencil, a CCITT
-page, a JBIG2 page hold nothing the bisection can lose, so `exact` there is
-bit equality, and the 100% both JBIG2 columns read means what a reader takes
-it to mean.
+| term | what it is |
+|---|---|
+| **`peak`** | the largest absolute difference any channel reached, in levels of 255. **This is the criterion**: a picture agrees when its peak is at most `D`. |
+| **`share`** | the fraction of pixels where some channel differs by more than `D`. It is a **report and never a budget**: with the count budget `N` at zero, *"share is nought"* and *"peak is within `D`"* are the same statement, which is why pdfium computes a percentage and then requires it to be zero (`testing/image_diff.cpp:287-288`). |
+| **`mse`** | the mean squared error over every compared channel, in levels squared — FFmpeg's `omse` (`dct.c:256`) and pdfium's `mse` (`image_diff.cpp:181`) in their own units, so a published limit can be read against it directly. |
+| **`mean`** | the **signed** mean error, ours minus theirs, in levels — FFmpeg's `ome`. This is the term that catches **bias**. |
 
-For a **greyscale or colour** picture it is strictly weaker, and weaker in one
-particular direction. A decoder that renders every pixel of a scan at
-luminance 120 where poppler renders 20 scores **0.000** — perfect agreement —
-because both sides are ink. That is an error of 100 levels on every single
-pixel, and this instrument cannot see it. **A systematic level or chroma shift
-is the characteristic failure of a lossy decoder**, so on `DCTDecode`,
-`JPXDecode` and `(samples)` the measure is blind in exactly the direction
-those codecs fail.
+`D` is **2** and `N` is **0**. Neither aggregate term is a pass criterion, and
+that is deliberate: **no bound on either has been measured for pictures that
+were extracted rather than rendered**, and adopting pdfium's 0.05 for a
+different operation would repeat exactly the mistake the withdrawn 1% was — a
+number carried onto an instrument that did not produce it. They are recorded so
+that a bound can be chosen from evidence later.
 
-Every published figure that comes from comparing pixels inherits that.
-`exact`, `agreement`, `differing`, `median`, `worst` and `inverted` are
-statements about ink classification, bit equality only where the picture is
-bilevel. The counts that do not compare pixels — `documents`, `refused`,
-`unopenable`, `declined`, `unmatched`, `remapped` — are unaffected, so
-**`refused` is 0 in the full sense**, and so is the reading that nothing in
-the corpus is refused that poppler can read.
+Beside `exact`, every bucket also counts **`identical`**: how many of the
+agreeing pictures differed by *nothing at all*. A gate is a loosening, and a
+reader who cannot tell bit equality from agreement the gate carried has an
+agreement rate that means less than it looks like.
+
+### What it replaced, and what that could not see
+
+Until this landed, the per-pixel predicate was a **bisection**: a pixel was
+*ink* when its alpha was at least 128 and its luminance below 128, and `Share`
+was the fraction of pixels whose ink **classification** differed. For a bilevel
+picture that is exact — a stencil, a CCITT page, a JBIG2 page hold nothing the
+bisection can lose. For anything else it was strictly weaker, in one
+particular direction: **a decoder rendering every pixel of a scan at luminance
+120 where poppler renders 20 scored 0.000**, perfect agreement, on an error of
+100 levels at every pixel. A systematic level or chroma shift is the
+characteristic failure of a lossy decoder, so the instrument was blind in
+exactly the direction the codecs fail.
+
+**Every figure taken with that instrument is that narrower thing, and cannot be
+subtracted from a figure taken with this one.** `baseline/README.md` says
+which populations carry which, and no table mixes them.
+
+### The three things the rule did not settle
+
+**Colour conversion is not codec error, and per channel it is large.** Our side
+is RGBA from `render`; theirs is a PNG `pdfimages` wrote. A CMYK, ICC or Lab
+picture reaches those two forms through two different sets of colour
+arithmetic, and a `D` of 2 fires on all of it. Widening `D` to absorb that
+would destroy the gate, so instead **each picture carries the colour space
+`pdfimages` reports for it** — `ImageOutputDev.cc:152-190` prints `gray`,
+`rgb`, `cmyk`, `lab`, `icc`, `index`, `sep`, `devn`, and `-` for a mask — and
+the pictures poppler had to *convert* to reach RGB are tallied in **their own
+bucket**, with their own agreement figure and their own magnitudes, the way
+`remapped` and `inverted` are already counted apart.
+
+Two honesties about that classification. `index` is counted **converted**
+although its base space is often `DeviceRGB`, because `pdfimages` does not
+report the base and a picture that cannot be classified must not be credited as
+agreement. And poppler folds `CalGray` onto `gray` and `CalRGB` onto `rgb`, so
+a few pictures counted direct did pass through a CIE conversion — that is
+poppler's resolution and not a claim of ours. A picture whose listing row could
+not be read at all also lands in the converted bucket, which makes a failure of
+`pdfimages -list` **loud** — every filter would read as wholly converted —
+rather than silently generous.
+
+**`Inverted` survives as its own signal.** `pdfimages` writes a stencil with
+the opposite polarity to the samples it holds, which a magnitude measure would
+report as maximal error at every pixel. So the complement is tested in the same
+pass, and `inverted` means *the direct comparison failed the gate and the
+complemented one passed it*. The direct comparison is tried first, so a uniform
+mid-grey — which is within the gate of its own complement — is reported as
+agreeing rather than filed away as a convention.
+
+**Alpha, and what a mask is compared in.** For an ordinary picture the compared
+channels are `R`, `G` and `B`; alpha is left out, because `pdfimages` writes an
+opaque picture for anything that is not a mask and writes a soft mask out as
+its own file, so a difference in alpha would be a difference in what the two
+tools chose to *emit*. A mask is not comparable channel for channel, and
+`render` does not put one in a single place either. Both layouts were read out
+of the buffers rather than assumed:
+
+- a `/ImageMask true` **stencil** carries no colour of its own, so `render`
+  returns it black with the shape in the **alpha** channel — `us-opm`'s
+  `SF2801PR.pdf` `Im0`, 325×240, every RGB nought and exactly two alpha values;
+- an `/SMask` is eight-bit greyscale, so `render` returns it **opaque with its
+  levels in RGB** — `us-opm`'s `sf2822.pdf` `Im0/SMask`, 116×73, alpha 255 at
+  all 8468 of its pixels.
+
+poppler writes both as opaque grey, black where the mask paints. So a mask is
+compared in **one derived channel, ink coverage**, by the same formula on both
+sides: `alpha × (255 − luminance) ÷ 255`. On a stencil the luminance is nought
+and it is the alpha; on a soft mask the alpha is 255 and it is the inverted
+luminance; on poppler's side it is always the inverted luminance. One formula,
+correct for all three layouts, and it is what the bisection was doing per bit.
+
+Taking the alpha of a soft mask instead — which the first draft of this measure
+did — made `us-opm`'s one agreeing `(samples) mask` read as a 48% disagreement
+with a peak of 255 and a mean of +88.6. That was an artefact of the reduction
+and not a decoder, and it is recorded here because it is the kind of thing a
+new instrument produces before anyone checks it against the buffers.
 
 ## The 1% tolerance is withdrawn
 
@@ -170,8 +240,9 @@ not to 1%: Playwright's `maxDiffPixels = maxDiffPixels1 ?? maxDiffPixels2 ??
 `--thresholdPixel` both "0 by default" and both "Applied after
 `matchingThreshold`" (`README.md:50-51`). Even blink-diff, the one default
 budget here that is not zero, has a per-pixel `delta` of 20 in front of it
-(`index.js:153`). Our `Share` is a count over a predicate with no severity in
-it at all, which is the one construction all of them independently avoid.
+(`index.js:153`). `Share` **was** a count over a predicate with no severity in
+it at all, which is the one construction all of them independently avoid; it
+is now a count over a magnitude gate, and it is reported rather than spent.
 
 Cairo states the objection outright, and it is the one that applies to us.
 `test/buffer-diff.c:43-44`:
@@ -194,17 +265,16 @@ not be.** 1% of a 4000×4000 render is 160 000 pixels — a contiguous block of
 (`index.js`, the `windowSize` scan) exists to bound *density* instead, and a
 whole-image count is its degenerate case.
 
-## What should replace it
+## Where `D` and `N` come from
 
-The rule this repository should adopt, and the reasons are ours rather than
-borrowed:
+The rule, and the reasons are ours rather than borrowed:
 
 > **Compare per channel. A pixel counts as differing only when some channel
 > differs by more than `D`. A picture agrees when at most `N` such pixels
 > differ, and when the aggregate error is within bound. `D` and `N` default to
 > 0 and are raised per case with a recorded reason.**
 
-**`D` should be 2, not pdfium's 3.** pdfium compares *rendered pages*, so its
+**`D` is 2, not pdfium's 3.** pdfium compares *rendered pages*, so its
 3 buys slack for rasteriser and anti-aliasing differences. We have none to
 buy: `pdfimages` extracts rather than renders, which is why this tool asks it,
 so there is nothing between the codec and the pixels. What is left is codec
@@ -224,20 +294,22 @@ so JPX is required exact on most conformance files and permitted a small
 bounded error on a few.
 
 **Whatever a per-case exception is raised to, 25 is a ceiling it must not
-cross**, for Cairo's stated reason.
+cross**, for Cairo's stated reason. There is **one gate and no per-case table**
+in the code, because there is no case yet: nothing measured has asked for an
+exception, and an exception mechanism with nothing in it is a promise rather
+than a measurement.
 
-**An aggregate term is warranted, and it should be two terms.** pdfium found
+**An aggregate term is warranted, and it is two terms.** pdfium found
 the mirror of our defect — a per-pixel gate with an unbounded count, where
 many small forgiven differences accumulate — and answered it with a
 mean-squared error (`testing/utils/pixel_diff_util.h:11-12`,
-`testing/image_diff.cpp:171-183`). We should take that, and take a **signed
-mean** with it, as FFmpeg does at `dct.c:259` where `fabs(ome) > 0.0015` sits
-beside `omse > 0.02`. The two catch different things: MSE catches accumulated
-noise, the signed mean catches *bias*. Bias is the failure this instrument is
-documented above as being blind to, so it is the term we most specifically
-need, and it is cheap.
+`testing/image_diff.cpp:171-183`). Both are taken, as FFmpeg carries them at `dct.c:259` where
+`fabs(ome) > 0.0015` sits beside `omse > 0.02`. The two catch different things:
+MSE catches accumulated noise, the signed mean catches *bias*. Bias is the
+failure the bisection was blind to, so it is the term most specifically needed
+here, and it is cheap.
 
-**`N` should default to 0.** That is the field's default wherever a count
+**`N` is 0.** That is the field's default wherever a count
 budget exists at all, and pdfium — doing our exact job — requires its
 percentage to be zero. A nonzero `N` should be per population and per filter,
 each one carrying a written reason, as pdfium's 142 scoped entries in
@@ -246,16 +318,8 @@ each one carrying a written reason, as pdfium's 142 scoped entries in
 within a window rather than a share of the whole picture**, so that the
 threshold does not loosen as the picture grows.
 
-**`Inverted` must survive the change.** `Share == 1` detects that ours and
-theirs are exact complements, which is the stencil polarity convention and not
-a disagreement; a magnitude measure would report it as a maximal error and
-lose the distinction. Whatever replaces `difference`, polarity stays its own
-signal.
-
-The design and the re-measurement it requires are
-[conformance#16](https://github.com/go-pdfkit/conformance/issues/16). This
-document states the rule and does not yet claim it: **no per-channel figure
-has been measured**, and every number below is the ink-classification measure.
+The design, and the re-measurement it required, are
+[conformance#16](https://github.com/go-pdfkit/conformance/issues/16).
 
 ## One rule for every filter, not one per codec
 
@@ -281,80 +345,89 @@ rule treated exactly as it treated JPEG — is not loosened at all there but
 disabled outright, `testing/SUPPRESSIONS:735-737`.
 
 **The seam the field cuts is "does this case have a documented reason to be
-fuzzy", not "is the source data lossy".** So the replacement is one rule,
-above, with `D` and `N` at 0 for everything and raised per case. `DCTDecode`
-and `JPXDecode` then reach `D = 2` as an exception that carries the ISO
-citation as its recorded reason — the same outcome the split produced, arrived
-at the way the evidence supports, and reversible if a measurement ever says
-otherwise. It also stops the split doing harm in the other direction. Under
-it a lossless filter can never be granted anything however good the reason,
-and `(samples)` is a live candidate: its 84.9% is two implementations doing
-different ICC conversion read through a bisection — `fr-cerfa` differs on 535
-`(samples)` pictures at a median of 0.286 — which is not a decode defect. What
-that needs is not a wider count budget but comparison per channel, with
-colour-converted pictures counted in their own column; the split forbids even
-asking.
+fuzzy", not "is the source data lossy".** So what landed is one rule and one
+number: **`D` is 2 for every filter**, carrying the ISO citation as its
+recorded reason, and there is no per-case table because there is no case.
+`Gate` is a constant in [`images/images.go`](images/images.go) and an
+exception mechanism with nothing in it would be a promise rather than a
+measurement.
+
+Two consequences, and both are stated rather than buried.
+
+**It is a loosening for the lossless filters**, which could defensibly be held
+to 0 — JPEG 2000 conformance is required exact on most of ISO/IEC 15444-4's
+files, and CCITT and JBIG2 have no rounding at all. Whether that loosening
+bought anything was measured rather than assumed, and the answer is **nothing**:
+across both corpora, every agreeing picture of `JBIG2Decode`, `JBIG2Decode
+mask`, `JPXDecode mask`, `(samples)` and `(samples) mask` is **bit-identical**
+— 250 of 250, 10 of 10, 2 of 2, 638 of 638, 1074 of 1074. Not one needed the
+gate, so the uniform `D` costs the lossless filters nothing and there is still
+no measured case for an exception table.
+
+**And it stops the split doing harm in the other direction.** Under the split a
+lossless filter could never be granted anything however good the reason, and
+`(samples)` was the live candidate: its 84.9% was two implementations doing
+different ICC conversion read through a bisection. What that needed was not a
+wider count budget but comparison per channel with the colour-converted
+pictures counted apart, and it now has both: 3083 of `(samples)`'s 4292
+pictures are colour-converted and are tallied on their own, leaving a
+decoder figure of 69.7% over 916.
 
 ## What the landed record says under all this
 
-The band analysis that produced the 1% is kept below rather than deleted,
-because it is the record of how the number was reached and a withdrawn
-derivation is still evidence about the corpus. **It is a statement about the
-ink-classification statistic and about nothing else.**
+**The band was an artefact of the bisection, and it did not survive.** The
+withdrawn 1% was read off eighteen population × lossy-filter rows whose medians
+fell into fourteen from 0.000011 to 0.001966 and four from 0.047161 to 0.898821
+— a factor of **24** of empty band with 1% inside it. Measured per channel over
+the same two corpora, the 21 direct-bucket rows that had anything differ are a
+continuum: the largest gap anywhere in them is a factor of **6.8**, and where
+fourteen of eighteen used to sit below 1%, **two of twenty-one do**.
 
-`baseline/` records, per population and filter, the median and worst of the
-differing shares. Eighteen rows are a lossy filter with something to say, and
-sorted by median they fall in two groups: fourteen from 0.000011 to 0.001966,
-then nothing, then four from 0.047161 to 0.898821 — a factor of 24 of empty
-band. One population was re-measured picture by picture, `fr-cerfa` at
-`render` v0.20.0, and the gap is there too: 100 of its 105 differing
-`DCTDecode` pictures fall between 0.00000046 and 0.0086996, then 0.094990 and
-four larger.
+**And those two are the argument against ever putting the threshold back.**
+Their peak medians are **18 and 23 levels**, nine and eleven times the gate.
+Under the bisection the low group was rounding *by construction* — a pixel one
+level from luminance 128 could flip it. Under a magnitude measure the low group
+is **sparse gross error**, so a 1% budget would now forgive pictures wrong by up
+to 81 levels on a few hundred pixels. That is Cairo's *"otherwise some problems
+could be masked"* in this corpus's own numbers, and it is why `N` stays at 0.
 
-**Four fifths of that tail is not evidence.** Each of the 105 was checked
-against what `pdfimages -list` says its page holds, because
-[conformance#13](https://github.com/go-pdfkit/conformance/issues/13) showed
-`match` manufactures disagreements when a page draws many pictures of one
-size:
+**The measure separates the two lossy filters, which the bisection could not.**
+`JPXDecode` and `DCTDecode` used to read 15.4% and 33.2% and looked like two
+versions of one problem:
 
-| | pictures | ≤ 0.0087 | above 1% |
-|---|---:|---:|---|
-| **pairing unambiguous** | 95 | 94 | **0.094990** |
-| pairing ambiguous | 10 | 6 | 0.250000, 0.375000, 0.571429, 0.750000 |
+| filter | compared | exact | **identical** | agreement | was |
+|---|---:|---:|---:|---:|---:|
+| `JPXDecode` | 1225 | 1215 | **7** | **99.2%** | 15.4% |
+| `DCTDecode` | 430 | 146 | **4** | **34.0%** | 33.2% |
 
-All four largest are 7×1 and 8×1 slivers on page 1 of `cerfa_12626.pdf`, where
-`pdfimages` extracts 2122 pictures of size 8×1 and 81 of size 7×1, so they are
-paired at random and their shares are two to six differing pixels out of
-eight. **`fr-cerfa`'s worst `DCTDecode` disagreement is 0.095, not the 0.750
-that `baseline/` records.** The other five populations' worst pictures have
-not been audited for pairing.
+JPEG 2000 agrees within two levels almost everywhere and is bit-equal almost
+nowhere, which is what a conformant lossy decoder looks like. **JPEG did not
+move**, so it differs from poppler by more than the ISO/IEC 10918-2 IDCT
+allowance on two thirds of what it was compared on — by 16 to 62 levels in most
+populations. That is a specific finding about a decoder, and it is the first
+one this repository has produced; the two rates are not comparable to one
+another and neither is subtracted from the old one.
 
-**No confirmed decode defect is known in this corpus.** The two concentrations
-that looked like candidates are not: of the 173 `(samples)` complements in
-`fr-cerfa`, 144 are this instrument's own matcher and 29 are `pdfimages`
-writing a one-bit `/Indexed` picture black only for an exactly `#000000`
-palette entry; the 28 in `us-opm` are the stencil convention, where poppler's
-own `pdftoppm` agrees with `go-pdfkit` against `pdfimages`. What is left above
-the band is a set of **unexplained disagreements**, which is not the same as
-defects, and nobody has established that any of them is ours to fix.
+**And one thing the record says about itself.** `refused` is 4 across 3280
+documents, all in `ia-biodiversity`, and all four are `render` v0.20.0's own
+256-megapixel decode budget declining a page rather than a document we cannot
+read. That is the other half of the fix that let the population run at all: it
+bounded the decode, and a bound that fires reads here as a refusal. The
+instrument folds "cannot read" and "declined to decode" into one count and
+should not; the four are named in the baseline so nobody reads them as a
+coverage gap.
 
-**And the record cannot be recomputed under any tolerance.** It holds, per
-filter, the exact count and the median and worst of the shares that differed.
-A median says half, so half of `ia-medical`'s 426 differing JPX pictures is
-all it can tell about how many sit under any cut. Eleven of the eighteen lossy
-rows have a *worst* below 1%, so all 81 of their differing pictures would be
-inside; four have a *median* above it; three are split in a proportion the
-record does not give. **Recording the count under the threshold is something a
-run must do, and the run that does it should be the one that measures per
-channel.**
+The rest — every population, every filter, the ordered medians — is in
+[`baseline/README.md`](baseline/README.md).
 
 ## What it comes to today
 
 A number that is not written down cannot be regressed against. `baseline/`
-holds a whole run of `images` over both corpora — the counts per population
-per filter, and beside them the corpus, the poppler that judged it, every
-module version it was built against and when it was taken, because a figure
-that drops between two runs means a regression only if everything else held.
+holds a whole run of `images` over both corpora — the counts per population per
+filter, and beside them the corpus, the poppler that judged it, **the gate the
+comparison used**, every module version it was built against and when it was
+taken, because a figure that drops between two runs means a regression only if
+everything else held.
 
 ```
 images -dir /Users/Shared/pdfscans -only ia-medical -json
@@ -362,32 +435,23 @@ images -dir /Users/Shared/pdfscans -only ia-medical -json
 
 [`baseline/README.md`](baseline/README.md) reads it out.
 
-### Those numbers were taken at `render` v0.19.0, and this is v0.20.0
+### Every population ran, including the three that never had
 
-Every record under `baseline/` carries the versions it was built against in its
-own `modules` block, and every one of them says **`render` v0.19.0**. This
-repository is now built against **v0.20.0**, and a run taken here is across a
-seam from them.
+| population | before | now |
+|---|---|---|
+| `pdfscans-ia-biodiversity` | killed at 24.9 GB, `rc=137` | completed, peak 3.9 GB |
+| `pdfforms-gh-openpdf` | killed at 27.5 GB, `rc=137` | completed |
+| `pdfscans-ia-americana` | hit the 45-minute cap, `rc=124`, cause unknown | completed, peak 5.2 GB, in 53 minutes |
 
-The seam is `render.Images`. Under v0.19.0 it answered per **draw**: a page
-that stamped one logo five hundred times yielded five hundred entries decoded
-from the same bytes, against `pdfimages`'s one, so this repository kept one
-entry per resource name to compensate. v0.20.0 removed the cause — a page's
-resources were being walked as a tree when they are a graph, so a picture
-reached through two forms was decoded once per path — and each picture now
-comes back once however many forms reach it.
+The two allocation failures were `render` v0.19.0 walking a page's resources as
+a tree when they are a graph; **v0.20.0's fix is confirmed on both**. The third
+was never a defect — a slow population of large scans and a cap that was too
+short — and that open question is closed.
 
-**So the compensation is gone, and it had to go.** A resource name is unique
-within one dictionary and not across them. Under v0.20.0, over the whole
-`/Users/Shared/pdfforms` corpus, **40 of its 2268 documents draw two different
-pictures sharing a name on their first page, and collapsing on the name would
-have dropped 64 of them** — 28 in `gh-qpdf`, where qpdf's form-XObject fixtures
-give two forms an `Im1` each, and 36 in `fr-impots`, where one issuer's real
-forms do the same with `Im0`. The second half of that is the part that matters:
-this is not only a property of a test corpus.
-
-A later reader comparing a fresh run against `baseline/` without noticing the
-seam would be reading a change in what is counted as a change in what is right.
+**Both seams are behind these records, not in front of them.** They were taken
+at `render` v0.20.0 with the per-channel measure, so all 23 populations are one
+instrument and one library version, and nothing under `baseline/` is inherited
+from the ink bisection at v0.19.0 any more.
 
 ## How it is checked
 

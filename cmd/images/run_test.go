@@ -49,7 +49,7 @@ func judge(t *testing.T, rs ...images.Result) *int {
 }
 
 func TestRunReportsEachPopulationSeparately(t *testing.T) {
-	judge(t, images.Result{Name: "I", Filter: "JBIG2Decode", Share: 0})
+	judge(t, images.Result{Name: "I", Filter: "JBIG2Decode"})
 	var out, errOut bytes.Buffer
 	if code := run([]string{"-dir", tinyCorpus(t)}, &out, &errOut); code != 0 {
 		t.Fatalf("exit %d: %s", code, errOut.String())
@@ -64,7 +64,7 @@ func TestRunReportsEachPopulationSeparately(t *testing.T) {
 }
 
 func TestRunLooksAtOnePopulation(t *testing.T) {
-	judge(t, images.Result{Name: "I", Share: 0})
+	judge(t, images.Result{Name: "I"})
 	var out, errOut bytes.Buffer
 	if code := run([]string{"-dir", tinyCorpus(t), "-only", "beta"}, &out, &errOut); code != 0 {
 		t.Fatalf("exit %d: %s", code, errOut.String())
@@ -76,7 +76,7 @@ func TestRunLooksAtOnePopulation(t *testing.T) {
 
 func TestRunStopsAtTheLimit(t *testing.T) {
 	// A corpus is large and a first look should not have to be a whole one.
-	n := judge(t, images.Result{Name: "I", Share: 0})
+	n := judge(t, images.Result{Name: "I"})
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "alpha"), 0o755); err != nil {
 		t.Fatal(err)
@@ -162,7 +162,8 @@ func atTime(t *testing.T, s string) {
 }
 
 func TestRunWritesABaselineThatCanBeComparedAgainst(t *testing.T) {
-	judge(t, images.Result{Name: "I", Filter: "JBIG2Decode", Share: 0.5})
+	judge(t, images.Result{Name: "I", Filter: "JBIG2Decode",
+		Difference: images.Difference{Share: 0.5, Peak: 30, MSE: 9, Mean: -3}})
 	atTime(t, "2026-08-30T15:04:05Z")
 	var out, errOut bytes.Buffer
 	if code := run([]string{"-dir", tinyCorpus(t), "-json"}, &out, &errOut); code != 0 {
@@ -181,8 +182,17 @@ func TestRunWritesABaselineThatCanBeComparedAgainst(t *testing.T) {
 		t.Fatalf("populations came out as %+v", got.Populations)
 	}
 	p := got.Populations[0]
-	if p.Documents != 1 || len(p.Filters) != 1 || p.Filters[0].Differing != 1 {
+	if p.Documents != 1 || len(p.Filters) != 1 || p.Filters[0].Direct == nil ||
+		p.Filters[0].Direct.Differing != 1 {
 		t.Errorf("alpha came out as %+v", p)
+	}
+	// The gate IS the instrument, so a record that did not carry it could not
+	// be told apart from one taken by the ink bisection that preceded it.
+	if got.Gate != images.Gate {
+		t.Errorf("the record says the gate was %d", got.Gate)
+	}
+	if peak := p.Filters[0].Direct.Terms.Peak.Worst; peak != 30 {
+		t.Errorf("the magnitudes did not reach the record: %+v", p.Filters[0].Direct.Terms)
 	}
 	if p.Refused != 0 || p.Unopenable != 0 || p.Declined != 0 {
 		t.Errorf("a population that was judged reports something missing: %+v", p)
@@ -204,9 +214,9 @@ func TestWhatCouldNotBeComparedReachesTheRecord(t *testing.T) {
 	// reads a year later, so it is checked where it lands and not only where
 	// it is counted.
 	judge(t,
-		images.Result{Share: -1, Missing: images.Ours, Note: "refused: x"},
-		images.Result{Share: -1, Missing: images.Neither, Note: "refused: y"},
-		images.Result{Share: -1, Missing: images.Theirs, Note: "they took nothing out"},
+		images.Result{Difference: images.Difference{Share: -1}, Missing: images.Ours, Note: "refused: x"},
+		images.Result{Difference: images.Difference{Share: -1}, Missing: images.Neither, Note: "refused: y"},
+		images.Result{Difference: images.Difference{Share: -1}, Missing: images.Theirs, Note: "they took nothing out"},
 	)
 	atTime(t, "2026-08-30T15:04:05Z")
 	var out, errOut bytes.Buffer

@@ -34,6 +34,11 @@ type baseline struct {
 	Taken  string `json:"taken"`
 	// Pages is how many pages of each document the pictures were taken from.
 	Pages int `json:"pages"`
+	// Gate is the magnitude gate the comparison used, in levels of 255. It is
+	// recorded because it IS the instrument: a record taken at a different
+	// gate, or by the ink bisection that preceded any gate at all, is not
+	// comparable with this one and must not be subtracted from it.
+	Gate int `json:"gate"`
 	// Judge is the other implementation, the one whose agreement is the
 	// measurement. Empty when it would not say.
 	Judge string `json:"judge"`
@@ -85,7 +90,7 @@ func run(args []string, out, errOut io.Writer) int {
 	}
 	sort.Strings(names)
 	record := baseline{Corpus: *dir, Taken: now().UTC().Format(time.RFC3339),
-		Pages: *pages, Judge: judgeVersion(), Modules: modules()}
+		Pages: *pages, Gate: images.Gate, Judge: judgeVersion(), Modules: modules()}
 	for _, name := range names {
 		paths := groups[name]
 		if *limit > 0 && len(paths) > *limit {

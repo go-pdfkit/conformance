@@ -1,6 +1,7 @@
 package images
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -46,15 +47,26 @@ func grey(w *reader.Writer) reader.Object {
 	}, Raw: []byte{0x00, 0xff}})
 }
 
-// standIn replaces poppler with a function writing the pictures the test wants.
+// standIn replaces poppler with a function writing the pictures the test
+// wants, and a listing that says every one of them was greyscale.
+//
+// Both halves have to be stood in: a picture whose colour space could not be
+// read is counted among the converted, so a test that stood in only the
+// pictures would be measuring the converted bucket without meaning to.
 func standIn(t *testing.T, pics ...image.Image) {
 	t.Helper()
-	was := popplerCommand
-	t.Cleanup(func() { popplerCommand = was })
+	standInSpaces(t, "gray", pics...)
+}
+
+// standInSpaces is standIn with the colour space each picture is listed under.
+func standInSpaces(t *testing.T, space string, pics ...image.Image) {
+	t.Helper()
+	wasPictures, wasList := popplerCommand, listCommand
+	t.Cleanup(func() { popplerCommand, listCommand = wasPictures, wasList })
 	popplerCommand = func(args ...string) error {
 		stem := args[len(args)-1]
 		for i, pic := range pics {
-			f, err := os.Create(stem + "-00" + string(rune('0'+i)) + ".png")
+			f, err := os.Create(fmt.Sprintf("%s-%03d.png", stem, i))
 			if err != nil {
 				return err
 			}
@@ -65,6 +77,15 @@ func standIn(t *testing.T, pics ...image.Image) {
 			f.Close()
 		}
 		return nil
+	}
+	listCommand = func(...string) ([]byte, error) {
+		var sb strings.Builder
+		sb.WriteString("page   num  type   width height color comp bpc  enc interp  object ID x-ppi y-ppi size ratio\n")
+		sb.WriteString("------\n")
+		for i := range pics {
+			fmt.Fprintf(&sb, "   1  %4d image      2     1  %s    1   8  image  no   7  0  72  72 9B 50%%\n", i, space)
+		}
+		return []byte(sb.String()), nil
 	}
 }
 
@@ -101,6 +122,17 @@ func twoPixels(darkFirst bool) image.Image {
 	return im
 }
 
+// twoPixelsShifted is that picture with both its levels moved n towards the
+// middle, which is the kind of failure the bisection this replaced could not
+// see at all.
+func twoPixelsShifted(n int) image.Image {
+	im := image.NewRGBA(image.Rect(0, 0, 2, 1))
+	v := uint8(n)
+	im.Set(0, 0, color.RGBA{v, v, v, 255})
+	im.Set(1, 0, color.RGBA{255 - v, 255 - v, 255 - v, 255})
+	return im
+}
+
 func TestAPictureBothSidesReadTheSameWayIsExact(t *testing.T) {
 	standIn(t, twoPixels(true))
 	got := Judge(pageOfPictures(t, func(w *reader.Writer) reader.Dict {
@@ -109,11 +141,71 @@ func TestAPictureBothSidesReadTheSameWayIsExact(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("%d results", len(got))
 	}
-	if got[0].Share != 0 || got[0].Note != "" {
+	if got[0].Share != 0 || got[0].Peak != 0 || got[0].MSE != 0 || got[0].Mean != 0 {
 		t.Errorf("got %+v", got[0])
 	}
-	if got[0].Name != "I" || got[0].W != 2 || got[0].H != 1 {
+	if got[0].Note != "" || got[0].Name != "I" || got[0].W != 2 || got[0].H != 1 {
 		t.Errorf("got %+v", got[0])
+	}
+	if got[0].Space != "gray" || got[0].Converted {
+		t.Errorf("a greyscale picture was not counted as direct: %+v", got[0])
+	}
+	// Nothing differed at all, so it is bit equality and is counted as such.
+	if c := Tally(got)["(samples)"]; c == nil || c.Direct.Identical != 1 {
+		t.Errorf("a picture identical to the judge's was not counted so: %+v", c)
+	}
+}
+
+func TestALevelShiftUnderTheGateIsStillAgreement(t *testing.T) {
+	// Two conformant JPEG decoders may sit one IDCT level either side of the
+	// reference, so two levels is what they may legitimately differ by and
+	// Gate is 2. A picture inside that agrees.
+	standIn(t, twoPixelsShifted(Gate))
+	got := Judge(pageOfPictures(t, func(w *reader.Writer) reader.Dict {
+		return reader.Dict{"I": grey(w)}
+	}), Options{})
+	if len(got) != 1 || got[0].Share != 0 || got[0].Peak != Gate {
+		t.Fatalf("a picture within the gate came out as %+v", got)
+	}
+	// The magnitude is still recorded, and its sign says which way it ran:
+	// ours is darker than theirs at the first pixel and lighter at the
+	// second, so the bias cancels and the squared error does not.
+	if got[0].MSE != 4 || got[0].Mean != 0 {
+		t.Errorf("the aggregate terms are %v and %v, want 4 and 0", got[0].MSE, got[0].Mean)
+	}
+	// It agreed, and it is NOT identical. One gate applies to every filter,
+	// which is a loosening for the lossless ones, and the record has to say
+	// how much of an agreement rate the gate bought rather than leave a
+	// reader to assume bit equality.
+	c := Tally(got)["(samples)"]
+	if c == nil || c.Direct.Exact != 1 || c.Direct.Identical != 0 {
+		t.Errorf("the gate-assisted agreement was counted as bit equality: %+v", c)
+	}
+}
+
+func TestAUniformLevelShiftIsSeen(t *testing.T) {
+	// THE defect this measure exists for. The bisection it replaced asked only
+	// whether a pixel was ink, so a decoder a hundred levels off on every
+	// pixel scored 0.000 — perfect agreement. Every term must catch it, and
+	// the signed mean must say which way it ran.
+	shifted := image.NewRGBA(image.Rect(0, 0, 2, 1))
+	shifted.Set(0, 0, color.RGBA{0, 0, 0, 255})
+	shifted.Set(1, 0, color.RGBA{155, 155, 155, 255})
+	standIn(t, shifted)
+	got := Judge(pageOfPictures(t, func(w *reader.Writer) reader.Dict {
+		return reader.Dict{"I": grey(w)}
+	}), Options{})
+	if len(got) != 1 {
+		t.Fatalf("%d results", len(got))
+	}
+	d := got[0].Difference
+	if d.Share != 0.5 || d.Peak != 100 || d.Inverted {
+		t.Errorf("a hundred-level shift on half the pixels came out as %+v", d)
+	}
+	// Ours is lighter than theirs, so the bias is positive: 100 levels on
+	// three of six samples.
+	if d.Mean != 50 || d.MSE != 5000 {
+		t.Errorf("the aggregate terms are %v and %v, want 50 and 5000", d.Mean, d.MSE)
 	}
 }
 
@@ -130,6 +222,9 @@ func TestAPictureInTheWrongPlacesIsCaught(t *testing.T) {
 	if len(got) != 1 || got[0].Share != 0.75 || got[0].Inverted {
 		t.Fatalf("a picture read wrongly came out as %+v", got)
 	}
+	if got[0].Peak != 255 {
+		t.Errorf("the peak of a black-for-white pixel is %d", got[0].Peak)
+	}
 }
 
 func TestAnExactComplementIsSaidToBeOne(t *testing.T) {
@@ -140,19 +235,19 @@ func TestAnExactComplementIsSaidToBeOne(t *testing.T) {
 	// 32000-1 8.9.6.2 says to paint, pdfimages writes the other, and ours
 	// agrees with the rendering.
 	//
-	// So an exact complement is a convention and not a disagreement. It has to
-	// be told apart from a real one, because the two look the same in a count
-	// of differing pixels.
+	// So an exact complement is a convention and not a disagreement. Under a
+	// magnitude measure it would otherwise read as maximal error at every
+	// pixel, which is why polarity stays its own signal.
 	standIn(t, twoPixels(false))
 	got := Judge(pageOfPictures(t, func(w *reader.Writer) reader.Dict {
 		return reader.Dict{"I": grey(w)}
 	}), Options{})
-	if len(got) != 1 || got[0].Share != 1 || !got[0].Inverted {
+	if len(got) != 1 || !got[0].Inverted || got[0].Share != 1 || got[0].Peak != 255 {
 		t.Fatalf("got %+v", got)
 	}
 	by := Tally(got)
 	c := by["(samples)"]
-	if c == nil || c.Inverted != 1 || len(c.Shares) != 0 {
+	if c == nil || c.Direct.Inverted != 1 || len(c.Direct.Diffs) != 0 {
 		t.Fatalf("tallied as %+v", c)
 	}
 	if r := Report(by); !strings.Contains(r, "1 inverted") {
@@ -160,12 +255,154 @@ func TestAnExactComplementIsSaidToBeOne(t *testing.T) {
 	}
 }
 
+func TestANearComplementIsStillAComplement(t *testing.T) {
+	// The gate applies to the complement too, so a polarity convention
+	// carried through a codec that rounds is still recognised as a convention
+	// rather than reported as the worst disagreement in the corpus.
+	standIn(t, twoPixelsShifted(255-Gate))
+	got := Judge(pageOfPictures(t, func(w *reader.Writer) reader.Dict {
+		return reader.Dict{"I": grey(w)}
+	}), Options{})
+	if len(got) != 1 || !got[0].Inverted {
+		t.Fatalf("a complement within the gate came out as %+v", got)
+	}
+}
+
+func TestAPictureThatAgreesIsNeverCalledAComplement(t *testing.T) {
+	// A uniform mid-grey is within the gate of its own complement, so the
+	// direct comparison has to be tried first or a picture that agrees would
+	// be filed as a polarity convention and left out of the rate.
+	mid := &raster.Image{W: 1, H: 1, Pix: []uint8{127, 127, 127, 255}}
+	got := difference(mid, &raster.Image{W: 1, H: 1, Pix: []uint8{128, 128, 128, 255}}, false)
+	if got.Share != 0 || got.Inverted {
+		t.Errorf("a picture that agrees came out as %+v", got)
+	}
+}
+
 func TestAPictureMostlyWrongIsNotAComplement(t *testing.T) {
-	// Only EVERY pixel differing is a convention. Nearly every pixel is a
-	// defect, and must stay in the differing count where it will be read.
-	got := Tally([]Result{{Name: "a", Filter: "F", Share: 0.99}})
-	if c := got["F"]; c == nil || c.Inverted != 0 || len(c.Shares) != 1 {
+	// Only EVERY pixel being the other way round is a convention. Nearly every
+	// pixel is a defect, and must stay in the differing count where it is read.
+	got := Tally([]Result{{Name: "a", Filter: "F", Difference: Difference{Share: 0.99}}})
+	if c := got["F"]; c == nil || c.Direct.Inverted != 0 || len(c.Direct.Diffs) != 1 {
 		t.Errorf("got %+v", c)
+	}
+}
+
+func TestAColourConvertedPictureIsCountedApart(t *testing.T) {
+	// A CMYK or ICC picture reaches RGB through two different sets of colour
+	// arithmetic, and per channel that difference is large and is not a
+	// decoder disagreeing. It must not be absorbed by widening the gate, and
+	// it must not be averaged into the rate.
+	standInSpaces(t, "icc", threeQuartersWrong())
+	got := Judge(pageOfPictures(t, func(w *reader.Writer) reader.Dict {
+		return reader.Dict{"I": wide(w)}
+	}), Options{})
+	if len(got) != 1 || got[0].Space != "icc" || !got[0].Converted {
+		t.Fatalf("got %+v", got)
+	}
+	by := Tally(got)
+	c := by["(samples)"]
+	if c == nil || c.Direct.Pictures != 0 || c.Converted.Pictures != 1 {
+		t.Fatalf("tallied as %+v", c)
+	}
+	// The magnitudes are still recorded, so the claim that this is colour
+	// arithmetic can be checked rather than assumed.
+	if len(c.Converted.Diffs) != 1 || c.Converted.Diffs[0].Share != 0.75 {
+		t.Errorf("the converted bucket kept %+v", c.Converted.Diffs)
+	}
+	if r := Report(by); !strings.Contains(r, "converted") {
+		t.Errorf("the report does not name the bucket: %q", r)
+	}
+}
+
+func TestEveryColourSpacePopplerNamesIsClassified(t *testing.T) {
+	// The set is ImageOutputDev.cc:152-190. Only the three that reach RGB
+	// without a conversion are direct, and a space that could not be read is
+	// counted with the converted ones so that a failure of pdfimages -list is
+	// loud rather than silently generous.
+	for _, space := range []string{"gray", "rgb", "-"} {
+		if converted(space) {
+			t.Errorf("%q was counted as converted", space)
+		}
+	}
+	for _, space := range []string{"cmyk", "lab", "icc", "index", "sep", "devn", ""} {
+		if !converted(space) {
+			t.Errorf("%q was counted as direct", space)
+		}
+	}
+}
+
+func TestAPictureWithNoListingRowIsNotCreditedAsAgreeing(t *testing.T) {
+	// A picture the listing said nothing about cannot be classified, and is
+	// counted among the converted rather than credited to the rate.
+	standIn(t, twoPixels(true))
+	was := listCommand
+	defer func() { listCommand = was }()
+	listCommand = func(...string) ([]byte, error) { return nil, os.ErrPermission }
+	got := Judge(pageOfPictures(t, func(w *reader.Writer) reader.Dict {
+		return reader.Dict{"I": grey(w)}
+	}), Options{})
+	if len(got) != 1 || got[0].Space != "" || !got[0].Converted {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestAFileTheJudgeNumberedNothing(t *testing.T) {
+	// pdfimages numbers the file it writes with the row it listed the picture
+	// on, so a name with no digits after the dash cannot be classified.
+	if got := number("i-.png"); got != -1 {
+		t.Errorf("a name with no number came to %d", got)
+	}
+	if got := number("i-007.png"); got != 7 {
+		t.Errorf("i-007.png came to %d", got)
+	}
+}
+
+func TestTheListingIsReadPastItsHeader(t *testing.T) {
+	// The header and the rule under it do not parse as rows, and a row too
+	// short to hold a colour space is not one either.
+	was := listCommand
+	defer func() { listCommand = was }()
+	listCommand = func(...string) ([]byte, error) {
+		return []byte("page   num  type   width height color comp bpc\n" +
+			"-----------------\n" +
+			"   1     0 image     2     1  index   1   8\n" +
+			"   1     1\n"), nil
+	}
+	got := listing("whatever.pdf", 1)
+	if len(got) != 1 || got[0] != "index" {
+		t.Errorf("the listing read as %v", got)
+	}
+}
+
+func TestPicturesAreOrderedByTheirNumberAndNotTheirName(t *testing.T) {
+	// A page with more than a thousand pictures numbers one of them 1000,
+	// which sorts before 999 lexically. Matching is by size and order, so a
+	// lexical order pairs the wrong pictures.
+	wasPictures, wasList := popplerCommand, listCommand
+	defer func() { popplerCommand, listCommand = wasPictures, wasList }()
+	popplerCommand = func(args ...string) error {
+		stem := args[len(args)-1]
+		for i, n := range []string{"0999", "1000"} {
+			f, err := os.Create(stem + "-" + n + ".png")
+			if err != nil {
+				return err
+			}
+			err = png.Encode(f, twoPixels(i == 0))
+			f.Close()
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	listCommand = func(...string) ([]byte, error) { return nil, os.ErrPermission }
+	got, err := poppler("whatever.pdf", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].num != 999 || got[1].num != 1000 {
+		t.Fatalf("ordered as %+v", got)
 	}
 }
 
@@ -190,7 +427,7 @@ func TestEachPictureIsMatchedOnlyOnce(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("%d results", len(got))
 	}
-	if got[0].Share != 0 || got[1].Share != 1 {
+	if got[0].Share != 0 || !got[1].Inverted {
 		t.Errorf("got %+v and %+v", got[0], got[1])
 	}
 }
@@ -304,22 +541,44 @@ func TestMorePagesThanTheDocumentHas(t *testing.T) {
 
 func TestPicturesOfDifferentSizesAreNotCompared(t *testing.T) {
 	a := &raster.Image{W: 2, H: 1, Pix: make([]uint8, 8)}
-	if got := difference(a, &raster.Image{W: 1, H: 1, Pix: make([]uint8, 4)}); got != -1 {
-		t.Errorf("two sizes compared to %v", got)
+	if got := difference(a, &raster.Image{W: 1, H: 1, Pix: make([]uint8, 4)}, false); got.Share != -1 {
+		t.Errorf("two sizes compared to %+v", got)
 	}
 	empty := &raster.Image{W: 0, H: 0}
-	if got := difference(empty, empty); got != -1 {
-		t.Errorf("two empty pictures compared to %v", got)
+	if got := difference(empty, empty, false); got.Share != -1 {
+		t.Errorf("two empty pictures compared to %+v", got)
 	}
 }
 
-func TestWhatIsSeenThroughIsPaper(t *testing.T) {
-	// A stencil carries its shape in the alpha channel with black underneath,
-	// and poppler writes the same mask out as one bit. Reading a transparent
-	// black pixel as ink would make every stencil disagree.
-	im := &raster.Image{W: 1, H: 1, Pix: []uint8{0, 0, 0, 0}}
-	if dark(im, 0) {
-		t.Error("a pixel seen through was read as ink")
+func TestAMaskIsComparedInInkCoverage(t *testing.T) {
+	// render puts a mask in one of two places and poppler in a third, so one
+	// symmetric formula reduces all three; the layouts were read out of the
+	// buffers and are cited in the package comment.
+	//
+	// A /ImageMask true stencil: black, with the shape in the alpha channel.
+	// Painted then seen through.
+	stencil := &raster.Image{W: 2, H: 1, Pix: []uint8{0, 0, 0, 255, 0, 0, 0, 0}}
+	// poppler writes the same mask as opaque grey, black where it paints.
+	theirs := &raster.Image{W: 2, H: 1, Pix: []uint8{0, 0, 0, 255, 255, 255, 255, 255}}
+	if got := difference(stencil, theirs, true); got.Share != 0 || got.Peak != 0 {
+		t.Errorf("a stencil both sides agree on came out as %+v", got)
+	}
+	// A /SMask: opaque, with its levels in RGB. The same formula reduces it
+	// to the same coverage, so it compares against poppler's grey directly —
+	// and reading it as a stencil's alpha would have said 255 everywhere.
+	smask := &raster.Image{W: 2, H: 1, Pix: []uint8{0, 0, 0, 255, 255, 255, 255, 255}}
+	if got := difference(smask, theirs, true); got.Share != 0 || got.Peak != 0 {
+		t.Errorf("a soft mask both sides agree on came out as %+v", got)
+	}
+	// Read as three colour channels instead, the stencil disagrees with
+	// poppler on everything — which is what the reduction exists to prevent.
+	if got := difference(stencil, theirs, false); got.Peak != 255 {
+		t.Errorf("read as colour, the same pair came out as %+v", got)
+	}
+	// And the polarity convention still reads as one.
+	flipped := &raster.Image{W: 2, H: 1, Pix: []uint8{255, 255, 255, 255, 0, 0, 0, 255}}
+	if got := difference(stencil, flipped, true); !got.Inverted {
+		t.Errorf("a stencil written the other way round came out as %+v", got)
 	}
 }
 
@@ -331,11 +590,12 @@ func TestAPictureRemappedOnOneSideIsNotADisagreement(t *testing.T) {
 	// scanned medical pages came out at exactly 1.0000 that way, on pages that
 	// match poppler's rendering to a median of 0.0000.
 	by := Tally([]Result{
-		{Name: "a", Filter: "JBIG2Decode", Stencil: true, Decoded: true, Share: 1},
-		{Name: "b", Filter: "JBIG2Decode", Stencil: true, Share: 0},
+		{Name: "a", Filter: "JBIG2Decode", Stencil: true, Decoded: true,
+			Difference: Difference{Share: 1}},
+		{Name: "b", Filter: "JBIG2Decode", Stencil: true},
 	})
 	c := by["JBIG2Decode mask"]
-	if c == nil || c.Remapped != 1 || c.Exact != 1 || len(c.Shares) != 0 {
+	if c == nil || c.Remapped != 1 || c.Direct.Exact != 1 || len(c.Direct.Diffs) != 0 {
 		t.Fatalf("got %+v", c)
 	}
 	if got := Report(by); !strings.Contains(got, "1 remapped") {
@@ -347,32 +607,34 @@ func TestWhatWasNeverComparableDoesNotDecideTheOrder(t *testing.T) {
 	// A filter whose every picture was remapped is not evidence of anything,
 	// and must not be reported as the worst thing in the corpus.
 	got := Report(Tally([]Result{
-		{Name: "a", Filter: "RemappedDecode", Decoded: true, Share: 1},
-		{Name: "b", Filter: "WrongDecode", Share: 0.5},
-		{Name: "c", Filter: "WrongDecode", Share: 0},
+		{Name: "a", Filter: "RemappedDecode", Decoded: true, Difference: Difference{Share: 1}},
+		{Name: "b", Filter: "WrongDecode", Difference: Difference{Share: 0.5}},
+		{Name: "c", Filter: "WrongDecode"},
 	}))
-	lines := strings.Split(strings.TrimSpace(got), "\n")
-	if len(lines) != 2 || !strings.HasPrefix(lines[0], "WrongDecode") {
+	if !strings.HasPrefix(got, "WrongDecode") {
 		t.Errorf("the report reads %q", got)
 	}
 }
 
 func TestTheTallyGroupsByWhatReadThePicture(t *testing.T) {
 	by := Tally([]Result{
-		{Name: "a", Filter: "JBIG2Decode", Stencil: true, Share: 0},
-		{Name: "b", Filter: "JBIG2Decode", Stencil: true, Share: 0.5},
-		{Name: "c", Filter: "JBIG2Decode", Stencil: true, Share: -1},
-		{Name: "d", Filter: "", Share: 0},
-		{Name: "", Share: -1, Note: "a whole document"},
+		{Name: "a", Filter: "JBIG2Decode", Stencil: true},
+		{Name: "b", Filter: "JBIG2Decode", Stencil: true, Difference: Difference{Share: 0.5}},
+		{Name: "c", Filter: "JBIG2Decode", Stencil: true, Difference: Difference{Share: -1}},
+		{Name: "d", Filter: ""},
+		{Name: "", Difference: Difference{Share: -1}, Note: "a whole document"},
 	})
 	if len(by) != 2 {
 		t.Fatalf("grouped into %d: %v", len(by), by)
 	}
 	jb := by["JBIG2Decode mask"]
-	if jb == nil || jb.Pictures != 3 || jb.Exact != 1 || jb.Unmatched != 1 || len(jb.Shares) != 1 {
+	if jb == nil || jb.Pictures != 3 || jb.Unmatched != 1 {
 		t.Errorf("got %+v", jb)
 	}
-	if s := by["(samples)"]; s == nil || s.Exact != 1 {
+	if jb.Direct.Exact != 1 || len(jb.Direct.Diffs) != 1 {
+		t.Errorf("the direct bucket came out as %+v", jb.Direct)
+	}
+	if s := by["(samples)"]; s == nil || s.Direct.Exact != 1 {
 		t.Errorf("plain samples came out as %+v", s)
 	}
 }
@@ -380,22 +642,27 @@ func TestTheTallyGroupsByWhatReadThePicture(t *testing.T) {
 func TestTheWorstFilterIsReportedFirst(t *testing.T) {
 	// A filter that is right everywhere is not the one to read about.
 	got := Report(Tally([]Result{
-		{Name: "a", Filter: "GoodDecode", Share: 0},
-		{Name: "b", Filter: "BadDecode", Share: 0.5},
-		{Name: "c", Filter: "BadDecode", Share: 0.25},
+		{Name: "a", Filter: "GoodDecode"},
+		{Name: "b", Filter: "BadDecode", Difference: Difference{Share: 0.5, Peak: 40, MSE: 9, Mean: -3}},
+		{Name: "c", Filter: "BadDecode", Difference: Difference{Share: 0.25, Peak: 8, MSE: 1, Mean: -1}},
 	}))
 	lines := strings.Split(strings.TrimSpace(got), "\n")
-	if len(lines) != 2 {
+	if len(lines) != 4 {
 		t.Fatalf("report is %q", got)
 	}
 	if !strings.HasPrefix(lines[0], "BadDecode") {
 		t.Errorf("the report leads with %q", lines[0])
 	}
-	if !strings.Contains(lines[0], "median 0.5000") || !strings.Contains(lines[0], "worst 0.5000") {
-		t.Errorf("no spread in %q", lines[0])
+	// The spread of every term is on the bucket's line, and the signed mean
+	// keeps its sign so that a reader can see which way the bias ran.
+	for _, want := range []string{"share 0.5000/0.5000", "peak 40/40",
+		"mse 9.0000/9.0000", "mean -1.0000/-3.0000"} {
+		if !strings.Contains(lines[1], want) {
+			t.Errorf("no %q in %q", want, lines[1])
+		}
 	}
-	if strings.Contains(lines[1], "median") {
-		t.Errorf("a filter with nothing differing reported a median: %q", lines[1])
+	if strings.Contains(lines[3], "share") {
+		t.Errorf("a filter with nothing differing reported a spread: %q", lines[3])
 	}
 }
 
@@ -421,11 +688,10 @@ func TestTwoFiltersThatAreEquallyRightReadInOrder(t *testing.T) {
 	// Ordering by how wrong each is leaves ties, and a report whose lines move
 	// between runs is as unreadable as one in no order at all.
 	got := Report(Tally([]Result{
-		{Name: "a", Filter: "ZDecode", Share: 0},
-		{Name: "b", Filter: "ADecode", Share: 0},
+		{Name: "a", Filter: "ZDecode"},
+		{Name: "b", Filter: "ADecode"},
 	}))
-	lines := strings.Split(strings.TrimSpace(got), "\n")
-	if len(lines) != 2 || !strings.HasPrefix(lines[0], "ADecode") {
+	if !strings.HasPrefix(got, "ADecode") {
 		t.Errorf("the report reads %q", got)
 	}
 }
@@ -461,27 +727,31 @@ func TestTheRealJudgeIsTheOneAskedWhoRefused(t *testing.T) {
 	_ = infoCommand(filepath.Join(t.TempDir(), "gone.pdf"))
 }
 
-func TestTheRealCommandIsTheOneThatIsRun(t *testing.T) {
-	// The default reaches for pdfimages. Whether it is installed decides the
-	// error, not whether the statement runs — so this covers the wiring on a
-	// machine with nothing installed as well as on one with poppler.
+func TestTheRealCommandsAreTheOnesThatAreRun(t *testing.T) {
+	// The defaults reach for pdfimages twice: once for the pictures and once
+	// for what it says about them. Whether it is installed decides the error,
+	// not whether the statement runs — so this covers the wiring on a machine
+	// with nothing installed as well as on one with poppler.
 	_ = popplerCommand("-h")
+	_, _ = listCommand("-h")
 }
 
 func TestSummarizeKeepsWhatTheReportSays(t *testing.T) {
 	// The record and the report are the same measurement, so a filter that
 	// reads worst in one must come first in the other.
 	got := Summarize("ia-medical", 4, []Result{
-		{Name: "A", Filter: "CCITTFaxDecode", Share: 0, Missing: Judged},
-		{Name: "B", Filter: "JBIG2Decode", Share: 0.5},
-		{Name: "C", Filter: "JBIG2Decode", Share: 0.25},
-		{Name: "D", Filter: "JBIG2Decode", Share: -1},
-		{Name: "E", Filter: "DCTDecode", Share: 1, Inverted: true},
+		{Name: "A", Filter: "CCITTFaxDecode", Missing: Judged},
+		{Name: "B", Filter: "JBIG2Decode", Difference: Difference{Share: 0.5, Peak: 9, MSE: 4, Mean: -2}},
+		{Name: "C", Filter: "JBIG2Decode", Difference: Difference{Share: 0.25, Peak: 3, MSE: 1, Mean: 1}},
+		{Name: "D", Filter: "JBIG2Decode", Difference: Difference{Share: -1}},
+		{Name: "E", Filter: "DCTDecode", Difference: Difference{Share: 1, Inverted: true}},
 		{Name: "F", Filter: "DCTDecode", Decoded: true},
-		{Share: -1, Missing: Ours, Note: "refused: x"},
-		{Share: -1, Missing: Neither, Note: "refused: y"},
-		{Share: -1, Missing: Theirs, Note: "they took nothing out: x"},
-		{Share: -1, Missing: Theirs, Note: "they took nothing out: y"},
+		{Name: "G", Filter: "DCTDecode", Converted: true,
+			Difference: Difference{Share: 0.3, Peak: 20, MSE: 30, Mean: 5}},
+		{Difference: Difference{Share: -1}, Missing: Ours, Note: "refused: x"},
+		{Difference: Difference{Share: -1}, Missing: Neither, Note: "refused: y"},
+		{Difference: Difference{Share: -1}, Missing: Theirs, Note: "they took nothing out: x"},
+		{Difference: Difference{Share: -1}, Missing: Theirs, Note: "they took nothing out: y"},
 	})
 	if got.Population != "ia-medical" || got.Documents != 4 {
 		t.Errorf("the record does not say what was judged: %+v", got)
@@ -497,16 +767,39 @@ func TestSummarizeKeepsWhatTheReportSays(t *testing.T) {
 		t.Fatalf("the worst filter is not first: %+v", got.Filters)
 	}
 	j := got.Filters[0]
-	if j.Pictures != 3 || j.Differing != 2 || j.Unmatched != 1 || j.Exact != 0 {
-		t.Errorf("JBIG2 counted as %+v", j)
+	if j.Pictures != 3 || j.Unmatched != 1 || j.Direct == nil || j.Direct.Differing != 2 {
+		t.Fatalf("JBIG2 counted as %+v / %+v", j, j.Direct)
 	}
-	if j.Median == nil || *j.Median != 0.5 || j.Worst == nil || *j.Worst != 0.5 {
-		t.Errorf("the spread of two differing pictures is %v/%v", j.Median, j.Worst)
+	// The middle is the middle of the sorted values, and the far end is the
+	// one furthest from zero — which for the signed mean is -2, not 1.
+	if j.Direct.Terms.Peak.Worst != 9 || j.Direct.Terms.Mean.Worst != -2 {
+		t.Errorf("the spread of two differing pictures is %+v", j.Direct.Terms)
 	}
-	for _, f := range got.Filters[1:] {
-		if f.Median != nil || f.Worst != nil {
-			t.Errorf("%s differed nowhere yet carries a spread", f.Filter)
+	// The colour-converted picture is in its own bucket with its own terms,
+	// and is no part of the direct one.
+	var dct FilterCounts
+	for _, f := range got.Filters {
+		if f.Filter == "DCTDecode" {
+			dct = f
 		}
+	}
+	if dct.Direct == nil || dct.Direct.Inverted != 1 || dct.Direct.Differing != 0 {
+		t.Fatalf("the direct bucket came out as %+v", dct.Direct)
+	}
+	if dct.Converted == nil || dct.Converted.Pictures != 1 || dct.Converted.Differing != 1 {
+		t.Fatalf("the converted bucket came out as %+v", dct.Converted)
+	}
+	if dct.Converted.Terms.MSE.Worst != 30 {
+		t.Errorf("the converted terms are %+v", dct.Converted.Terms)
+	}
+	// A bucket where nothing differed carries no spread at all, so a reader
+	// cannot mistake a nought for a measurement.
+	ccitt := got.Filters[1]
+	if ccitt.Direct == nil || ccitt.Direct.Terms != nil {
+		t.Errorf("%s differed nowhere yet carries a spread", ccitt.Filter)
+	}
+	if ccitt.Direct.Identical != 1 {
+		t.Errorf("the identical count did not reach the record: %+v", ccitt.Direct)
 	}
 }
 
