@@ -1,5 +1,5 @@
 // Package images decodes each picture a page draws, with go-pdfkit and with an
-// implementation that is not ours, and says how many came out the same.
+// implementation that is not ours, and says how far apart the two came out.
 //
 // It exists because a page is a composition, and a composition hides its
 // parts. Drawing a whole page and comparing it answers "does this page look
@@ -14,37 +14,124 @@
 // stored in, because "our CCITT is right and our JBIG2 is wrong" is the
 // finding a per-page number cannot produce.
 //
-// The comparison reduces every pixel to one bit. difference asks of each
-// pixel, on each side, whether it is INK — alpha at least 128, luminance below
-// 128 — and counts the pixels whose answer differs. So Share is not the
-// fraction of pixels that differ; it is the fraction whose black/white
-// CLASSIFICATION differs, and "exact" means no pixel's classification differs.
+// # The comparison is per channel, with a magnitude gate
 //
-// For a BILEVEL picture those are the same claim. A stencil, a CCITT page, a
-// JBIG2 page hold nothing the bisection can lose, so exact there is bit
-// equality and the 100% both JBIG2 columns read means what a reader takes it
-// to mean.
+// difference reads every pixel on both sides, subtracts them CHANNEL BY
+// CHANNEL, and counts a pixel as differing only when some channel differs by
+// more than Gate levels of 255. Share is that count over the pixels; Peak is
+// the largest single-channel difference anywhere in the picture; and MSE and
+// Mean are the aggregate error, in levels squared and in levels. A picture
+// AGREES when Peak is at most Gate, which — with the count budget at zero —
+// is the same statement as Share being nought, so the share is a report and
+// never a budget. That is pdfium's shape (testing/image_diff.cpp:287-288,
+// where a percentage is computed and then required to be zero) and the
+// field's; the survey is in the repository README.
 //
-// For a greyscale or colour picture it is strictly weaker, and weaker in one
-// direction. A decoder rendering every pixel of a scan at luminance 120 where
-// poppler renders 20 scores 0.000 — perfect agreement — because both sides are
-// ink. That is an error of 100 levels on every single pixel and this cannot
-// see it. A systematic level or chroma shift is the characteristic failure of
-// a lossy decoder, so on DCTDecode, JPXDecode and (samples) the measure is
-// blind in exactly the direction those codecs fail.
+// # What was here before, and why it went
 //
-// An earlier revision of the README settled DCTDecode and JPXDecode at a
-// tolerance of 1% of pixels, read off that statistic. It is WITHDRAWN — the
-// empty band it was read from is a property of the bisection and not of decode
-// fidelity, and a count over a predicate with no severity in it is the one
-// construction pdf.js, pdfium, Ghostscript, Cairo, OpenJPEG, FFmpeg, poppler,
-// pixelmatch, Playwright and reg-cli all independently avoid. It was never
-// implemented here: this counts Share == 0 and applies no threshold.
+// Until conformance#16 the per-pixel predicate was a BISECTION: a pixel was
+// ink when its alpha was at least 128 and its luminance below 128, and Share
+// was the fraction of pixels whose ink classification differed. That is exact
+// for a bilevel picture and blind everywhere else. A decoder rendering every
+// pixel of a scan at luminance 120 where poppler renders 20 scored 0.000 —
+// perfect agreement — on an error of 100 levels at every pixel. A systematic
+// level or chroma shift is the characteristic failure of a lossy decoder, so
+// the instrument was blind in exactly the direction the codecs fail.
 //
-// The replacement is a per-channel comparison with a magnitude gate, an
-// aggregate bound and a count budget defaulting to zero, defended in the
-// README. Its design and the re-measurement it requires are
-// https://github.com/go-pdfkit/conformance/issues/16.
+// Every figure this package produced before that change was that narrower
+// thing, so a record taken with it CANNOT be subtracted from a record taken
+// with this one. baseline/README.md says which populations carry which.
+//
+// # Gate is 2, and the reason is ours rather than borrowed
+//
+// pdfium uses 3 (testing/utils/pixel_diff_util.h:11-12), but pdfium compares
+// RENDERED PAGES, so its 3 buys slack for rasteriser and anti-aliasing
+// differences. There is none to buy here: pdfimages EXTRACTS rather than
+// renders, which is why this package asks it, so nothing sits between the
+// codec and the pixels. What is left is codec rounding, and the standards
+// bound that. ISO/IEC 10918-2 requires a conformant JPEG IDCT to be within one
+// level per sample of the reference — read out of FFmpeg's implementation of
+// that test, libavcodec/tests/dct.c:259:
+//
+//	spec_err = is_idct && (err_inf > 1 || omse > 0.02 || fabs(ome) > 0.0015);
+//
+// Two conformant decoders sit either side of that reference, so 2 is what they
+// may legitimately differ by. Cairo's 25 (test/buffer-diff.c:43-44) is the
+// ceiling no per-case exception may ever cross, for the reason Cairo states:
+// "otherwise some problems could be masked".
+//
+// There is ONE gate and no per-case table, because there is no case yet.
+// conformance#16 provides for raising Gate per population and per filter with
+// a written reason; nothing has been measured that asks for it, and an
+// exception mechanism with no exceptions in it is a promise rather than a
+// measurement.
+//
+// # MSE and Mean are carried, and bounded by nothing
+//
+// pdfium bounds a mean squared error beside its per-channel delta
+// (testing/image_diff.cpp:171-183, limit 0.05), and FFmpeg carries a SIGNED
+// mean beside its MSE at dct.c:259. Both are recorded here, in the same units
+// those projects use — levels squared and levels — so the published limits can
+// be read against them directly.
+//
+// Neither is a pass criterion here, and that is deliberate. MSE catches
+// accumulated noise and Mean catches BIAS, which is the failure the bisection
+// could not see at all; but no bound on either has been MEASURED for pictures
+// that were extracted rather than rendered, and adopting pdfium's limit for a
+// different operation would repeat exactly the mistake the withdrawn 1%
+// tolerance was: a number carried onto an instrument that did not produce it.
+// They are reported so that a bound can be chosen from evidence later.
+//
+// # Colour conversion is not codec error, so it is counted apart
+//
+// Our side is RGBA from render; theirs is a PNG that poppler wrote. A CMYK, an
+// ICC or a Lab picture reaches those two forms through two different sets of
+// colour arithmetic, and per channel that difference is LARGE and is not a
+// decoder disagreeing. Widening Gate to absorb it would destroy the gate.
+//
+// So each picture carries the colour space pdfimages reports for it
+// (ImageOutputDev.cc:152-190 lists gray, rgb, cmyk, lab, icc, index, sep,
+// devn, and "-" for a mask), and the pictures poppler had to CONVERT to reach
+// RGB are tallied in their own bucket, with their own agreement figure and
+// their own magnitudes — the way Remapped and Inverted are already counted
+// apart. Only gray, rgb and "-" are treated as direct.
+//
+// Two honesties about that. index is counted as converted although its base
+// space is often DeviceRGB, because pdfimages does not report the base and a
+// picture that cannot be classified must not be counted as agreement. And
+// poppler folds CalGray onto "gray" and CalRGB onto "rgb", so a few pictures
+// counted direct did pass through a CIE conversion; that is poppler's
+// resolution, not a claim of ours.
+//
+// A picture whose row could not be read at all also lands in the converted
+// bucket, which makes a failure of pdfimages -list LOUD — every filter would
+// read as wholly converted — rather than silently generous.
+//
+// # Alpha, and what a stencil is compared in
+//
+// For an ordinary picture the compared channels are R, G and B. Alpha is not
+// compared: pdfimages writes an opaque picture for anything that is not a
+// mask, and writes a soft mask out as its own file, so a difference in alpha
+// would be a difference in what the two tools chose to emit rather than in
+// what the codecs produced.
+//
+// A STENCIL carries no colour of its own — it paints whatever colour is in
+// force through its own shape — so render returns it as black with the shape
+// in the ALPHA channel, and poppler writes it as one bit of grey. Those are
+// not comparable channel for channel, so a stencil is compared in ONE derived
+// channel, COVERAGE: ours is the alpha, theirs is 255 minus the luminance,
+// because poppler's black is where the stencil paints. That is the same
+// reduction the old bisection performed, taken per level instead of per bit.
+//
+// # Polarity stays its own signal
+//
+// pdfimages writes a stencil with the opposite polarity to the samples it
+// holds. Under a magnitude measure that reads as maximal error at every pixel,
+// which would lose a distinction worth keeping, so the complement is tested
+// separately and in the same pass: Inverted says the direct comparison failed
+// the gate and the complemented one passed it. A picture that passes directly
+// is never called inverted, so a uniform mid-grey — whose complement is within
+// the gate of itself — is reported as agreeing and not as a complement.
 package images
 
 import (
@@ -54,6 +141,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/go-gfx/gfx/raster"
@@ -61,36 +149,45 @@ import (
 	"github.com/go-pdfkit/render"
 )
 
-// A Result is one picture judged.
-type Result struct {
-	Path string
-	Page int
-	// Name is the resource name the page draws it by.
-	Name string
-	// Filter is the image format it was stored in, empty for plain samples.
-	Filter string
-	// Stencil says it is a one-bit mask rather than a picture.
-	Stencil bool
-	// Decoded says a /Decode array shaped our samples. pdfimages writes the
-	// samples as stored, so this picture and theirs are not the same question
-	// and are counted apart rather than as a disagreement.
-	Decoded bool
-	// Size is what the picture came out as.
-	W, H int
-	// Share is the fraction of pixels whose INK CLASSIFICATION differs — not
-	// the fraction that differ; see the package comment — or -1 when the
-	// picture could not be judged, which Note explains. A Share of 1 with
-	// Inverted set means the two are exact complements.
+// Gate is D from conformance#16: a pixel counts as differing only when some
+// compared channel differs by more than this many levels of 255.
+//
+// It is 2 because ISO/IEC 10918-2 allows a conformant JPEG IDCT one level per
+// sample either side of the reference, so two conformant decoders may differ
+// by two. See the package comment for the derivation, and for why it is not
+// pdfium's 3.
+const Gate = 2
+
+// A Difference is one picture compared with the judge's, per channel.
+//
+// Every term is over the CHANNELS the package comment names: three for an
+// ordinary picture, one derived coverage channel for a stencil.
+type Difference struct {
+	// Share is the fraction of pixels where some compared channel differs by
+	// more than Gate, or -1 when the picture could not be judged. It is a
+	// REPORT and not a budget: the count budget is zero, so Share being nought
+	// and Peak being within Gate are the same statement.
 	Share float64
-	// Inverted says the picture and theirs are the same everywhere, read the
-	// other way round.
+	// Peak is the largest absolute channel difference anywhere in the
+	// picture, in levels of 255. This is the criterion.
+	Peak int
+	// MSE is the mean squared error over every compared channel, in levels
+	// squared — pdfium's units at testing/image_diff.cpp:181 and FFmpeg's
+	// omse at dct.c:256.
+	MSE float64
+	// Mean is the signed mean error over every compared channel, ours minus
+	// theirs, in levels — FFmpeg's ome. It is the term that catches BIAS,
+	// which is what the bisection this replaced could not see.
+	Mean float64
+	// Inverted says the direct comparison failed the gate and the picture
+	// against the judge's COMPLEMENT passes it.
 	//
 	// pdfimages writes a STENCIL with the opposite polarity to the samples it
 	// holds: an image with /ImageMask true, or a stream a picture names as its
 	// /Mask. That is a convention, not a disagreement — and it is worth
 	// telling apart from a real one, because "identical up to inversion" and
-	// "wrong" look the same in a count of differing pixels and only one of
-	// them needs looking into.
+	// "wrong" look the same in a magnitude and only one of them needs looking
+	// into.
 	//
 	// Which side is right was measured rather than assumed. On a 644-byte
 	// document whose 8x8 mask has its left half masked out and its right half
@@ -101,14 +198,43 @@ type Result struct {
 	// It is about being a stencil and nothing else. Not about JBIG2: 27 of
 	// the 28 in us-opm are CCITT, one is Flate, and the minimal document has
 	// no filter. Not about soft masks, which are the one kind pdfimages
-	// leaves alone — 0 of 734 /SMask streams across fr-cerfa and us-opm came
-	// out inverted, against 13 of 13 /ImageMask and 2 of 2 /Mask.
+	// leaves alone.
 	//
 	// Not every complement this reports is that convention. When a page draws
 	// many uniform pictures of one size, match pairs them by size and order
 	// and pairs a black one with a white one; see
 	// https://github.com/go-pdfkit/conformance/issues/13.
 	Inverted bool
+}
+
+// A Result is one picture judged.
+type Result struct {
+	Path string
+	Page int
+	// Name is the resource name the page draws it by.
+	Name string
+	// Filter is the image format it was stored in, empty for plain samples.
+	Filter string
+	// Stencil says it is a one-bit mask rather than a picture, which decides
+	// what channel the two sides are compared in.
+	Stencil bool
+	// Decoded says a /Decode array shaped our samples. pdfimages writes the
+	// samples as stored, so this picture and theirs are not the same question
+	// and are counted apart rather than as a disagreement.
+	Decoded bool
+	// Space is the colour space pdfimages reports for the judge's picture:
+	// gray, rgb, cmyk, lab, icc, index, sep, devn, or "-" for a mask. It is
+	// empty when no row could be read for it.
+	Space string
+	// Converted says poppler had to convert that space to reach RGB, so a
+	// per-channel difference on this picture is colour arithmetic and not
+	// codec error. Those are tallied apart; see the package comment.
+	Converted bool
+	// Size is what the picture came out as.
+	W, H int
+	// Difference is how far apart the two came out, or Share -1 when there
+	// was no comparison, which Note explains.
+	Difference
 	// Missing says which side had nothing, when nothing could be compared.
 	// It is a field rather than a reading of Note because a baseline has to
 	// count these apart: a run that agrees less because ours stopped opening
@@ -153,6 +279,9 @@ type Options struct {
 	Pages int
 }
 
+// unjudged is the Difference of a picture nothing could be said about.
+func unjudged() Difference { return Difference{Share: -1} }
+
 // Judge takes the pictures out of one document twice and compares them.
 func Judge(path string, opt Options) []Result {
 	pages := opt.Pages
@@ -161,12 +290,13 @@ func Judge(path string, opt Options) []Result {
 	}
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return []Result{{Path: path, Share: -1, Missing: Ours, Note: "unreadable: " + err.Error()}}
+		return []Result{{Path: path, Difference: unjudged(),
+			Missing: Ours, Note: "unreadable: " + err.Error()}}
 	}
 	d, err := reader.Open(b)
 	if err != nil {
-		return []Result{{Path: path, Share: -1, Missing: blame(path),
-			Note: "refused: " + err.Error()}}
+		return []Result{{Path: path, Difference: unjudged(),
+			Missing: blame(path), Note: "refused: " + err.Error()}}
 	}
 	if n := d.PageCount(); pages > n {
 		pages = n
@@ -200,14 +330,16 @@ func Judge(path string, opt Options) []Result {
 func judgePage(d *reader.Document, path string, p int) []Result {
 	ours, err := render.Images(d, p)
 	if err != nil {
-		return []Result{{Path: path, Page: p, Share: -1, Missing: Ours, Note: "no page: " + err.Error()}}
+		return []Result{{Path: path, Page: p, Difference: unjudged(),
+			Missing: Ours, Note: "no page: " + err.Error()}}
 	}
 	if len(ours) == 0 {
 		return nil
 	}
 	theirs, err := poppler(path, p)
 	if err != nil {
-		return []Result{{Path: path, Page: p, Share: -1, Missing: Theirs, Note: "they took nothing out: " + err.Error()}}
+		return []Result{{Path: path, Page: p, Difference: unjudged(),
+			Missing: Theirs, Note: "they took nothing out: " + err.Error()}}
 	}
 	// The two do not agree on an order, and neither has a name the other
 	// knows, so a picture is matched to a picture of the same size. Where
@@ -218,7 +350,7 @@ func judgePage(d *reader.Document, path string, p int) []Result {
 	for _, im := range ours {
 		r := Result{Path: path, Page: p, Name: im.Name, Filter: im.Filter,
 			Stencil: im.Stencil, Decoded: im.Decoded,
-			W: im.Pic.W, H: im.Pic.H, Share: -1}
+			W: im.Pic.W, H: im.Pic.H, Difference: unjudged()}
 		j := match(theirs, claimed, im.Pic)
 		if j < 0 {
 			r.Note = "they took out nothing this size"
@@ -226,62 +358,115 @@ func judgePage(d *reader.Document, path string, p int) []Result {
 			continue
 		}
 		claimed[j] = true
-		r.Share = difference(im.Pic, theirs[j])
-		if r.Share == 1 {
-			r.Inverted = true
-		}
+		r.Space = theirs[j].space
+		r.Converted = converted(theirs[j].space)
+		r.Difference = difference(im.Pic, theirs[j].pic, im.Stencil)
 		out = append(out, r)
 	}
 	return out
 }
 
 // match finds an unclaimed picture of the same size.
-func match(theirs []*raster.Image, claimed []bool, ours *raster.Image) int {
+func match(theirs []shot, claimed []bool, ours *raster.Image) int {
 	for j, t := range theirs {
-		if !claimed[j] && t.W == ours.W && t.H == ours.H {
+		if !claimed[j] && t.pic.W == ours.W && t.pic.H == ours.H {
 			return j
 		}
 	}
 	return -1
 }
 
-// difference is the fraction of pixels that are not the same ink.
+// difference compares two pictures channel by channel.
 //
-// It reads only whether a pixel is dark, NOT HOW DARK, and that is the limit of
-// everything this package reports. The reason it was written this way is real:
-// the two sides disagree about depth and colour space in ways that are not
-// errors — poppler writes a stencil out as one bit and this carries the shape
-// in an alpha channel, and a CMYK picture comes back converted by two different
-// sets of arithmetic — so what both agree on, when they agree at all, is where
-// the ink is.
+// It walks the pixels once and carries five things out of that walk: the
+// largest single-channel difference, the same against the judge's complement,
+// the count of pixels where some channel differs by more than Gate, and the
+// squared and signed sums the two aggregate terms are means of.
 //
-// The cost is that a uniform level shift is invisible. Every pixel 100 levels
-// darker on one side scores 0. That is exact for a bilevel picture, where there
-// is nothing else in it, and blind for every other kind. Comparing per channel
-// is the fix; see the package comment and conformance#16.
-func difference(a, b *raster.Image) float64 {
-	if a.W != b.W || a.H != b.H || a.W*a.H == 0 {
-		return -1
+// The complement is measured in the same pass rather than in a second one
+// because polarity has to stay its own signal — see Difference.Inverted — and
+// a stencil corpus would otherwise walk every differing picture twice.
+func difference(ours, theirs *raster.Image, stencil bool) Difference {
+	n := ours.W * ours.H
+	if ours.W != theirs.W || ours.H != theirs.H || n == 0 {
+		return unjudged()
 	}
-	differ := 0
-	for i := 0; i < a.W*a.H; i++ {
-		if dark(a, i) != dark(b, i) {
-			differ++
+	m := 3
+	if stencil {
+		m = 1
+	}
+	var count, peak, flipped int
+	var sum, squares float64
+	for i := 0; i < n; i++ {
+		a := channels(ours, i, stencil, false)
+		b := channels(theirs, i, stencil, true)
+		worst, worstFlipped := 0, 0
+		for c := 0; c < m; c++ {
+			e := a[c] - b[c]
+			sum += float64(e)
+			squares += float64(e) * float64(e)
+			if e < 0 {
+				e = -e
+			}
+			if e > worst {
+				worst = e
+			}
+			f := a[c] - (255 - b[c])
+			if f < 0 {
+				f = -f
+			}
+			if f > worstFlipped {
+				worstFlipped = f
+			}
+		}
+		if worst > peak {
+			peak = worst
+		}
+		if worstFlipped > flipped {
+			flipped = worstFlipped
+		}
+		if worst > Gate {
+			count++
 		}
 	}
-	return float64(differ) / float64(a.W*a.H)
+	samples := float64(n * m)
+	return Difference{
+		Share:    float64(count) / float64(n),
+		Peak:     peak,
+		MSE:      squares / samples,
+		Mean:     sum / samples,
+		Inverted: peak > Gate && flipped <= Gate,
+	}
 }
 
-// dark says whether one pixel is ink. A transparent pixel is paper whatever
-// colour is under it, which is what makes a stencil comparable with the one
-// bit poppler writes for the same mask.
-func dark(im *raster.Image, i int) bool {
-	r, g, b, a := im.Pix[i*4], im.Pix[i*4+1], im.Pix[i*4+2], im.Pix[i*4+3]
-	if a < 128 {
-		return false
+// channels reads the channels of one pixel that are compared.
+//
+// A stencil is compared in one derived channel, COVERAGE, and the rest of the
+// array is left at zero: ours is the alpha render put the shape in, theirs is
+// 255 minus the luminance of the one bit poppler wrote, because poppler's
+// black is where the stencil paints. Every other picture is compared in R, G
+// and B; see the package comment for why alpha is left out of those.
+func channels(im *raster.Image, i int, stencil, judge bool) [3]int {
+	p := im.Pix[i*4 : i*4+4]
+	if !stencil {
+		return [3]int{int(p[0]), int(p[1]), int(p[2])}
 	}
-	return (uint32(r)*299+uint32(g)*587+uint32(b)*114)/1000 < 128
+	if judge {
+		return [3]int{255 - int((uint32(p[0])*299+uint32(p[1])*587+uint32(p[2])*114)/1000)}
+	}
+	return [3]int{int(p[3])}
 }
+
+// direct is the set of colour spaces pdfimages reports that reach RGB without
+// a conversion: greyscale, RGB itself, and the "-" it prints for a mask, which
+// carries no colour at all.
+var direct = map[string]bool{"gray": true, "rgb": true, "-": true}
+
+// converted says poppler had to convert this colour space to write its PNG, so
+// a per-channel difference on that picture is colour arithmetic rather than a
+// decoder disagreeing. An unread space counts as converted; see the package
+// comment.
+func converted(space string) bool { return !direct[space] }
 
 // infoCommand is a variable so a test can ask without poppler installed.
 //
@@ -308,14 +493,31 @@ func blame(path string) Missing {
 // implementation without one being installed.
 var popplerCommand = func(args ...string) error { return exec.Command("pdfimages", args...).Run() }
 
-// poppler takes the pictures out of one page with pdfimages.
+// listCommand is a variable for the same reason, and is separate because this
+// one is asked for its OUTPUT rather than for whether it worked.
+var listCommand = func(args ...string) ([]byte, error) {
+	return exec.Command("pdfimages", args...).Output()
+}
+
+// A shot is one picture the judge took out, with what it says about it.
+type shot struct {
+	pic *raster.Image
+	// num is the index pdfimages wrote in the file's name, which is also the
+	// row it listed the picture on.
+	num int
+	// space is the colour space of that row, empty when none was read.
+	space string
+}
+
+// poppler takes the pictures out of one page with pdfimages, and asks it what
+// colour space each was in.
 //
 // pdfimages EXTRACTS rather than renders, which is the whole point: asking
 // pdftoppm would put poppler's rasteriser between the codec and the answer,
 // and its resampling shows up as every decoder disagreeing with it slightly.
 // Measured that way, four JBIG2 decoders all looked wrong; measured this way,
 // one was exact on every stream and another was wrong on 91% of them.
-func poppler(path string, page int) ([]*raster.Image, error) {
+func poppler(path string, page int) ([]shot, error) {
 	dir, err := os.MkdirTemp("", "images")
 	if err != nil {
 		return nil, err
@@ -330,20 +532,67 @@ func poppler(path string, page int) ([]*raster.Image, error) {
 	// pattern is a temporary directory of our own making, so a failure here
 	// leaves no names and is reported below as nothing having come out.
 	names, _ := filepath.Glob(stem + "-*.png")
-	// Glob's order is the filesystem's; the numbering is pdfimages's.
-	sort.Strings(names)
-	out := make([]*raster.Image, 0, len(names))
+	spaces := listing(path, page)
+	out := make([]shot, 0, len(names))
 	for _, name := range names {
 		im, err := readPNG(name)
 		if err != nil {
 			continue
 		}
-		out = append(out, im)
+		n := number(name)
+		out = append(out, shot{pic: im, num: n, space: spaces[n]})
 	}
+	// Glob's order is the filesystem's, and a lexical sort is not pdfimages's
+	// either: a page with more than a thousand pictures numbers one of them
+	// 1000, which sorts before 999. The number is what orders them.
+	sort.Slice(out, func(i, j int) bool { return out[i].num < out[j].num })
 	if len(out) == 0 {
 		return nil, fmt.Errorf("no pictures came out")
 	}
 	return out, nil
+}
+
+// number is the index pdfimages wrote into a file's name.
+//
+// It is -1 for a name that carries none, which leaves the picture with no
+// colour space, so it is counted among the converted rather than credited as
+// agreeing.
+func number(name string) int {
+	base := strings.TrimSuffix(filepath.Base(name), ".png")
+	_, digits, _ := strings.Cut(base, "-")
+	n, err := strconv.Atoi(digits)
+	if err != nil {
+		return -1
+	}
+	return n
+}
+
+// listing asks pdfimages what it is about to write, and reads the colour space
+// off each row.
+//
+// The rows are "page num type width height color comp bpc enc ...", the num
+// column is the index of the file pdfimages writes for that row, and the
+// header and rule lines fail to parse as a number and are skipped. A listing
+// that could not be taken at all leaves every picture unclassified, which the
+// package comment explains is deliberately loud.
+func listing(path string, page int) map[int]string {
+	out, err := listCommand("-list", "-f", fmt.Sprint(page), "-l", fmt.Sprint(page), path)
+	if err != nil {
+		return nil
+	}
+	spaces := map[int]string{}
+	for _, line := range strings.Split(string(out), "\n") {
+		f := strings.Fields(line)
+		if len(f) < 6 {
+			continue
+		}
+		num, err := strconv.Atoi(f[1])
+		if err != nil {
+			continue
+		}
+		spaces[num] = f[5]
+	}
+	return spaces
 }
 
 // readPNG reads one of the files pdfimages wrote.
@@ -360,25 +609,41 @@ func readPNG(name string) (*raster.Image, error) {
 	return raster.FromImage(img), nil
 }
 
+// A Bucket is what one group of a filter's comparable pictures came to.
+//
+// There are two, because a picture poppler had to convert to reach RGB is not
+// evidence about a codec and must not be averaged with one that needed no
+// conversion; see the package comment.
+type Bucket struct {
+	// Pictures is how many were judged in this bucket.
+	Pictures int
+	// Exact is how many had no channel differ by more than Gate.
+	Exact int
+	// Inverted is how many agreed with the judge's complement instead.
+	Inverted int
+	// Diffs holds the magnitude of each picture that differed.
+	Diffs []Difference
+}
+
 // Counts is what a population came to, per filter.
 type Counts struct {
 	// Pictures is how many were judged.
 	Pictures int
-	// Exact is how many had no pixel differ in ink classification, which is
-	// bit equality only where the picture is bilevel.
-	Exact int
 	// Unmatched is how many the other implementation had no picture for.
 	Unmatched int
-	// Inverted is how many came out as the other's exact complement.
-	Inverted int
 	// Remapped is how many carried a /Decode array, which we apply and
 	// pdfimages does not, so the two sides were not asked the same question.
 	// They are counted here rather than as disagreements: on a one-bit mask a
 	// /Decode of [1 0] inverts every pixel, which reads as total disagreement
 	// and is none.
 	Remapped int
-	// Shares holds the difference of each picture that differed.
-	Shares []float64
+	// Direct is the pictures whose colour space needed no conversion, which
+	// are the ones the agreement figure is computed over.
+	Direct Bucket
+	// Converted is the rest, tallied with their own magnitudes so that the
+	// claim "this is colour arithmetic and not a decoder" can be checked
+	// rather than assumed.
+	Converted Bucket
 }
 
 // Tally groups results by the filter each picture was stored in.
@@ -406,48 +671,84 @@ func Tally(rs []Result) map[string]*Counts {
 			c.Remapped++
 		case r.Share < 0:
 			c.Unmatched++
-		case r.Share == 0:
-			c.Exact++
-		case r.Inverted:
-			c.Inverted++
 		default:
-			c.Shares = append(c.Shares, r.Share)
+			bucket(c, r.Converted).add(r.Difference)
 		}
 	}
 	return by
 }
 
+// bucket picks which of a filter's two buckets a picture belongs in.
+func bucket(c *Counts, isConverted bool) *Bucket {
+	if isConverted {
+		return &c.Converted
+	}
+	return &c.Direct
+}
+
+// add files one judged picture under how it came out.
+func (b *Bucket) add(d Difference) {
+	b.Pictures++
+	switch {
+	case d.Share == 0:
+		b.Exact++
+	case d.Inverted:
+		b.Inverted++
+	default:
+		b.Diffs = append(b.Diffs, d)
+	}
+}
+
 // Report writes a tally in the order that reads best: worst first, because a
 // filter that is right everywhere is not the one to read about.
+//
+// Each filter takes a line for what could not be compared and a line for each
+// bucket that holds anything, because the two buckets are two different
+// questions and a reader who adds them together has exactly the number the
+// split exists to prevent.
 func Report(by map[string]*Counts) string {
 	var sb strings.Builder
-	for _, k := range order(by) {
-		c := by[k]
-		fmt.Fprintf(&sb, "%-22s %5d pictures  %5d exact  %5d inverted  %5d differing  %5d unmatched  %5d remapped",
-			k, c.Pictures, c.Exact, c.Inverted, len(c.Shares), c.Unmatched, c.Remapped)
-		if len(c.Shares) > 0 {
-			median, worst := spread(c.Shares)
-			fmt.Fprintf(&sb, "  median %.4f  worst %.4f", median, worst)
-		}
-		sb.WriteByte('\n')
+	for _, key := range order(by) {
+		c := by[key]
+		fmt.Fprintf(&sb, "%-22s %5d pictures  %5d unmatched  %5d remapped\n",
+			key, c.Pictures, c.Unmatched, c.Remapped)
+		reportBucket(&sb, "direct", &c.Direct)
+		reportBucket(&sb, "converted", &c.Converted)
 	}
 	return sb.String()
 }
 
-// rightness is the share of a filter's comparable pictures that came out
-// identical, and it decides what is read first.
+// reportBucket writes one bucket's line, and nothing at all for a bucket with
+// no picture in it.
+func reportBucket(sb *strings.Builder, name string, b *Bucket) {
+	if b.Pictures == 0 {
+		return
+	}
+	fmt.Fprintf(sb, "  %-9s %5d pictures  %5d exact  %5d inverted  %5d differing",
+		name, b.Pictures, b.Exact, b.Inverted, len(b.Diffs))
+	if len(b.Diffs) > 0 {
+		t := terms(b.Diffs)
+		fmt.Fprintf(sb, "  share %.4f/%.4f  peak %.0f/%.0f  mse %.4f/%.4f  mean %+.4f/%+.4f",
+			t.Share.Median, t.Share.Worst, t.Peak.Median, t.Peak.Worst,
+			t.MSE.Median, t.MSE.Worst, t.Mean.Median, t.Mean.Worst)
+	}
+	sb.WriteByte('\n')
+}
+
+// rightness is the share of a filter's DIRECT comparable pictures that agreed,
+// and it decides what is read first.
 //
 // A picture that was never comparable is not evidence either way, so it is left
-// out — the remapped ones and the ones that came back as an exact complement
-// alike. A filter with NOTHING comparable is therefore not evidence at all, and
-// counting it as nought right would put it at the top of the report, above
-// every filter actually known to be wrong.
+// out — the remapped ones, the colour-converted ones and the ones that came
+// back as an exact complement alike. A filter with NOTHING comparable is
+// therefore not evidence at all, and counting it as nought right would put it
+// at the top of the report, above every filter actually known to be wrong.
 func rightness(c *Counts) float64 {
-	comparable := c.Pictures - c.Remapped - c.Inverted
+	comparable := c.Direct.Pictures - c.Direct.Inverted
 	if comparable <= 0 {
 		return 1
 	}
-	return float64(c.Exact) / float64(comparable)
+	return float64(c.Direct.Exact) / float64(comparable)
 }
 
 // A Summary is one population's tally in a shape that keeps: named fields, a
@@ -474,19 +775,44 @@ type Summary struct {
 
 // FilterCounts is one filter's line of a report, as data.
 type FilterCounts struct {
-	Filter    string `json:"filter"`
-	Pictures  int    `json:"pictures"`
-	Exact     int    `json:"exact"`
-	Inverted  int    `json:"inverted"`
-	Differing int    `json:"differing"`
-	Unmatched int    `json:"unmatched"`
-	Remapped  int    `json:"remapped"`
-	// Median and Worst are the differing pictures' shares, absent when none
-	// differed. A pointer because 0.0 is a real answer here — a filter whose
-	// worst disagreement is nought pixels is not the same as one with nothing
+	Filter   string `json:"filter"`
+	Pictures int    `json:"pictures"`
+	// Unmatched and Remapped are the pictures no comparison was made of.
+	Unmatched int `json:"unmatched"`
+	Remapped  int `json:"remapped"`
+	// Direct and Converted are the two buckets, absent when empty. The
+	// agreement figure is Direct's and never the two added together.
+	Direct    *BucketCounts `json:"direct,omitempty"`
+	Converted *BucketCounts `json:"converted,omitempty"`
+}
+
+// BucketCounts is one bucket of one filter, as data.
+type BucketCounts struct {
+	Pictures  int `json:"pictures"`
+	Exact     int `json:"exact"`
+	Inverted  int `json:"inverted"`
+	Differing int `json:"differing"`
+	// Terms is the spread of each magnitude over the differing pictures,
+	// absent when none differed. A pointer because 0 is a real answer here —
+	// a bucket whose worst peak is nought is not the same as one with nothing
 	// to disagree about — and omitempty cannot tell those apart.
-	Median *float64 `json:"median,omitempty"`
-	Worst  *float64 `json:"worst,omitempty"`
+	Terms *Terms `json:"terms,omitempty"`
+}
+
+// Terms is the spread of each magnitude over a bucket's differing pictures.
+type Terms struct {
+	Share Spread `json:"share"`
+	Peak  Spread `json:"peak"`
+	MSE   Spread `json:"mse"`
+	Mean  Spread `json:"mean"`
+}
+
+// A Spread is the middle and the far end of one term.
+type Spread struct {
+	Median float64 `json:"median"`
+	// Worst is the value furthest from zero, WITH ITS SIGN, so that a signed
+	// mean says which way the bias ran and not only how big it was.
+	Worst float64 `json:"worst"`
 }
 
 // Summarize turns a population's results into the record of it, worst filter
@@ -504,25 +830,56 @@ func Summarize(population string, documents int, rs []Result) Summary {
 		}
 	}
 	by := Tally(rs)
-	for _, k := range order(by) {
-		c := by[k]
-		f := FilterCounts{Filter: k, Pictures: c.Pictures, Exact: c.Exact,
-			Inverted: c.Inverted, Differing: len(c.Shares),
-			Unmatched: c.Unmatched, Remapped: c.Remapped}
-		if len(c.Shares) > 0 {
-			median, worst := spread(c.Shares)
-			f.Median, f.Worst = &median, &worst
-		}
-		s.Filters = append(s.Filters, f)
+	for _, key := range order(by) {
+		c := by[key]
+		s.Filters = append(s.Filters, FilterCounts{Filter: key,
+			Pictures: c.Pictures, Unmatched: c.Unmatched, Remapped: c.Remapped,
+			Direct: bucketCounts(&c.Direct), Converted: bucketCounts(&c.Converted)})
 	}
 	return s
 }
 
-// spread is the middle and the end of the differing shares.
-func spread(shares []float64) (median, worst float64) {
-	s := append([]float64(nil), shares...)
-	sort.Float64s(s)
-	return s[len(s)/2], s[len(s)-1]
+// bucketCounts is one bucket as data, and nothing at all for an empty one.
+func bucketCounts(b *Bucket) *BucketCounts {
+	if b.Pictures == 0 {
+		return nil
+	}
+	out := &BucketCounts{Pictures: b.Pictures, Exact: b.Exact,
+		Inverted: b.Inverted, Differing: len(b.Diffs)}
+	if len(b.Diffs) > 0 {
+		t := terms(b.Diffs)
+		out.Terms = &t
+	}
+	return out
+}
+
+// terms is the spread of every magnitude over the pictures that differed.
+func terms(ds []Difference) Terms {
+	return Terms{
+		Share: spread(ds, func(d Difference) float64 { return d.Share }),
+		Peak:  spread(ds, func(d Difference) float64 { return float64(d.Peak) }),
+		MSE:   spread(ds, func(d Difference) float64 { return d.MSE }),
+		Mean:  spread(ds, func(d Difference) float64 { return d.Mean }),
+	}
+}
+
+// spread is the middle and the far end of one term.
+//
+// The far end is the value furthest from zero rather than the largest, which
+// matters for the signed mean and for nothing else: a bucket whose every
+// picture is a level darker than the judge's has a worst mean of -1, and
+// reporting its largest instead would say the bias was the smallest one seen.
+func spread(ds []Difference, term func(Difference) float64) Spread {
+	v := make([]float64, len(ds))
+	for i, d := range ds {
+		v[i] = term(d)
+	}
+	sort.Float64s(v)
+	worst := v[len(v)-1]
+	if -v[0] > worst {
+		worst = v[0]
+	}
+	return Spread{Median: v[len(v)/2], Worst: worst}
 }
 
 // order puts the filters worst first, because a filter that is right
