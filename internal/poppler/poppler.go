@@ -57,6 +57,26 @@ func Run(name string, args ...string) ([]byte, bool, error) {
 	return out, ctx.Err() == context.DeadlineExceeded, err
 }
 
+// Combined is Run with the tool's error output folded into its answer.
+//
+// It exists because "pdfimages -v" prints its version on STDERR, so the one
+// invocation whose whole purpose is to record WHICH poppler judged a run comes
+// back empty from Run. That is not a small loss: the judge is half the
+// measurement, and a filter whose agreement falls because poppler changed has
+// not regressed — telling those apart afterwards is impossible if nobody wrote
+// down which poppler it was.
+//
+// It is separate from Run rather than replacing it because the callers that
+// parse output must not have the tool's warnings folded into it: pdfimages
+// -list is read column by column, and a line of complaint in the middle of the
+// table is a row.
+func Combined(name string, args ...string) ([]byte, bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), Timeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, name, args...).CombinedOutput()
+	return out, ctx.Err() == context.DeadlineExceeded, err
+}
+
 // DidNotFinish is what a hang is reported as, in the words the bound is set in.
 func DidNotFinish(tool string) error {
 	return &hang{tool: tool}

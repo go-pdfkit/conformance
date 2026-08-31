@@ -146,7 +146,9 @@ var versionCommand = func() ([]byte, error) {
 	// the reasoning that leaves a sweep waiting for ever on the one that does.
 	// A version that could not be taken is recorded as empty either way, so
 	// the hang is not distinguished here: nothing is skipped because of it.
-	out, _, err := poppler.Run("pdfimages", "-v")
+	//
+	// Combined and not Run, because pdfimages prints its version on STDERR.
+	out, _, err := poppler.Combined("pdfimages", "-v")
 	return out, err
 }
 

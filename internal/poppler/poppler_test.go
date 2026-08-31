@@ -53,3 +53,26 @@ func TestAHangSaysWhichToolAndWhatBoundItPassed(t *testing.T) {
 		t.Errorf("a hang reads %q", got)
 	}
 }
+
+func TestTheToolsErrorOutputCanBeAskedFor(t *testing.T) {
+	// pdfimages prints its version on stderr, so the one invocation whose
+	// whole purpose is to record WHICH poppler judged a run comes back empty
+	// from Run. The judge is half the measurement, so it has to be asked on
+	// both streams.
+	out, hung, err := Combined("sh", "-c", "echo out; echo err 1>&2")
+	if hung || err != nil {
+		t.Fatalf("hung=%v, %v", hung, err)
+	}
+	if !strings.Contains(string(out), "err") {
+		t.Errorf("the error output is missing: %q", out)
+	}
+}
+
+func TestCombinedIsBoundedToo(t *testing.T) {
+	was := Timeout
+	defer func() { Timeout = was }()
+	Timeout = 50 * time.Millisecond
+	if _, hung, err := Combined("sleep", "30"); !hung {
+		t.Fatalf("a tool that does not return was not called a hang: %v", err)
+	}
+}

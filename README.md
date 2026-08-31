@@ -133,6 +133,14 @@ bucket or the `converted` one. A page whose listing never came back would be
 tallied as wholly converted, which is a real number in a real column and
 indistinguishable from a page of CMYK. It is reported as a hang instead.
 
+**The version probe is asked on both streams.** `pdfimages -v` prints its
+version on **stderr**, so the one invocation whose whole purpose is to record
+*which* poppler judged a run comes back empty from a plain read of stdout. The
+judge is half the measurement — a filter whose agreement falls because poppler
+changed has not regressed — so `poppler.Combined` exists beside `poppler.Run`
+for it, and only for it: a listing that is read column by column must not have
+the tool's warnings folded into the table.
+
 **The bound is not calibrated from timings, and says so.** The machine these
 runs are made on is shared, so a duration measured on it measures the other job
 as much as this one, and a bound read off a loaded machine would fire on
