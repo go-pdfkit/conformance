@@ -629,8 +629,15 @@ func readPNG(name string) (*raster.Image, error) {
 type Bucket struct {
 	// Pictures is how many were judged in this bucket.
 	Pictures int
-	// Exact is how many had no channel differ by more than Gate.
+	// Exact is how many had no channel differ by more than Gate. It is the
+	// criterion.
 	Exact int
+	// Identical is how many of those had no channel differ AT ALL, so a
+	// reader can see how much of the agreement is bit equality and how much
+	// the gate bought. One gate applies to every filter, which is a loosening
+	// for the lossless ones — they could defensibly be held to nought — and
+	// this is the count that says whether the loosening bought anything.
+	Identical int
 	// Inverted is how many agreed with the judge's complement instead.
 	Inverted int
 	// Diffs holds the magnitude of each picture that differed.
@@ -704,6 +711,9 @@ func (b *Bucket) add(d Difference) {
 	switch {
 	case d.Share == 0:
 		b.Exact++
+		if d.Peak == 0 {
+			b.Identical++
+		}
 	case d.Inverted:
 		b.Inverted++
 	default:
@@ -736,8 +746,8 @@ func reportBucket(sb *strings.Builder, name string, b *Bucket) {
 	if b.Pictures == 0 {
 		return
 	}
-	fmt.Fprintf(sb, "  %-9s %5d pictures  %5d exact  %5d inverted  %5d differing",
-		name, b.Pictures, b.Exact, b.Inverted, len(b.Diffs))
+	fmt.Fprintf(sb, "  %-9s %5d pictures  %5d exact (%d identical)  %5d inverted  %5d differing",
+		name, b.Pictures, b.Exact, b.Identical, b.Inverted, len(b.Diffs))
 	if len(b.Diffs) > 0 {
 		t := terms(b.Diffs)
 		fmt.Fprintf(sb, "  share %.4f/%.4f  peak %.0f/%.0f  mse %.4f/%.4f  mean %+.4f/%+.4f",
@@ -800,8 +810,11 @@ type FilterCounts struct {
 
 // BucketCounts is one bucket of one filter, as data.
 type BucketCounts struct {
-	Pictures  int `json:"pictures"`
-	Exact     int `json:"exact"`
+	Pictures int `json:"pictures"`
+	Exact    int `json:"exact"`
+	// Identical is how many of the exact ones differed by nothing at all, so
+	// bit equality can be told from agreement the gate bought.
+	Identical int `json:"identical"`
 	Inverted  int `json:"inverted"`
 	Differing int `json:"differing"`
 	// Terms is the spread of each magnitude over the differing pictures,
@@ -857,7 +870,7 @@ func bucketCounts(b *Bucket) *BucketCounts {
 		return nil
 	}
 	out := &BucketCounts{Pictures: b.Pictures, Exact: b.Exact,
-		Inverted: b.Inverted, Differing: len(b.Diffs)}
+		Identical: b.Identical, Inverted: b.Inverted, Differing: len(b.Diffs)}
 	if len(b.Diffs) > 0 {
 		t := terms(b.Diffs)
 		out.Terms = &t

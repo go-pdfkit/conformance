@@ -340,19 +340,28 @@ rule treated exactly as it treated JPEG — is not loosened at all there but
 disabled outright, `testing/SUPPRESSIONS:735-737`.
 
 **The seam the field cuts is "does this case have a documented reason to be
-fuzzy", not "is the source data lossy".** So the replacement is one rule,
-above, with `D` and `N` at 0 for everything and raised per case. `DCTDecode`
-and `JPXDecode` then reach `D = 2` as an exception that carries the ISO
-citation as its recorded reason — the same outcome the split produced, arrived
-at the way the evidence supports, and reversible if a measurement ever says
-otherwise. It also stops the split doing harm in the other direction. Under
-it a lossless filter can never be granted anything however good the reason,
-and `(samples)` is a live candidate: its 84.9% is two implementations doing
-different ICC conversion read through a bisection — `fr-cerfa` differs on 535
-`(samples)` pictures at a median of 0.286 — which is not a decode defect. What
-that needs is not a wider count budget but comparison per channel, with
-colour-converted pictures counted in their own column; the split forbids even
-asking.
+fuzzy", not "is the source data lossy".** So what landed is one rule and one
+number: **`D` is 2 for every filter**, carrying the ISO citation as its
+recorded reason, and there is no per-case table because there is no case.
+`Gate` is a constant in [`images/images.go`](images/images.go) and an
+exception mechanism with nothing in it would be a promise rather than a
+measurement.
+
+Two consequences, and both are stated rather than buried.
+
+**It is a loosening for the lossless filters**, which could defensibly be held
+to 0 — JPEG 2000 conformance is required exact on most of ISO/IEC 15444-4's
+files, and CCITT and JBIG2 have no rounding at all. Whether that loosening
+bought anything is a measurable question and is answered in
+[`baseline/README.md`](baseline/README.md) rather than assumed: it asks how
+many pictures of a lossless filter agree *only* because of the gate.
+
+**And it stops the split doing harm in the other direction.** Under the split a
+lossless filter could never be granted anything however good the reason, and
+`(samples)` was the live candidate: its 84.9% was two implementations doing
+different ICC conversion read through a bisection. What that needed was not a
+wider count budget but comparison per channel with the colour-converted
+pictures counted apart, and it now has both.
 
 ## What the landed record says under all this
 

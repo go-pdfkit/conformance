@@ -150,6 +150,10 @@ func TestAPictureBothSidesReadTheSameWayIsExact(t *testing.T) {
 	if got[0].Space != "gray" || got[0].Converted {
 		t.Errorf("a greyscale picture was not counted as direct: %+v", got[0])
 	}
+	// Nothing differed at all, so it is bit equality and is counted as such.
+	if c := Tally(got)["(samples)"]; c == nil || c.Direct.Identical != 1 {
+		t.Errorf("a picture identical to the judge's was not counted so: %+v", c)
+	}
 }
 
 func TestALevelShiftUnderTheGateIsStillAgreement(t *testing.T) {
@@ -168,6 +172,14 @@ func TestALevelShiftUnderTheGateIsStillAgreement(t *testing.T) {
 	// second, so the bias cancels and the squared error does not.
 	if got[0].MSE != 4 || got[0].Mean != 0 {
 		t.Errorf("the aggregate terms are %v and %v, want 4 and 0", got[0].MSE, got[0].Mean)
+	}
+	// It agreed, and it is NOT identical. One gate applies to every filter,
+	// which is a loosening for the lossless ones, and the record has to say
+	// how much of an agreement rate the gate bought rather than leave a
+	// reader to assume bit equality.
+	c := Tally(got)["(samples)"]
+	if c == nil || c.Direct.Exact != 1 || c.Direct.Identical != 0 {
+		t.Errorf("the gate-assisted agreement was counted as bit equality: %+v", c)
 	}
 }
 
@@ -785,6 +797,9 @@ func TestSummarizeKeepsWhatTheReportSays(t *testing.T) {
 	ccitt := got.Filters[1]
 	if ccitt.Direct == nil || ccitt.Direct.Terms != nil {
 		t.Errorf("%s differed nowhere yet carries a spread", ccitt.Filter)
+	}
+	if ccitt.Direct.Identical != 1 {
+		t.Errorf("the identical count did not reach the record: %+v", ccitt.Direct)
 	}
 }
 
