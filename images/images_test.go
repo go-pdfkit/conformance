@@ -538,26 +538,34 @@ func TestPicturesOfDifferentSizesAreNotCompared(t *testing.T) {
 	}
 }
 
-func TestAStencilIsComparedInCoverage(t *testing.T) {
-	// A stencil carries no colour of its own, so render returns it black with
-	// the shape in the alpha channel and poppler writes it as one bit of
-	// grey. Comparing those channel for channel would make every stencil in
-	// the corpus disagree, so a stencil is compared in one derived channel:
-	// ours the alpha, theirs 255 minus the luminance, because poppler's black
-	// is where the stencil paints.
-	ours := &raster.Image{W: 2, H: 1, Pix: []uint8{0, 0, 0, 255, 0, 0, 0, 0}}
+func TestAMaskIsComparedInInkCoverage(t *testing.T) {
+	// render puts a mask in one of two places and poppler in a third, so one
+	// symmetric formula reduces all three; the layouts were read out of the
+	// buffers and are cited in the package comment.
+	//
+	// A /ImageMask true stencil: black, with the shape in the alpha channel.
+	// Painted then seen through.
+	stencil := &raster.Image{W: 2, H: 1, Pix: []uint8{0, 0, 0, 255, 0, 0, 0, 0}}
+	// poppler writes the same mask as opaque grey, black where it paints.
 	theirs := &raster.Image{W: 2, H: 1, Pix: []uint8{0, 0, 0, 255, 255, 255, 255, 255}}
-	if got := difference(ours, theirs, true); got.Share != 0 || got.Peak != 0 {
+	if got := difference(stencil, theirs, true); got.Share != 0 || got.Peak != 0 {
 		t.Errorf("a stencil both sides agree on came out as %+v", got)
 	}
-	// Read as three colour channels instead, the same pair disagrees on
-	// everything — which is what the reduction exists to prevent.
-	if got := difference(ours, theirs, false); got.Peak != 255 {
+	// A /SMask: opaque, with its levels in RGB. The same formula reduces it
+	// to the same coverage, so it compares against poppler's grey directly —
+	// and reading it as a stencil's alpha would have said 255 everywhere.
+	smask := &raster.Image{W: 2, H: 1, Pix: []uint8{0, 0, 0, 255, 255, 255, 255, 255}}
+	if got := difference(smask, theirs, true); got.Share != 0 || got.Peak != 0 {
+		t.Errorf("a soft mask both sides agree on came out as %+v", got)
+	}
+	// Read as three colour channels instead, the stencil disagrees with
+	// poppler on everything — which is what the reduction exists to prevent.
+	if got := difference(stencil, theirs, false); got.Peak != 255 {
 		t.Errorf("read as colour, the same pair came out as %+v", got)
 	}
 	// And the polarity convention still reads as one.
 	flipped := &raster.Image{W: 2, H: 1, Pix: []uint8{255, 255, 255, 255, 0, 0, 0, 255}}
-	if got := difference(ours, flipped, true); !got.Inverted {
+	if got := difference(stencil, flipped, true); !got.Inverted {
 		t.Errorf("a stencil written the other way round came out as %+v", got)
 	}
 }

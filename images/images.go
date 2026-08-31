@@ -107,7 +107,7 @@
 // bucket, which makes a failure of pdfimages -list LOUD — every filter would
 // read as wholly converted — rather than silently generous.
 //
-// # Alpha, and what a stencil is compared in
+// # Alpha, and what a mask is compared in
 //
 // For an ordinary picture the compared channels are R, G and B. Alpha is not
 // compared: pdfimages writes an opaque picture for anything that is not a
@@ -115,13 +115,25 @@
 // would be a difference in what the two tools chose to emit rather than in
 // what the codecs produced.
 //
-// A STENCIL carries no colour of its own — it paints whatever colour is in
-// force through its own shape — so render returns it as black with the shape
-// in the ALPHA channel, and poppler writes it as one bit of grey. Those are
-// not comparable channel for channel, so a stencil is compared in ONE derived
-// channel, COVERAGE: ours is the alpha, theirs is 255 minus the luminance,
-// because poppler's black is where the stencil paints. That is the same
-// reduction the old bisection performed, taken per level instead of per bit.
+// A MASK is not comparable channel for channel, because the two sides do not
+// put it in the same channels, and render does not put it in ONE place
+// either. Both were read out of the buffers rather than assumed:
+//
+//   - a /ImageMask true STENCIL carries no colour of its own — it paints
+//     whatever colour is in force through its own shape — so render returns it
+//     black with the shape in the ALPHA channel. us-opm/SF2801PR.pdf's Im0 is
+//     one: 325x240, every RGB nought, exactly two alpha values.
+//   - a /SMask is eight-bit greyscale, so render returns it OPAQUE with its
+//     levels in RGB. us-opm/sf2822.pdf's Im0/SMask is one: 116x73, alpha 255
+//     at every one of its 8468 pixels.
+//
+// poppler writes both as grey, with black where the mask paints. So a mask is
+// compared in ONE derived channel, INK COVERAGE, by the same formula on both
+// sides: alpha times 255 minus the luminance, over 255. On a stencil the
+// luminance is nought so it reduces to the alpha; on a soft mask the alpha is
+// 255 so it reduces to the inverted luminance; on poppler's side the alpha is
+// always 255 and it is the inverted luminance. One formula, correct for both
+// layouts, and it is what the old bisection was doing per bit.
 //
 // # Polarity stays its own signal
 //
@@ -215,8 +227,9 @@ type Result struct {
 	Name string
 	// Filter is the image format it was stored in, empty for plain samples.
 	Filter string
-	// Stencil says it is a one-bit mask rather than a picture, which decides
-	// what channel the two sides are compared in.
+	// Stencil says render returned this as a MASK rather than as a picture —
+	// a /ImageMask true stencil, or a stream some picture named as its /SMask
+	// or /Mask. It decides what channel the two sides are compared in.
 	Stencil bool
 	// Decoded says a /Decode array shaped our samples. pdfimages writes the
 	// samples as stored, so this picture and theirs are not the same question
@@ -386,20 +399,20 @@ func match(theirs []shot, claimed []bool, ours *raster.Image) int {
 // The complement is measured in the same pass rather than in a second one
 // because polarity has to stay its own signal — see Difference.Inverted — and
 // a stencil corpus would otherwise walk every differing picture twice.
-func difference(ours, theirs *raster.Image, stencil bool) Difference {
+func difference(ours, theirs *raster.Image, mask bool) Difference {
 	n := ours.W * ours.H
 	if ours.W != theirs.W || ours.H != theirs.H || n == 0 {
 		return unjudged()
 	}
 	m := 3
-	if stencil {
+	if mask {
 		m = 1
 	}
 	var count, peak, flipped int
 	var sum, squares float64
 	for i := 0; i < n; i++ {
-		a := channels(ours, i, stencil, false)
-		b := channels(theirs, i, stencil, true)
+		a := channels(ours, i, mask)
+		b := channels(theirs, i, mask)
 		worst, worstFlipped := 0, 0
 		for c := 0; c < m; c++ {
 			e := a[c] - b[c]
@@ -441,20 +454,19 @@ func difference(ours, theirs *raster.Image, stencil bool) Difference {
 
 // channels reads the channels of one pixel that are compared.
 //
-// A stencil is compared in one derived channel, COVERAGE, and the rest of the
-// array is left at zero: ours is the alpha render put the shape in, theirs is
-// 255 minus the luminance of the one bit poppler wrote, because poppler's
-// black is where the stencil paints. Every other picture is compared in R, G
-// and B; see the package comment for why alpha is left out of those.
-func channels(im *raster.Image, i int, stencil, judge bool) [3]int {
+// A mask is compared in one derived channel, INK COVERAGE, and the rest of the
+// array is left at zero. The formula is the same on both sides and is correct
+// for each of the three layouts a mask arrives in — shape in alpha, levels in
+// RGB, and poppler's opaque grey; see the package comment. Every other picture
+// is compared in R, G and B, and alpha is left out of those for the reason
+// given there.
+func channels(im *raster.Image, i int, mask bool) [3]int {
 	p := im.Pix[i*4 : i*4+4]
-	if !stencil {
+	if !mask {
 		return [3]int{int(p[0]), int(p[1]), int(p[2])}
 	}
-	if judge {
-		return [3]int{255 - int((uint32(p[0])*299+uint32(p[1])*587+uint32(p[2])*114)/1000)}
-	}
-	return [3]int{int(p[3])}
+	luma := int((uint32(p[0])*299 + uint32(p[1])*587 + uint32(p[2])*114) / 1000)
+	return [3]int{int(p[3]) * (255 - luma) / 255}
 }
 
 // direct is the set of colour spaces pdfimages reports that reach RGB without
