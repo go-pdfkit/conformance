@@ -111,6 +111,11 @@ different operation would repeat exactly the mistake the withdrawn 1% was — a
 number carried onto an instrument that did not produce it. They are recorded so
 that a bound can be chosen from evidence later.
 
+Beside `exact`, every bucket also counts **`identical`**: how many of the
+agreeing pictures differed by *nothing at all*. A gate is a loosening, and a
+reader who cannot tell bit equality from agreement the gate carried has an
+agreement rate that means less than it looks like.
+
 ### What it replaced, and what that could not see
 
 Until this landed, the per-pixel predicate was a **bisection**: a pixel was
