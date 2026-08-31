@@ -408,8 +408,16 @@ populations. That is a specific finding about a decoder, and it is the first
 one this repository has produced; the two rates are not comparable to one
 another and neither is subtracted from the old one.
 
-The rest — every population, every filter, the ordered medians, and the four
-`ia-biodiversity` refusals that are counted and not diagnosed — is in
+**And one thing the record says about itself.** `refused` is 4 across 3280
+documents, all in `ia-biodiversity`, and all four are `render` v0.20.0's own
+256-megapixel decode budget declining a page rather than a document we cannot
+read. That is the other half of the fix that let the population run at all: it
+bounded the decode, and a bound that fires reads here as a refusal. The
+instrument folds "cannot read" and "declined to decode" into one count and
+should not; the four are named in the baseline so nobody reads them as a
+coverage gap.
+
+The rest — every population, every filter, the ordered medians — is in
 [`baseline/README.md`](baseline/README.md).
 
 ## What it comes to today

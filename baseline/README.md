@@ -57,8 +57,11 @@ rather than folded into a disagreement:
 - **unopenable** — neither implementation would open the document. `pdfinfo` was
   asked about every document ours refused. This is a fact about the corpus. **A
   population's real size is its documents minus this.**
-- **refused** — ours would not open or draw it *and poppler would*. This is the
-  only one of these counts that means a defect.
+- **refused** — ours would not open or draw it *and poppler would*. It used to
+  be described as the only one of these counts that means a defect, and
+  finding 6 shows that is **no longer true**: `render` v0.20.0 refuses a page
+  whose declared pictures exceed a 256-megapixel budget, and that refusal is
+  our own bound working, not a document we cannot read.
 - **declined** — ours drew pictures and `pdfimages` took none out, so there was
   nothing to compare against.
 - **remapped** — the picture carries a `/Decode` array, which a viewer applies
@@ -310,17 +313,46 @@ them needed the gate. So the uniform `D = 2` costs nothing on the filters that
 could defensibly be held to 0, and there is still no measured case for a
 per-filter exception table.
 
-### 6. Four documents poppler opens and we do not
+### 6. The four refusals are our own budget, not a coverage gap
 
 `refused` is **4** across 3280 documents, and all four are in
-`ia-biodiversity` — a population that had never completed, so the previous
+`ia-biodiversity` — the population that had never completed, so the previous
 baseline's *"`refused` is 0"* was true of the 20 populations it covered and
 untested here. Every other population reports 0.
 
-**Which four documents, and why, is not established.** Identifying them is a
-second pass over that corpus and it has not been run; guessing would be worse
-than the gap. `unopenable` is 63 and `declined` is 1 across the fleet, and
-neither of those is a defect.
+**All four were diagnosed and none is a document we cannot read.** Each opens,
+and each page 1 resolves; what fails is `render.Images`, with
+`render.ErrTooMuchToDecode`:
+
+| document | the picture that exceeded the budget |
+|---|---|
+| `bulletinno38tasm.pdf` | 9449 × 13701 |
+| `checklistofbirds00wood.pdf` | 2868 × 4780 |
+| `informeacercade00soci.pdf` | 2790 × 3737 |
+| `bulletindelasoci4243soci.pdf` | 794 × 1372 |
+
+`render` v0.20.0 gives one call to `Images` a budget of 256 megapixels
+(`maxImagesPixels`, `images.go:110`) and refuses the whole page when a picture
+will not fit in what is left. The last row is the telling one: an ordinary
+794 × 1372 picture, refused because the page had already spent all but 223 089
+of its 268 435 456 pixels.
+
+**This is the other half of the fix that let the population run at all.** The
+same v0.20.0 change that took `ia-biodiversity` from a 24.9 GB kill to a 3.9 GB
+peak did it by *bounding* the decode, and a bound that fires reads here as a
+refusal. So the population that could not be measured before now can be, and
+the price is four pages it declines to decode rather than four pages it cannot
+read.
+
+**The instrument should tell those apart and does not.** `Missing.Ours` folds
+"we could not read this" together with "we chose not to decode this", and only
+the first is a defect. Splitting them is not part of
+[conformance#16](https://github.com/go-pdfkit/conformance/issues/16) and is not
+done here; the four are named above so that nobody reads the 4 as a coverage
+gap in the meantime.
+
+`unopenable` is 63 and `declined` is 1 across the fleet, and neither of those
+is a defect either.
 
 ### 7. Inversions are still concentrated, and still conventions
 
@@ -334,7 +366,10 @@ convention belongs.
 
 ## What is not measured, and why
 
-- **The four `ia-biodiversity` refusals are counted, not diagnosed.**
+- **`Missing.Ours` folds two different things together** — a document we
+  cannot read and a page we decline to decode. Finding 6 shows all four of this
+  run's refusals are the second kind. The counts are correct; the label is too
+  coarse.
 - **`DCTDecode`'s 284 differing pictures are not diagnosed either.** Finding 1
   says the disagreement is real and moderate; it does not say whose it is.
   [conformance#13](https://github.com/go-pdfkit/conformance/issues/13) shows
