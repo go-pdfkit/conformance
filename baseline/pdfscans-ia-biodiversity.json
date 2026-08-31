@@ -1,6 +1,6 @@
 {
-  "corpus": "/Users/Shared/pdfforms",
-  "taken": "2026-08-31T12:11:33Z",
+  "corpus": "/Users/Shared/pdfscans",
+  "taken": "2026-08-31T10:27:08Z",
   "pages": 1,
   "gate": 2,
   "judge": "pdfimages version 26.04.0",
@@ -60,53 +60,59 @@
   ],
   "populations": [
     {
-      "population": "gh-safedocs",
-      "documents": 26,
-      "refused": 0,
-      "unopenable": 5,
+      "population": "ia-biodiversity",
+      "documents": 250,
+      "refused": 4,
+      "unopenable": 0,
       "declined": 0,
       "filters": [
         {
-          "filter": "DCTDecode",
-          "pictures": 1,
-          "unmatched": 0,
+          "filter": "JPXDecode",
+          "pictures": 516,
+          "unmatched": 26,
           "remapped": 0,
           "direct": {
-            "pictures": 1,
-            "exact": 0,
-            "identical": 0,
+            "pictures": 490,
+            "exact": 480,
+            "identical": 3,
             "inverted": 0,
-            "differing": 1,
+            "differing": 10,
             "terms": {
               "share": {
-                "median": 0.08330412152113872,
-                "worst": 0.08330412152113872
+                "median": 0.9945214085330849,
+                "worst": 0.9999758694537447
               },
               "peak": {
-                "median": 16,
-                "worst": 16
+                "median": 255,
+                "worst": 255
               },
               "mse": {
-                "median": 1.2592875858650237,
-                "worst": 1.2592875858650237
+                "median": 17813.89941525084,
+                "worst": 32873.85773233192
               },
               "mean": {
-                "median": -0.11954535797748035,
-                "worst": -0.11954535797748035
+                "median": 34.26086072993564,
+                "worst": -172.2092178686695
               }
             }
           }
         },
         {
           "filter": "(samples)",
-          "pictures": 1,
-          "unmatched": 0,
-          "remapped": 0,
+          "pictures": 5,
+          "unmatched": 5,
+          "remapped": 0
+        },
+        {
+          "filter": "JBIG2Decode mask",
+          "pictures": 260,
+          "unmatched": 12,
+          "remapped": 44,
           "direct": {
-            "pictures": 1,
-            "exact": 1,
-            "identical": 1,
-            "inverted": 0,
+            "pictures": 204,
+            "exact": 154,
+            "identical": 154,
+            "inverted": 50,
             "differing": 0
           }
         }

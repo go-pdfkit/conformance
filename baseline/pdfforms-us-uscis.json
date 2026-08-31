@@ -1,7 +1,8 @@
 {
   "corpus": "/Users/Shared/pdfforms",
-  "taken": "2026-08-30T16:38:19Z",
+  "taken": "2026-08-31T12:12:59Z",
   "pages": 1,
+  "gate": 2,
   "judge": "pdfimages version 26.04.0",
   "modules": [
     {
@@ -22,11 +23,11 @@
     },
     {
       "path": "github.com/go-opentype/opentype",
-      "version": "v0.10.0"
+      "version": "v0.12.0"
     },
     {
       "path": "github.com/go-pdfkit/pdffont",
-      "version": "v0.3.0"
+      "version": "v0.3.1"
     },
     {
       "path": "github.com/go-pdfkit/reader",
@@ -34,7 +35,7 @@
     },
     {
       "path": "github.com/go-pdfkit/render",
-      "version": "v0.19.0"
+      "version": "v0.20.0"
     },
     {
       "path": "github.com/sergeymakinen/go-bmp",
@@ -68,20 +69,37 @@
         {
           "filter": "(samples)",
           "pictures": 1,
-          "exact": 0,
-          "inverted": 0,
-          "differing": 1,
           "unmatched": 0,
           "remapped": 0,
-          "median": 0.013015075376884422,
-          "worst": 0.013015075376884422
+          "converted": {
+            "pictures": 1,
+            "exact": 0,
+            "identical": 0,
+            "inverted": 0,
+            "differing": 1,
+            "terms": {
+              "share": {
+                "median": 0.466356783919598,
+                "worst": 0.466356783919598
+              },
+              "peak": {
+                "median": 35,
+                "worst": 35
+              },
+              "mse": {
+                "median": 365.42168341708543,
+                "worst": 365.42168341708543
+              },
+              "mean": {
+                "median": -12.296005025125629,
+                "worst": -12.296005025125629
+              }
+            }
+          }
         },
         {
           "filter": "DCTDecode",
           "pictures": 86,
-          "exact": 0,
-          "inverted": 0,
-          "differing": 0,
           "unmatched": 0,
           "remapped": 86
         }

@@ -1,7 +1,8 @@
 {
   "corpus": "/Users/Shared/pdfforms",
-  "taken": "2026-08-30T16:37:15Z",
+  "taken": "2026-08-31T12:11:28Z",
   "pages": 1,
+  "gate": 2,
   "judge": "pdfimages version 26.04.0",
   "modules": [
     {
@@ -22,11 +23,11 @@
     },
     {
       "path": "github.com/go-opentype/opentype",
-      "version": "v0.10.0"
+      "version": "v0.12.0"
     },
     {
       "path": "github.com/go-pdfkit/pdffont",
-      "version": "v0.3.0"
+      "version": "v0.3.1"
     },
     {
       "path": "github.com/go-pdfkit/reader",
@@ -34,7 +35,7 @@
     },
     {
       "path": "github.com/go-pdfkit/render",
-      "version": "v0.19.0"
+      "version": "v0.20.0"
     },
     {
       "path": "github.com/sergeymakinen/go-bmp",
@@ -67,23 +68,65 @@
       "filters": [
         {
           "filter": "DCTDecode",
-          "pictures": 17,
-          "exact": 0,
-          "inverted": 0,
-          "differing": 13,
-          "unmatched": 4,
+          "pictures": 34,
+          "unmatched": 12,
           "remapped": 0,
-          "median": 0.1597576530612245,
-          "worst": 0.19451530612244897
+          "direct": {
+            "pictures": 22,
+            "exact": 0,
+            "identical": 0,
+            "inverted": 0,
+            "differing": 22,
+            "terms": {
+              "share": {
+                "median": 0.41262755102040816,
+                "worst": 0.46619897959183676
+              },
+              "peak": {
+                "median": 171,
+                "worst": 171
+              },
+              "mse": {
+                "median": 2595.6228741496598,
+                "worst": 3100.893494897959
+              },
+              "mean": {
+                "median": 1.665391156462585,
+                "worst": 8.25701530612245
+              }
+            }
+          }
         },
         {
           "filter": "(samples)",
-          "pictures": 53,
-          "exact": 42,
-          "inverted": 0,
-          "differing": 0,
-          "unmatched": 11,
-          "remapped": 0
+          "pictures": 51,
+          "unmatched": 0,
+          "remapped": 0,
+          "direct": {
+            "pictures": 51,
+            "exact": 16,
+            "identical": 16,
+            "inverted": 0,
+            "differing": 35,
+            "terms": {
+              "share": {
+                "median": 0.2222222222222222,
+                "worst": 0.2222222222222222
+              },
+              "peak": {
+                "median": 32,
+                "worst": 32
+              },
+              "mse": {
+                "median": 227.55555555555554,
+                "worst": 227.55555555555554
+              },
+              "mean": {
+                "median": 0,
+                "worst": 0
+              }
+            }
+          }
         }
       ]
     }

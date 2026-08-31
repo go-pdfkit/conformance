@@ -357,77 +357,69 @@ Two consequences, and both are stated rather than buried.
 **It is a loosening for the lossless filters**, which could defensibly be held
 to 0 — JPEG 2000 conformance is required exact on most of ISO/IEC 15444-4's
 files, and CCITT and JBIG2 have no rounding at all. Whether that loosening
-bought anything is a measurable question and is answered in
-[`baseline/README.md`](baseline/README.md) rather than assumed: it asks how
-many pictures of a lossless filter agree *only* because of the gate.
+bought anything was measured rather than assumed, and the answer is **nothing**:
+across both corpora, every agreeing picture of `JBIG2Decode`, `JBIG2Decode
+mask`, `JPXDecode mask`, `(samples)` and `(samples) mask` is **bit-identical**
+— 250 of 250, 10 of 10, 2 of 2, 638 of 638, 1074 of 1074. Not one needed the
+gate, so the uniform `D` costs the lossless filters nothing and there is still
+no measured case for an exception table.
 
 **And it stops the split doing harm in the other direction.** Under the split a
 lossless filter could never be granted anything however good the reason, and
 `(samples)` was the live candidate: its 84.9% was two implementations doing
 different ICC conversion read through a bisection. What that needed was not a
 wider count budget but comparison per channel with the colour-converted
-pictures counted apart, and it now has both.
+pictures counted apart, and it now has both: 3083 of `(samples)`'s 4292
+pictures are colour-converted and are tallied on their own, leaving a
+decoder figure of 69.7% over 916.
 
 ## What the landed record says under all this
 
-The band analysis that produced the 1% is kept below rather than deleted,
-because it is the record of how the number was reached and a withdrawn
-derivation is still evidence about the corpus. **It is a statement about the
-ink-classification statistic and about nothing else.**
+**The band was an artefact of the bisection, and it did not survive.** The
+withdrawn 1% was read off eighteen population × lossy-filter rows whose medians
+fell into fourteen from 0.000011 to 0.001966 and four from 0.047161 to 0.898821
+— a factor of **24** of empty band with 1% inside it. Measured per channel over
+the same two corpora, the 21 direct-bucket rows that had anything differ are a
+continuum: the largest gap anywhere in them is a factor of **6.8**, and where
+fourteen of eighteen used to sit below 1%, **two of twenty-one do**.
 
-`baseline/` records, per population and filter, the median and worst of the
-differing shares. Eighteen rows are a lossy filter with something to say, and
-sorted by median they fall in two groups: fourteen from 0.000011 to 0.001966,
-then nothing, then four from 0.047161 to 0.898821 — a factor of 24 of empty
-band. One population was re-measured picture by picture, `fr-cerfa` at
-`render` v0.20.0, and the gap is there too: 100 of its 105 differing
-`DCTDecode` pictures fall between 0.00000046 and 0.0086996, then 0.094990 and
-four larger.
+**And those two are the argument against ever putting the threshold back.**
+Their peak medians are **18 and 23 levels**, nine and eleven times the gate.
+Under the bisection the low group was rounding *by construction* — a pixel one
+level from luminance 128 could flip it. Under a magnitude measure the low group
+is **sparse gross error**, so a 1% budget would now forgive pictures wrong by up
+to 81 levels on a few hundred pixels. That is Cairo's *"otherwise some problems
+could be masked"* in this corpus's own numbers, and it is why `N` stays at 0.
 
-**Four fifths of that tail is not evidence.** Each of the 105 was checked
-against what `pdfimages -list` says its page holds, because
-[conformance#13](https://github.com/go-pdfkit/conformance/issues/13) showed
-`match` manufactures disagreements when a page draws many pictures of one
-size:
+**The measure separates the two lossy filters, which the bisection could not.**
+`JPXDecode` and `DCTDecode` used to read 15.4% and 33.2% and looked like two
+versions of one problem:
 
-| | pictures | ≤ 0.0087 | above 1% |
-|---|---:|---:|---|
-| **pairing unambiguous** | 95 | 94 | **0.094990** |
-| pairing ambiguous | 10 | 6 | 0.250000, 0.375000, 0.571429, 0.750000 |
+| filter | compared | exact | **identical** | agreement | was |
+|---|---:|---:|---:|---:|---:|
+| `JPXDecode` | 1225 | 1215 | **7** | **99.2%** | 15.4% |
+| `DCTDecode` | 430 | 146 | **4** | **34.0%** | 33.2% |
 
-All four largest are 7×1 and 8×1 slivers on page 1 of `cerfa_12626.pdf`, where
-`pdfimages` extracts 2122 pictures of size 8×1 and 81 of size 7×1, so they are
-paired at random and their shares are two to six differing pixels out of
-eight. **`fr-cerfa`'s worst `DCTDecode` disagreement is 0.095, not the 0.750
-that `baseline/` records.** The other five populations' worst pictures have
-not been audited for pairing.
+JPEG 2000 agrees within two levels almost everywhere and is bit-equal almost
+nowhere, which is what a conformant lossy decoder looks like. **JPEG did not
+move**, so it differs from poppler by more than the ISO/IEC 10918-2 IDCT
+allowance on two thirds of what it was compared on — by 16 to 62 levels in most
+populations. That is a specific finding about a decoder, and it is the first
+one this repository has produced; the two rates are not comparable to one
+another and neither is subtracted from the old one.
 
-**No confirmed decode defect is known in this corpus.** The two concentrations
-that looked like candidates are not: of the 173 `(samples)` complements in
-`fr-cerfa`, 144 are this instrument's own matcher and 29 are `pdfimages`
-writing a one-bit `/Indexed` picture black only for an exactly `#000000`
-palette entry; the 28 in `us-opm` are the stencil convention, where poppler's
-own `pdftoppm` agrees with `go-pdfkit` against `pdfimages`. What is left above
-the band is a set of **unexplained disagreements**, which is not the same as
-defects, and nobody has established that any of them is ours to fix.
-
-**And the record cannot be recomputed under any tolerance.** It holds, per
-filter, the exact count and the median and worst of the shares that differed.
-A median says half, so half of `ia-medical`'s 426 differing JPX pictures is
-all it can tell about how many sit under any cut. Eleven of the eighteen lossy
-rows have a *worst* below 1%, so all 81 of their differing pictures would be
-inside; four have a *median* above it; three are split in a proportion the
-record does not give. **Recording the count under the threshold is something a
-run must do, and the run that does it should be the one that measures per
-channel.**
+The rest — every population, every filter, the ordered medians, and the four
+`ia-biodiversity` refusals that are counted and not diagnosed — is in
+[`baseline/README.md`](baseline/README.md).
 
 ## What it comes to today
 
 A number that is not written down cannot be regressed against. `baseline/`
-holds a whole run of `images` over both corpora — the counts per population
-per filter, and beside them the corpus, the poppler that judged it, every
-module version it was built against and when it was taken, because a figure
-that drops between two runs means a regression only if everything else held.
+holds a whole run of `images` over both corpora — the counts per population per
+filter, and beside them the corpus, the poppler that judged it, **the gate the
+comparison used**, every module version it was built against and when it was
+taken, because a figure that drops between two runs means a regression only if
+everything else held.
 
 ```
 images -dir /Users/Shared/pdfscans -only ia-medical -json
@@ -435,32 +427,23 @@ images -dir /Users/Shared/pdfscans -only ia-medical -json
 
 [`baseline/README.md`](baseline/README.md) reads it out.
 
-### Those numbers were taken at `render` v0.19.0, and this is v0.20.0
+### Every population ran, including the three that never had
 
-Every record under `baseline/` carries the versions it was built against in its
-own `modules` block, and every one of them says **`render` v0.19.0**. This
-repository is now built against **v0.20.0**, and a run taken here is across a
-seam from them.
+| population | before | now |
+|---|---|---|
+| `pdfscans-ia-biodiversity` | killed at 24.9 GB, `rc=137` | completed, peak 3.9 GB |
+| `pdfforms-gh-openpdf` | killed at 27.5 GB, `rc=137` | completed |
+| `pdfscans-ia-americana` | hit the 45-minute cap, `rc=124`, cause unknown | completed, peak 5.2 GB, in 53 minutes |
 
-The seam is `render.Images`. Under v0.19.0 it answered per **draw**: a page
-that stamped one logo five hundred times yielded five hundred entries decoded
-from the same bytes, against `pdfimages`'s one, so this repository kept one
-entry per resource name to compensate. v0.20.0 removed the cause — a page's
-resources were being walked as a tree when they are a graph, so a picture
-reached through two forms was decoded once per path — and each picture now
-comes back once however many forms reach it.
+The two allocation failures were `render` v0.19.0 walking a page's resources as
+a tree when they are a graph; **v0.20.0's fix is confirmed on both**. The third
+was never a defect — a slow population of large scans and a cap that was too
+short — and that open question is closed.
 
-**So the compensation is gone, and it had to go.** A resource name is unique
-within one dictionary and not across them. Under v0.20.0, over the whole
-`/Users/Shared/pdfforms` corpus, **40 of its 2268 documents draw two different
-pictures sharing a name on their first page, and collapsing on the name would
-have dropped 64 of them** — 28 in `gh-qpdf`, where qpdf's form-XObject fixtures
-give two forms an `Im1` each, and 36 in `fr-impots`, where one issuer's real
-forms do the same with `Im0`. The second half of that is the part that matters:
-this is not only a property of a test corpus.
-
-A later reader comparing a fresh run against `baseline/` without noticing the
-seam would be reading a change in what is counted as a change in what is right.
+**Both seams are behind these records, not in front of them.** They were taken
+at `render` v0.20.0 with the per-channel measure, so all 23 populations are one
+instrument and one library version, and nothing under `baseline/` is inherited
+from the ink bisection at v0.19.0 any more.
 
 ## How it is checked
 

@@ -1,7 +1,8 @@
 {
   "corpus": "/Users/Shared/pdfforms",
-  "taken": "2026-08-30T16:35:25Z",
+  "taken": "2026-08-31T12:10:53Z",
   "pages": 1,
+  "gate": 2,
   "judge": "pdfimages version 26.04.0",
   "modules": [
     {
@@ -22,11 +23,11 @@
     },
     {
       "path": "github.com/go-opentype/opentype",
-      "version": "v0.10.0"
+      "version": "v0.12.0"
     },
     {
       "path": "github.com/go-pdfkit/pdffont",
-      "version": "v0.3.0"
+      "version": "v0.3.1"
     },
     {
       "path": "github.com/go-pdfkit/reader",
@@ -34,7 +35,7 @@
     },
     {
       "path": "github.com/go-pdfkit/render",
-      "version": "v0.19.0"
+      "version": "v0.20.0"
     },
     {
       "path": "github.com/sergeymakinen/go-bmp",
@@ -68,42 +69,122 @@
         {
           "filter": "DCTDecode",
           "pictures": 44,
-          "exact": 5,
-          "inverted": 0,
-          "differing": 11,
           "unmatched": 28,
           "remapped": 0,
-          "median": 0.18845159436943407,
-          "worst": 0.8804503729202524
+          "direct": {
+            "pictures": 13,
+            "exact": 7,
+            "identical": 0,
+            "inverted": 0,
+            "differing": 6,
+            "terms": {
+              "share": {
+                "median": 0.25667911519678255,
+                "worst": 0.2742746337259408
+              },
+              "peak": {
+                "median": 255,
+                "worst": 255
+              },
+              "mse": {
+                "median": 11906.81614478598,
+                "worst": 12011.132792301063
+              },
+              "mean": {
+                "median": -0.2393700263043985,
+                "worst": -15.196710715311692
+              }
+            }
+          },
+          "converted": {
+            "pictures": 3,
+            "exact": 0,
+            "identical": 0,
+            "inverted": 0,
+            "differing": 3,
+            "terms": {
+              "share": {
+                "median": 1,
+                "worst": 1
+              },
+              "peak": {
+                "median": 255,
+                "worst": 255
+              },
+              "mse": {
+                "median": 22819.413296041308,
+                "worst": 22891.568870720977
+              },
+              "mean": {
+                "median": -115.67878657487091,
+                "worst": -115.67878657487091
+              }
+            }
+          }
         },
         {
           "filter": "(samples)",
-          "pictures": 46,
-          "exact": 18,
-          "inverted": 0,
-          "differing": 6,
+          "pictures": 64,
           "unmatched": 0,
-          "remapped": 22,
-          "median": 0.0877431026684758,
-          "worst": 0.21483491632745363
+          "remapped": 40,
+          "direct": {
+            "pictures": 2,
+            "exact": 2,
+            "identical": 2,
+            "inverted": 0,
+            "differing": 0
+          },
+          "converted": {
+            "pictures": 22,
+            "exact": 9,
+            "identical": 9,
+            "inverted": 0,
+            "differing": 13,
+            "terms": {
+              "share": {
+                "median": 0.45504165469692615,
+                "worst": 0.49971272622809537
+              },
+              "peak": {
+                "median": 170,
+                "worst": 255
+              },
+              "mse": {
+                "median": 5784.537010437613,
+                "worst": 12765.810794512287
+              },
+              "mean": {
+                "median": 3.4954017789838687,
+                "worst": 44.50493153308436
+              }
+            }
+          }
         },
         {
           "filter": "(samples) mask",
-          "pictures": 11,
-          "exact": 4,
-          "inverted": 0,
-          "differing": 0,
+          "pictures": 29,
           "unmatched": 0,
-          "remapped": 7
+          "remapped": 25,
+          "direct": {
+            "pictures": 4,
+            "exact": 4,
+            "identical": 4,
+            "inverted": 0,
+            "differing": 0
+          }
         },
         {
           "filter": "JPXDecode",
           "pictures": 1,
-          "exact": 1,
-          "inverted": 0,
-          "differing": 0,
           "unmatched": 0,
-          "remapped": 0
+          "remapped": 0,
+          "direct": {
+            "pictures": 1,
+            "exact": 1,
+            "identical": 0,
+            "inverted": 0,
+            "differing": 0
+          }
         }
       ]
     }

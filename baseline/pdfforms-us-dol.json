@@ -1,7 +1,8 @@
 {
   "corpus": "/Users/Shared/pdfforms",
-  "taken": "2026-08-30T16:38:08Z",
+  "taken": "2026-08-31T12:12:38Z",
   "pages": 1,
+  "gate": 2,
   "judge": "pdfimages version 26.04.0",
   "modules": [
     {
@@ -22,11 +23,11 @@
     },
     {
       "path": "github.com/go-opentype/opentype",
-      "version": "v0.10.0"
+      "version": "v0.12.0"
     },
     {
       "path": "github.com/go-pdfkit/pdffont",
-      "version": "v0.3.0"
+      "version": "v0.3.1"
     },
     {
       "path": "github.com/go-pdfkit/reader",
@@ -34,7 +35,7 @@
     },
     {
       "path": "github.com/go-pdfkit/render",
-      "version": "v0.19.0"
+      "version": "v0.20.0"
     },
     {
       "path": "github.com/sergeymakinen/go-bmp",
@@ -67,32 +68,53 @@
       "filters": [
         {
           "filter": "DCTDecode",
-          "pictures": 16,
-          "exact": 10,
-          "inverted": 0,
-          "differing": 6,
+          "pictures": 15,
           "unmatched": 0,
           "remapped": 0,
-          "median": 0.00017777777777777779,
-          "worst": 0.00027985877895461984
+          "direct": {
+            "pictures": 15,
+            "exact": 0,
+            "identical": 0,
+            "inverted": 0,
+            "differing": 15,
+            "terms": {
+              "share": {
+                "median": 0.31514955188424576,
+                "worst": 0.4826666666666667
+              },
+              "peak": {
+                "median": 34,
+                "worst": 56
+              },
+              "mse": {
+                "median": 11.97339188840093,
+                "worst": 33.882666666666665
+              },
+              "mean": {
+                "median": -0.23181081956592162,
+                "worst": -0.28822268074604523
+              }
+            }
+          }
         },
         {
           "filter": "(samples)",
           "pictures": 11,
-          "exact": 0,
-          "inverted": 0,
-          "differing": 0,
           "unmatched": 0,
           "remapped": 11
         },
         {
           "filter": "(samples) mask",
           "pictures": 20,
-          "exact": 10,
-          "inverted": 0,
-          "differing": 0,
           "unmatched": 0,
-          "remapped": 10
+          "remapped": 10,
+          "direct": {
+            "pictures": 10,
+            "exact": 10,
+            "identical": 10,
+            "inverted": 0,
+            "differing": 0
+          }
         }
       ]
     }

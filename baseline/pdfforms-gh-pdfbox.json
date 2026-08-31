@@ -1,7 +1,8 @@
 {
   "corpus": "/Users/Shared/pdfforms",
-  "taken": "2026-08-30T16:36:55Z",
+  "taken": "2026-08-31T12:11:03Z",
   "pages": 1,
+  "gate": 2,
   "judge": "pdfimages version 26.04.0",
   "modules": [
     {
@@ -22,11 +23,11 @@
     },
     {
       "path": "github.com/go-opentype/opentype",
-      "version": "v0.10.0"
+      "version": "v0.12.0"
     },
     {
       "path": "github.com/go-pdfkit/pdffont",
-      "version": "v0.3.0"
+      "version": "v0.3.1"
     },
     {
       "path": "github.com/go-pdfkit/reader",
@@ -34,7 +35,7 @@
     },
     {
       "path": "github.com/go-pdfkit/render",
-      "version": "v0.19.0"
+      "version": "v0.20.0"
     },
     {
       "path": "github.com/sergeymakinen/go-bmp",
@@ -66,55 +67,173 @@
       "declined": 1,
       "filters": [
         {
-          "filter": "DCTDecode",
-          "pictures": 5,
-          "exact": 1,
-          "inverted": 0,
-          "differing": 4,
-          "unmatched": 0,
-          "remapped": 0,
-          "median": 0.0008984375,
-          "worst": 0.003403289846851957
-        },
-        {
-          "filter": "JPXDecode",
-          "pictures": 3,
-          "exact": 1,
-          "inverted": 0,
-          "differing": 2,
-          "unmatched": 0,
-          "remapped": 0,
-          "median": 0.8988214966615357,
-          "worst": 0.8988214966615357
-        },
-        {
           "filter": "(samples)",
           "pictures": 27,
-          "exact": 14,
-          "inverted": 0,
-          "differing": 13,
           "unmatched": 0,
           "remapped": 0,
-          "median": 0.5,
-          "worst": 0.75
+          "direct": {
+            "pictures": 18,
+            "exact": 9,
+            "identical": 9,
+            "inverted": 0,
+            "differing": 9,
+            "terms": {
+              "share": {
+                "median": 1,
+                "worst": 1
+              },
+              "peak": {
+                "median": 255,
+                "worst": 255
+              },
+              "mse": {
+                "median": 14734.9375,
+                "worst": 27229.921875
+              },
+              "mean": {
+                "median": -0.14583333333333334,
+                "worst": -62.375
+              }
+            }
+          },
+          "converted": {
+            "pictures": 9,
+            "exact": 5,
+            "identical": 5,
+            "inverted": 0,
+            "differing": 4,
+            "terms": {
+              "share": {
+                "median": 1,
+                "worst": 1
+              },
+              "peak": {
+                "median": 255,
+                "worst": 255
+              },
+              "mse": {
+                "median": 27389.509114583332,
+                "worst": 36125
+              },
+              "mean": {
+                "median": 12.75,
+                "worst": 63.895833333333336
+              }
+            }
+          }
+        },
+        {
+          "filter": "DCTDecode",
+          "pictures": 5,
+          "unmatched": 0,
+          "remapped": 0,
+          "direct": {
+            "pictures": 4,
+            "exact": 2,
+            "identical": 1,
+            "inverted": 0,
+            "differing": 2,
+            "terms": {
+              "share": {
+                "median": 0.3696722307754639,
+                "worst": 0.3696722307754639
+              },
+              "peak": {
+                "median": 58,
+                "worst": 58
+              },
+              "mse": {
+                "median": 19.264946789833346,
+                "worst": 19.264946789833346
+              },
+              "mean": {
+                "median": 0.004615374226831969,
+                "worst": -0.1506076388888889
+              }
+            }
+          },
+          "converted": {
+            "pictures": 1,
+            "exact": 0,
+            "identical": 0,
+            "inverted": 0,
+            "differing": 1,
+            "terms": {
+              "share": {
+                "median": 0.17229518449030645,
+                "worst": 0.17229518449030645
+              },
+              "peak": {
+                "median": 90,
+                "worst": 90
+              },
+              "mse": {
+                "median": 6.614555972482802,
+                "worst": 6.614555972482802
+              },
+              "mean": {
+                "median": 0.21829789451740672,
+                "worst": 0.21829789451740672
+              }
+            }
+          }
         },
         {
           "filter": "(samples) mask",
           "pictures": 5,
-          "exact": 4,
-          "inverted": 1,
-          "differing": 0,
           "unmatched": 0,
-          "remapped": 0
+          "remapped": 0,
+          "direct": {
+            "pictures": 5,
+            "exact": 4,
+            "identical": 4,
+            "inverted": 1,
+            "differing": 0
+          }
         },
         {
           "filter": "JBIG2Decode",
           "pictures": 1,
-          "exact": 0,
-          "inverted": 0,
-          "differing": 0,
           "unmatched": 0,
           "remapped": 1
+        },
+        {
+          "filter": "JPXDecode",
+          "pictures": 3,
+          "unmatched": 0,
+          "remapped": 0,
+          "direct": {
+            "pictures": 2,
+            "exact": 2,
+            "identical": 0,
+            "inverted": 0,
+            "differing": 0
+          },
+          "converted": {
+            "pictures": 1,
+            "exact": 0,
+            "identical": 0,
+            "inverted": 0,
+            "differing": 1,
+            "terms": {
+              "share": {
+                "median": 1,
+                "worst": 1
+              },
+              "peak": {
+                "median": 255,
+                "worst": 255
+              },
+              "mse": {
+                "median": 42179.881168263084,
+                "worst": 42179.881168263084
+              },
+              "mean": {
+                "median": -170.0170445013833,
+                "worst": -170.0170445013833
+              }
+            }
+          }
         }
       ]
     }

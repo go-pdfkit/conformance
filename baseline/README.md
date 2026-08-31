@@ -6,18 +6,20 @@ It is not an argument that anything is right. It is the number that a later run
 is subtracted from.
 
 The records beside this file are what `images -json` wrote, unedited. Each one
-carries its own conditions — the corpus, the judge's version, every module
-version it was built against, and when it was taken — because a figure that
-falls between two runs means a regression **only if everything else held**, and
-a drop is otherwise as likely to be a newer poppler or a corpus that grew.
+carries its own conditions — the corpus, the judge's version, the **gate** the
+comparison used, every module version it was built against, and when it was
+taken — because a figure that falls between two runs means a regression **only
+if everything else held**, and a drop is otherwise as likely to be a newer
+poppler, a corpus that grew, or a different instrument.
 
 ## Conditions
 
 | | |
 |---|---|
-| taken | 2026-08-30T16:34:29Z .. 2026-08-30T18:16:00Z (UTC) |
+| taken | 2026-08-31T09:43:00Z .. 2026-08-31T12:13:14Z (UTC) |
 | judge | pdfimages version 26.04.0 |
-| `go-pdfkit/render` | **v0.19.0** |
+| **measure** | **per channel, gate `D` = 2, count budget `N` = 0** ([conformance#16](https://github.com/go-pdfkit/conformance/issues/16)) |
+| `go-pdfkit/render` | **v0.20.0** |
 | `go-pdfkit/reader` | v0.6.0 |
 | `go-gfx/gfx` | v0.16.0 |
 | `tannevaled/gobig2` | v0.1.0 |
@@ -25,35 +27,21 @@ a drop is otherwise as likely to be a newer poppler or a corpus that grew.
 | pages per document | 1 (the first page of each document) |
 | corpora | `/Users/Shared/pdfscans` (MANIFEST.tsv), `/Users/Shared/pdfforms` (MANIFEST.tsv) |
 
-**The threshold used for every filter in these records is exact equality**, and
-that choice decides the answer, so it is stated rather than assumed. A picture
-counts as agreeing only when every pixel agrees **on whether it is ink** —
-alpha at least 128, luminance below 128. Comparing at all is defensible here
-and would not be for a page: `pdfimages` extracts rather than renders, so there
+**What `exact` asserts here.** A picture agrees when **no channel of any pixel
+differs from poppler's by more than two levels of 255**. Two is the ISO/IEC
+10918-2 IDCT allowance either side of the reference, read out of
+`libavcodec/tests/dct.c:259`; the derivation and the survey it sits in are in
+[the repository README](../README.md). Comparing at all is defensible here and
+would not be for a page: `pdfimages` **extracts** rather than renders, so there
 is no rasteriser between the codec and the pixels. `compare`, which draws whole
-pages, cannot use this threshold and does not.
+pages, cannot use this criterion and does not.
 
-**But "exact" here is narrower than a reader will assume, and every rate in
-this document is that narrower thing.** The comparison reduces each pixel to
-one bit, so `exact` means *no pixel's ink classification differs*, not *no
-pixel differs*. For a **bilevel** picture the two are the same claim — a
-stencil, a CCITT page, a JBIG2 page hold nothing the bisection can lose — so
-the 100% both JBIG2 columns read is bit equality. For a **greyscale or colour**
-picture it is strictly weaker: a decoder rendering every pixel at luminance 120
-where poppler renders 20 would score 0.000 here, on an error of 100 levels
-everywhere. `exact`, `agreement`, `differing`, `median`, `worst` and `inverted`
-all inherit that; `documents`, `refused`, `unopenable`, `declined`, `unmatched`
-and `remapped` do not compare pixels and are unaffected.
-
-Exact equality is also the wrong shape for `DCTDecode` and `JPXDecode`, and
-finding 2 below is the measurement that says so. A previous revision of
-[the README](../README.md) answered it with a tolerance of 1% of pixels, read
-off the very numbers in this document; **that rule has since been withdrawn**,
-because it was read off the ink-classification statistic above and because a
-count of differing pixels with no bound on how much each differs is a shape the
-field avoids. The README carries the survey and the replacement. Nothing in
-this document changes either way: no threshold was ever applied to these
-records.
+**Every figure in this document was taken with that instrument.** The records
+this file described before were taken with a different one — a bisection at
+luminance 128, where a picture agreed when no pixel's *ink classification*
+differed, which was exact for a bilevel picture and blind to a level or chroma
+shift everywhere else. **The two cannot be subtracted from one another**, and
+no table here mixes them. Every population was re-run, so **no record under `baseline/` is the old instrument any more** and nothing in this document is inherited.
 
 **There are deliberately no timings in this document.** Another job was running
 on the machine throughout, so every duration measured here would be a
@@ -73,16 +61,33 @@ rather than folded into a disagreement:
   only one of these counts that means a defect.
 - **declined** — ours drew pictures and `pdfimages` took none out, so there was
   nothing to compare against.
-- **inverted** — ours and theirs are exact complements. `pdfimages` writes a
-  **stencil** — `/ImageMask true`, or a stream named as a picture's `/Mask` —
-  with the opposite polarity to its samples, whatever filter it arrived in;
-  that is a convention, not a disagreement. Soft masks are not affected.
 - **remapped** — the picture carries a `/Decode` array, which a viewer applies
   and `pdfimages` does not. The two sides were not asked the same question.
 - **unmatched** — theirs had no picture of that size to pair with.
-- **agreement** — exact ÷ comparable, where comparable is pictures minus
-  remapped minus inverted. A filter with nothing comparable reads `n/a`, not
-  0%: nothing to compare is not evidence of being wrong.
+- **converted** — poppler had to convert the picture's colour space to reach
+  RGB (`cmyk`, `lab`, `icc`, `index`, `sep`, `devn`, or a row that could not be
+  read). Per channel that arithmetic is large and is **not** a decoder
+  disagreeing, so those pictures are tallied in their own bucket with their own
+  agreement figure and their own magnitudes. `index` counts as converted
+  because `pdfimages` does not report its base space.
+- **inverted** — ours and theirs are exact complements within the gate.
+  `pdfimages` writes a **stencil** — `/ImageMask true`, or a stream named as a
+  picture's `/Mask` — with the opposite polarity to its samples, whatever
+  filter it arrived in; that is a convention, not a disagreement.
+- **agreement** — exact ÷ **direct comparable**, where direct comparable is the
+  direct bucket's pictures minus its complements. It is never computed over the
+  converted bucket. A filter with nothing comparable reads `n/a`, not 0%.
+
+Beside the counts, each bucket that had anything differ carries the **median
+and the far end of four magnitudes** over its differing pictures:
+
+- **`peak`** — the largest channel difference in the picture, in levels of 255.
+  This is the criterion; everything else is a report.
+- **`share`** — the fraction of pixels where some channel exceeded the gate.
+- **`mse`** — mean squared error over the compared channels, in levels squared.
+- **`mean`** — the **signed** mean error, ours minus theirs, in levels. The
+  far end of this one is the value furthest from zero *with its sign*, so a
+  bias says which way it ran.
 
 A population that was **not run** says so in the table, by name. It is never
 omitted, because a reader who cannot tell a population that scored badly from
@@ -92,274 +97,252 @@ one that never ran has a report that misleads in the direction of comfort.
 
 Scanned pages — `/Users/Shared/pdfscans`:
 
-| population | documents | unopenable | refused | declined | pictures | compared | exact | agreement |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `ia-medical` | 250 | 0 | 0 | 0 | 745 | 530 | 102 | 19.2% |
-| `ia-biodiversity` | 250 | — | — | — | — | — | — | **not run** (killed by the memory watchdog at 24.9 GB, `rc=137` — finding 1) |
-| `ia-americana` | 250 | — | — | — | — | — | — | **not run** (exceeded the 45-minute cap, `rc=124` — never returned, memory flat) |
-| `ia-texts` | 12 | 7 | 0 | 0 | 13 | 10 | 4 | 40.0% |
-| `ia-uscourts` | 250 | 0 | 0 | 0 | 134 | 95 | 70 | 73.7% |
+| population | documents | unopenable | refused | declined | pictures | direct | inverted | compared | exact | identical | agreement | converted |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `ia-medical` | 250 | 0 | 0 | 0 | 745 | 722 | 193 | 529 | 528 | 33 | 99.8% | 1 |
+| `ia-biodiversity` | 250 | 0 | 4 | 0 | 781 | 694 | 50 | 644 | 634 | 157 | 98.4% | 0 |
+| `ia-americana` | 250 | 28 | 0 | 0 | 505 | 494 | 89 | 405 | 379 | 96 | 93.6% | 8 |
+| `ia-texts` | 12 | 7 | 0 | 0 | 14 | 14 | 3 | 11 | 11 | 2 | 100.0% | 0 |
+| `ia-uscourts` | 250 | 0 | 0 | 0 | 134 | 115 | 37 | 78 | 63 | 54 | 80.8% | 16 |
 
 Government and library forms — `/Users/Shared/pdfforms`:
 
-| population | documents | unopenable | refused | declined | pictures | compared | exact | agreement |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `ca-cra` | 84 | 0 | 0 | 0 | 151 | 0 | 0 | n/a |
-| `fr-cerfa` | 450 | 0 | 0 | 0 | 4390 | 4130 | 3446 | 83.4% |
-| `fr-impots` | 50 | 0 | 0 | 0 | 102 | 73 | 28 | 38.4% |
-| `gh-openpdf` | 56 | — | — | — | — | — | — | **not run** (killed by the memory watchdog at 27.5 GB, `rc=137` — finding 1) |
-| `gh-pdfbox` | 157 | 8 | 0 | 1 | 41 | 39 | 20 | 51.3% |
-| `gh-pdfcpu` | 147 | 0 | 0 | 0 | 696 | 696 | 653 | 93.8% |
-| `gh-pypdf` | 34 | 1 | 0 | 0 | 47 | 45 | 41 | 91.1% |
-| `gh-qpdf` | 81 | 0 | 0 | 0 | 70 | 70 | 42 | 60.0% |
-| `gh-safedocs` | 26 | 5 | 0 | 0 | 2 | 2 | 1 | 50.0% |
-| `gh-verapdf` | 134 | 0 | 0 | 0 | 0 | 0 | 0 | n/a |
-| `int-wipo` | 116 | 0 | 0 | 0 | 0 | 0 | 0 | n/a |
-| `uk-govuk` | 302 | 0 | 0 | 0 | 225 | 172 | 153 | 89.0% |
-| `us-dol` | 140 | 0 | 0 | 0 | 47 | 26 | 20 | 76.9% |
-| `us-irs` | 69 | 0 | 0 | 0 | 8 | 1 | 0 | 0.0% |
-| `us-opm` | 66 | 0 | 0 | 0 | 37 | 5 | 5 | 100.0% |
-| `us-ssa` | 199 | 0 | 0 | 0 | 8 | 0 | 0 | n/a |
-| `us-uscis` | 88 | 0 | 0 | 0 | 87 | 1 | 0 | 0.0% |
-| `us-uscourts` | 69 | 0 | 0 | 0 | 2 | 0 | 0 | n/a |
+| population | documents | unopenable | refused | declined | pictures | direct | inverted | compared | exact | identical | agreement | converted |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `ca-cra` | 84 | 0 | 0 | 0 | 151 | 0 | 0 | 0 | 0 | 0 | n/a | 0 |
+| `fr-cerfa` | 450 | 0 | 0 | 0 | 4380 | 1341 | 15 | 1326 | 914 | 878 | 68.9% | 2975 |
+| `fr-impots` | 50 | 0 | 0 | 0 | 138 | 20 | 0 | 20 | 14 | 6 | 70.0% | 25 |
+| `gh-openpdf` | 56 | 14 | 0 | 0 | 88 | 28 | 0 | 28 | 21 | 6 | 75.0% | 1 |
+| `gh-pdfbox` | 157 | 8 | 0 | 1 | 41 | 29 | 1 | 28 | 17 | 14 | 60.7% | 11 |
+| `gh-pdfcpu` | 147 | 0 | 0 | 0 | 696 | 639 | 0 | 639 | 599 | 597 | 93.7% | 57 |
+| `gh-pypdf` | 34 | 1 | 0 | 0 | 17 | 8 | 0 | 8 | 6 | 6 | 75.0% | 6 |
+| `gh-qpdf` | 81 | 0 | 0 | 0 | 85 | 73 | 0 | 73 | 16 | 16 | 21.9% | 0 |
+| `gh-safedocs` | 26 | 5 | 0 | 0 | 2 | 2 | 0 | 2 | 1 | 1 | 50.0% | 0 |
+| `gh-verapdf` | 134 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | n/a | 0 |
+| `int-wipo` | 116 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | n/a | 0 |
+| `uk-govuk` | 302 | 0 | 0 | 0 | 225 | 143 | 1 | 142 | 131 | 111 | 92.3% | 31 |
+| `us-dol` | 140 | 0 | 0 | 0 | 46 | 25 | 0 | 25 | 10 | 10 | 40.0% | 0 |
+| `us-irs` | 69 | 0 | 0 | 0 | 8 | 1 | 0 | 1 | 0 | 0 | 0.0% | 0 |
+| `us-opm` | 66 | 0 | 0 | 0 | 37 | 31 | 28 | 3 | 3 | 3 | 100.0% | 2 |
+| `us-ssa` | 199 | 0 | 0 | 0 | 8 | 0 | 0 | 0 | 0 | 0 | n/a | 0 |
+| `us-uscis` | 88 | 0 | 0 | 0 | 87 | 0 | 0 | 0 | 0 | 0 | n/a | 1 |
+| `us-uscourts` | 69 | 0 | 0 | 0 | 2 | 2 | 2 | 0 | 0 | 0 | n/a | 0 |
+
+**Every one of the 23 populations ran to completion.** Three of them never had
+a record before, and what happened to each is the subject of finding 3.
 
 ## The fleet, per filter
 
-**`compared` is the denominator every agreement figure is computed over** —
-pictures minus remapped minus inverted. It is printed beside `pictures`
-because the two are far apart and only one of them is the claim: `DCTDecode`
-has 477 pictures and 355 of them were compared, so "117 exact" is 117 of 355
-and never 117 of 477.
+**`compared` is the denominator every agreement figure is computed over** — the
+direct bucket's pictures minus its complements. It is printed beside `pictures`
+because the two are far apart and only one of them is the claim, and beside
+`identical`, because a rate is not a claim of bit equality.
 
-| filter | pictures | **compared** | exact | agreement | inverted | remapped | unmatched | differing | worst |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `JPXDecode` | 518 | 518 | 80 | **15.4%** | 0 | 0 | 0 | 438 | 0.8988 |
-| `DCTDecode` | 499 | 377 | 125 | **33.2%** | 1 | 121 | 33 | 219 | 0.8805 |
-| `(samples)` | 4256 | 3810 | 3236 | **84.9%** | 173 | 273 | 13 | 561 | 0.8571 |
-| `DCTDecode mask` | 12 | 12 | 11 | **91.7%** | 0 | 0 | 0 | 1 | 0.0000 |
-| `(samples) mask` | 1249 | 1133 | 1088 | **96.0%** | 81 | 35 | 1 | 44 | 0.9583 |
-| `JBIG2Decode` | 11 | 10 | 10 | **100.0%** | 0 | 1 | 0 | 0 | — |
-| `JBIG2Decode mask` | 258 | 33 | 33 | **100.0%** | 199 | 26 | 0 | 0 | — |
-| `JPXDecode mask` | 2 | 2 | 2 | **100.0%** | 0 | 0 | 0 | 0 | — |
+| filter | pictures | direct | inverted | **compared** | exact | identical | agreement | converted | conv. exact | conv. differing | remapped | unmatched | differing | worst peak |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `DCTDecode` | 652 | 430 | 0 | 430 | 146 | 4 | **34.0%** | 40 | 6 | 33 | 121 | 61 | 284 | 255 |
+| `(samples)` | 4292 | 916 | 0 | 916 | 638 | 638 | **69.7%** | 3083 | 1203 | 1812 | 286 | 7 | 278 | 255 |
+| `(samples) mask` | 1357 | 1268 | 151 | 1117 | 1074 | 1074 | **96.2%** | 1 | 0 | 1 | 87 | 1 | 43 | 255 |
+| `JPXDecode` | 1264 | 1225 | 0 | 1225 | 1215 | 7 | **99.2%** | 10 | 9 | 1 | 0 | 29 | 10 | 255 |
+| `DCTDecode mask` | 12 | 12 | 0 | 12 | 12 | 5 | **100.0%** | 0 | 0 | 0 | 0 | 0 | 0 | — |
+| `JBIG2Decode` | 11 | 10 | 0 | 10 | 10 | 10 | **100.0%** | 0 | 0 | 0 | 1 | 0 | 0 | — |
+| `JPXDecode mask` | 2 | 2 | 0 | 2 | 2 | 2 | **100.0%** | 0 | 0 | 0 | 0 | 0 | 0 | — |
+| `JBIG2Decode mask` | 600 | 518 | 268 | 250 | 250 | 250 | **100.0%** | 0 | 0 | 0 | 70 | 12 | 0 | — |
 
 ## What this says
 
-### 1. Nothing is refused that poppler can read
+### 1. JPEG 2000 is conformant and almost never bit-equal; JPEG is neither
 
-`refused` is **0** across all 2724 documents of the 20 populations that ran.
-Every document ours would not open, poppler would not open either — 21 of them,
-and 7 of those are the DRM'd `ia-texts` documents. For a reader that is the result you want: the
-coverage gap against the field is empty.
+This is the finding the instrument was built to make, and the old one could not
+have made it. `JPXDecode` and `DCTDecode` used to read **15.4%** and **33.2%**
+and looked like two versions of the same problem. Per channel they are not the
+same problem at all:
 
-### 2. Exact equality is the wrong threshold for a lossy codec, and it is the one used here
+| filter | compared | exact | **identical** | agreement |
+|---|---:|---:|---:|---:|
+| `JPXDecode` | 1225 | 1215 | **7** | **99.2%** |
+| `DCTDecode` | 430 | 146 | **4** | **34.0%** |
 
-`JPXDecode` reads 15.4% and `DCTDecode` 33.0%, which look like the two worst
-things in the corpus. They are not, and the report would mislead if it stopped
-at the rate. The differences are mostly minute:
+**JPEG 2000 agrees with poppler within two levels on 99.2% of the pictures
+compared and is bit-equal on 7 of 1225.** That is precisely what a conformant
+lossy decoder looks like, and it is what ISO/IEC 15444 promises: the transform
+is specified, the rounding is not. `ia-medical` alone is 496 pictures, 496
+exact, **1 identical**. The bisection's 15.4% was measuring how often our
+rounding and poppler's fell on opposite sides of luminance 128.
 
-| population | filter | differing | median | worst |
-|---|---|---:|---:|---:|
-| `ia-medical` | JPXDecode | 426 | 0.001966 | 0.370584 |
-| `fr-cerfa` | DCTDecode | 105 | 0.000135 | 0.750000 |
-| `gh-pdfcpu` | DCTDecode | 43 | 0.000909 | 0.002234 |
-| `uk-govuk` | DCTDecode | 18 | 0.000013 | 0.013940 |
-| `ia-uscourts` | DCTDecode | 14 | 0.000086 | 0.002106 |
+**`DCTDecode` did not move**: 33.2% to 34.0%. The gate rescued JPEG 2000 and
+did not rescue JPEG, which means our JPEG decoder differs from poppler's by
+**more than the ISO/IEC 10918-2 IDCT allowance** on two thirds of what it was
+compared on. And the peaks say by how much — the per-population medians of the
+worst channel run 16, 18, 23, 23, 26, 31, 34, 47, 50, 58, 62, 171, 244, 255.
+Sixteen to sixty-two levels is not rounding and it is not a wholly wrong
+picture either; it is a systematic moderate error, which is the exact shape the
+bisection could not see. **This is the first specific, actionable decode
+finding this repository has produced**, and it is not diagnosed here.
 
-A median of 0.000135 is one pixel in seven thousand. JPEG and JPEG 2000 do not
-require bit-exactness of any decoder — the inverse transform is specified to a
-tolerance, not to a value — so two conformant implementations *may* differ and
-counting that as a failure measures conformance to poppler rather than to the
-format.
+### 2. The empty band that produced the 1% does not survive, and what sits under 1% now is worse than what used to
 
-**This contradicted the premise stated in the repository's README**, that "two
-implementations of one image format either agree bit for bit or one of them is
-wrong". That is true of `CCITTFaxDecode` and `JBIG2Decode`, which are lossless
-and where the corpus duly reads 100%. It was false of `DCTDecode` and
-`JPXDecode`. Those two need a tolerance, and **the two rates above are a floor
-and not a verdict**.
+The withdrawn tolerance was read off eighteen population × lossy-filter rows
+whose medians fell into fourteen from 0.000011 to 0.001966 and four from
+0.047161 to 0.898821 — **a factor of 24 of empty band**, with 1% inside it.
+The 21 direct-bucket rows of this run, ordered by median share, are:
 
-The tail is where the real question is: `ia-medical` JPX has a worst of 0.37
-and `gh-pdfbox` a median of 0.899, and those are not rounding.
+```
+0.005553 0.007024 0.047733 0.069908 0.070221 0.072224 0.080903 0.083304
+0.173316 0.222222 0.256679 0.315150 0.369112 0.369672 0.412628 0.888889
+0.895425 0.958333 0.994521 1.000000 1.000000
+```
 
-**A correction was made using this table and has since been withdrawn.** The
-README judged the two lossy filters by a tolerance of 1% of pixels, chosen
-because the eighteen lossy rows of these records fall into a group of fourteen
-whose medians run from 0.000011 to 0.001966 and a group of four running from
-0.047161 to 0.898821, with nothing between. **That band is a property of the
-ink-classification statistic**, not of decode fidelity: binarisation flips
-cluster where a picture has content near luminance 128, so the band describes
-how this corpus's tone distribution meets one threshold. A number read off it
-cannot be carried onto a measure with magnitude in it, and the field bounds
-magnitude before it counts anything. The README now states a per-channel rule
-and claims no figure under it. **Every rate printed in this document is the
-exact-equality rate** either way, because that is what the run recorded.
+**The band is gone as a band.** The largest gap anywhere in that list is a
+factor of **6.8** (0.007024 to 0.047733), then 2.15 and 2.08; the rest is a
+continuum. Where fourteen rows of eighteen used to sit below 1%, **two of
+twenty-one do.**
 
-One population was re-measured to check that, with every picture's share
-written out instead of summarised. **It is one population — `fr-cerfa`, 450
-documents, first page — taken at `render` v0.20.0**, and it is reported as one:
-nothing here is a new corpus figure. Its 105 differing `DCTDecode` pictures run
-from 0.00000046 to 0.0086996 and then jump to 0.094990, so the empty band is
-there at picture level too and 1% would have fallen inside it. Under that
-withdrawn tolerance the population's DCT agreement would read 97.4% (188 of 193
-comparable) where this document records 45.6% (88 of 193). It is quoted to
-record what the number did, not to claim it.
+And the two that do are the reason a share threshold must not come back. Their
+**peak medians are 18 and 23 levels** — nine and eleven times the gate. A 1%
+budget would pass `uk-govuk`'s `DCTDecode` row, where half a percent of the
+pixels are wrong by up to 35 levels, and `ia-uscourts`'s, where 0.7% are wrong
+by up to 81. Under the bisection the low group was rounding *by construction*,
+because a pixel one level from the threshold could flip it. Under a magnitude
+measure the low group is **sparse gross error**, which is Cairo's objection in
+our own data: *"otherwise some problems could be masked"*.
 
-**Each of the 105 was then checked against what `pdfimages -list` says its page
-holds**, because finding 3 above shows `match` manufactures disagreements when
-a page draws many pictures of one size. Ten had an ambiguous size and 95 did
-not, and the split is the whole tail: of the 95 unambiguous, 94 are at or below
-0.0087 and **one** is above — `cerfa_12711.pdf`'s single 418×357 picture, at
-0.094990. The four largest shares in this population's DCT column — 0.750000,
-0.571429, 0.375000, 0.250000 — are all 7×1 and 8×1 slivers on page 1 of
-`cerfa_12626.pdf`, where `pdfimages` extracts 2122 pictures of size 8×1 and 81
-of size 7×1, so they are paired at random and are two to six differing pixels
-out of eight. **The worst DCT disagreement in `fr-cerfa` is 0.095, not 0.750**,
-and the 0.750 recorded above is the matcher.
+So the reasoning that produced the 1% was measuring the bisection's
+interaction with this corpus's tone distribution, exactly as
+[the README](../README.md) suspected, and a number read off it would now buy
+the opposite of what it was meant to buy. **`N` stays at 0.**
 
-That run is also the only measurement of how far the version seam moved a
-population, and the answer for this one is: barely. At v0.20.0 with the
-name-collapsing removed, `fr-cerfa` reproduces the table above exactly for
-`DCTDecode` (206 pictures, 88 exact, 105 differing, median 0.000135, worst
-0.750000), for `(samples) mask`, for `DCTDecode mask` and for `JPXDecode`. Only
-`(samples)` moved, from 3414 pictures to 3404 and from 45 remapped to 35, with
-its exact, inverted, differing, median and worst all unchanged — including the
-173 in the `inverted` column, which finding 3 above and
-[conformance#13](https://github.com/go-pdfkit/conformance/issues/13) show are
-144 parts matcher and 29 parts `pdfimages`, and no part decoder. **One
-population is not the corpus**, and the other nineteen are not re-measured
-here.
+Every differing bucket in the run, for anyone who wants to check that:
 
-**One caveat was checked before any of this was written.** `decodeJPEG` prefers
-the codestream's dimensions over the dictionary's when the two disagree, while
-`pdfimages` lists the dictionary's — so for those files the comparison would be
-lining up the wrong grid, and the DCTDecode figure would be about the matcher
-rather than about JPEG. Counted over 362 documents of the forms corpus, with
-repeated draws collapsed:
+| population | filter | bucket | differing | share med | share worst | peak med | peak worst | mse med | mse worst | mean med | mean worst |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `ia-americana` | `DCTDecode` | converted | 3 | 0.000113 | 0.241657 | 4 | 37 | 0.3278 | 11.3543 | +0.1403 | +0.2795 |
+| `uk-govuk` | `DCTDecode` | direct | 11 | 0.005553 | 0.014278 | 18 | 35 | 0.1088 | 0.5260 | -0.0023 | -0.0031 |
+| `ia-uscourts` | `DCTDecode` | direct | 11 | 0.007024 | 0.227292 | 23 | 81 | 0.2898 | 4.0804 | -0.0001 | -0.0783 |
+| `ia-americana` | `DCTDecode` | direct | 26 | 0.047733 | 0.334129 | 23 | 50 | 0.8419 | 11.0975 | +0.1718 | +0.3763 |
+| `gh-pdfcpu` | `DCTDecode` | direct | 40 | 0.069908 | 0.560845 | 26 | 127 | 1.2818 | 35.6550 | +0.0018 | -0.2772 |
+| `ia-medical` | `DCTDecode` | direct | 1 | 0.070221 | 0.070221 | 62 | 62 | 1.3258 | 1.3258 | +0.0215 | +0.0215 |
+| `fr-cerfa` | `(samples) mask` | direct | 41 | 0.072224 | 0.248274 | 255 | 255 | 4696.3384 | 16144.0274 | -0.0843 | +50.0687 |
+| `fr-cerfa` | `DCTDecode` | direct | 139 | 0.080903 | 0.586986 | 31 | 76 | 2.1730 | 31.7507 | +0.0124 | +0.8845 |
+| `gh-safedocs` | `DCTDecode` | direct | 1 | 0.083304 | 0.083304 | 16 | 16 | 1.2593 | 1.2593 | -0.1195 | -0.1195 |
+| `us-opm` | `(samples)` | converted | 1 | 0.100000 | 0.100000 | 9 | 9 | 4.6706 | 4.6706 | +0.6183 | +0.6183 |
+| `ia-uscourts` | `DCTDecode` | converted | 2 | 0.138858 | 0.138858 | 105 | 105 | 95.0602 | 95.0602 | +0.9965 | +0.9965 |
+| `gh-pdfbox` | `DCTDecode` | converted | 1 | 0.172295 | 0.172295 | 90 | 90 | 6.6146 | 6.6146 | +0.2183 | +0.2183 |
+| `us-irs` | `DCTDecode` | direct | 1 | 0.173316 | 0.173316 | 47 | 47 | 4.0918 | 4.0918 | -0.0621 | -0.0621 |
+| `gh-qpdf` | `(samples)` | direct | 35 | 0.222222 | 0.222222 | 32 | 32 | 227.5556 | 227.5556 | +0.0000 | +0.0000 |
+| `fr-impots` | `DCTDecode` | direct | 6 | 0.256679 | 0.274275 | 255 | 255 | 11906.8161 | 12011.1328 | -0.2394 | -15.1967 |
+| `gh-pdfcpu` | `DCTDecode` | converted | 1 | 0.266979 | 0.266979 | 27 | 27 | 6.1398 | 6.1398 | +0.0059 | +0.0059 |
+| `uk-govuk` | `(samples)` | converted | 1 | 0.273188 | 0.273188 | 35 | 35 | 292.3110 | 292.3110 | -8.9241 | -8.9241 |
+| `us-dol` | `DCTDecode` | direct | 15 | 0.315150 | 0.482667 | 34 | 56 | 11.9734 | 33.8827 | -0.2318 | -0.2882 |
+| `fr-cerfa` | `DCTDecode` | converted | 21 | 0.351111 | 1.000000 | 30 | 255 | 17.8306 | 31435.6250 | +0.0325 | +57.2083 |
+| `gh-openpdf` | `DCTDecode` | direct | 7 | 0.369112 | 0.997876 | 50 | 255 | 16.7114 | 9956.0341 | +0.0642 | +53.3266 |
+| `gh-pdfbox` | `DCTDecode` | direct | 2 | 0.369672 | 0.369672 | 58 | 58 | 19.2649 | 19.2649 | +0.0046 | -0.1506 |
+| `gh-qpdf` | `DCTDecode` | direct | 22 | 0.412628 | 0.466199 | 171 | 171 | 2595.6229 | 3100.8935 | +1.6654 | +8.2570 |
+| `fr-impots` | `(samples)` | converted | 13 | 0.455042 | 0.499713 | 170 | 255 | 5784.5370 | 12765.8108 | +3.4954 | +44.5049 |
+| `us-uscis` | `(samples)` | converted | 1 | 0.466357 | 0.466357 | 35 | 35 | 365.4217 | 365.4217 | -12.2960 | -12.2960 |
+| `fr-cerfa` | `(samples)` | converted | 1788 | 0.500000 | 1.000000 | 19 | 241 | 73.0000 | 36864.0000 | +0.3333 | +192.0000 |
+| `ia-medical` | `(samples)` | converted | 1 | 0.628462 | 0.628462 | 19 | 19 | 121.8514 | 121.8514 | -8.3359 | -8.3359 |
+| `fr-cerfa` | `(samples)` | direct | 232 | 0.888889 | 1.000000 | 115 | 255 | 1504.8095 | 8323.0833 | +0.4167 | +53.5556 |
+| `gh-pypdf` | `DCTDecode` | direct | 2 | 0.895425 | 0.895425 | 244 | 244 | 1375.6107 | 1375.6107 | +0.4075 | +0.4075 |
+| `gh-openpdf` | `DCTDecode` | converted | 1 | 0.939036 | 0.939036 | 38 | 38 | 98.4109 | 98.4109 | +5.0846 | +5.0846 |
+| `ia-uscourts` | `(samples) mask` | direct | 2 | 0.958333 | 0.958333 | 255 | 255 | 62315.6250 | 62315.6250 | -240.3906 | -240.3906 |
+| `gh-pypdf` | `(samples)` | converted | 1 | 0.985783 | 0.985783 | 27 | 27 | 121.3016 | 121.3016 | -4.2622 | -4.2622 |
+| `ia-biodiversity` | `JPXDecode` | direct | 10 | 0.994521 | 0.999976 | 255 | 255 | 17813.8994 | 32873.8577 | +34.2609 | -172.2092 |
+| `uk-govuk` | `DCTDecode` | converted | 1 | 0.994621 | 0.994621 | 61 | 61 | 115.5974 | 115.5974 | -2.1431 | -2.1431 |
+| `fr-impots` | `DCTDecode` | converted | 3 | 1.000000 | 1.000000 | 255 | 255 | 22819.4133 | 22891.5689 | -115.6788 | -115.6788 |
+| `gh-pdfbox` | `(samples)` | direct | 9 | 1.000000 | 1.000000 | 255 | 255 | 14734.9375 | 27229.9219 | -0.1458 | -62.3750 |
+| `gh-pdfbox` | `(samples)` | converted | 4 | 1.000000 | 1.000000 | 255 | 255 | 27389.5091 | 36125.0000 | +12.7500 | +63.8958 |
+| `gh-pdfbox` | `JPXDecode` | converted | 1 | 1.000000 | 1.000000 | 255 | 255 | 42179.8812 | 42179.8812 | -170.0170 | -170.0170 |
+| `ia-uscourts` | `(samples) mask` | converted | 1 | 1.000000 | 1.000000 | 207 | 207 | 16375.4434 | 16375.4434 | -98.1878 | -98.1878 |
+| `ia-uscourts` | `(samples)` | direct | 2 | 1.000000 | 1.000000 | 207 | 207 | 16181.4161 | 16181.4161 | +96.8730 | +96.8730 |
+| `ia-uscourts` | `(samples)` | converted | 2 | 1.000000 | 1.000000 | 101 | 101 | 1089.9152 | 1089.9152 | +0.2467 | -28.9192 |
 
-| filter | our size agrees with the judge's | no picture of our size |
-|---|---:|---:|
-| `DCTDecode` | 252 | **1** |
-| `(samples)` | 3620 | 1 |
-| `(samples) mask` | 773 | 1 |
+### 3. All three populations that never finished, finished
 
-One DCT picture in 253. The disagreement is real — in `2735_2735_5089.pdf` ours
-is 233×113 where poppler lists 173×87 — and it is rare enough that it does not
-touch the rate. The finding stands, and stands better for having been checked.
+| population | before | now |
+|---|---|---|
+| `pdfscans-ia-biodiversity` | killed by the memory watchdog at **24.9 GB**, `rc=137` | **completed**, peak **3.9 GB** |
+| `pdfforms-gh-openpdf` | killed at **27.5 GB**, `rc=137` | **completed**, and quickly |
+| `pdfscans-ia-americana` | ran to the 45-minute cap, `rc=124`, memory flat; *"whether it is merely a slow population of large scans or something that does not terminate is not known"* | **completed**, peak **5.2 GB**, in **53 minutes** under a 90-minute cap |
 
-### 3. Inversions are concentrated, not spread
+The two allocation failures were `render` v0.19.0 walking a page's resources as
+a tree when they are a graph, and **v0.20.0's fix is confirmed on both**. The
+third was never a defect: `ia-americana` is a slow population of large scans
+and the old cap was simply too short. That was the open question and it is
+closed.
 
-An exact complement is a convention rather than a disagreement, but *where* it
-occurs says whether it is understood. It is not thinly spread:
+### 4. Colour conversion was the right diagnosis, and it was most of `(samples)`
 
-| filter | inverted | where |
-|---|---:|---|
-| `JBIG2Decode mask` | 199 | `ia-medical` 193 of 247, then 3 and 3 |
-| `(samples)` | 173 | **`fr-cerfa` alone**, 173 of 3414 |
-| `(samples) mask` | 81 | `ia-uscourts` 34 of 51, `us-opm` **28 of 29**, `fr-cerfa` 15 of 762 |
-| `DCTDecode` | 1 | `uk-govuk` |
+`(samples)` used to read **84.9%** over 3810 compared pictures. Splitting the
+colour-converted ones out moves **3083 of its 4292 pictures** into their own
+bucket, leaving 916 compared and **69.7%**. `fr-cerfa` alone contributes 2949
+of them.
 
-The two mask concentrations are the stencil polarity convention: `pdfimages`
-writes every stencil with the opposite polarity to its samples, and `us-opm`'s
-28 are 28 of 28 `/ImageMask true`. They are expected, and the JBIG2 line is the
-same thing rather than a JBIG2 thing.
+The two numbers are not comparable and neither is "the" answer: the old one
+averaged two implementations' ICC arithmetic into a decoder's score, and the
+new one declines to score that at all. What the split buys is that the 69.7%
+is *about a decoder*. And the converted bucket is not thrown away — it carries
+its own magnitudes, so the claim can be checked: `fr-cerfa`'s 1788 differing
+converted `(samples)` pictures have a **median peak of 19 levels**, which is
+colour arithmetic, against its 232 differing **direct** ones at a median peak
+of **115**, which is not.
 
-**The `(samples)` line is not an inversion at all**, and the concentration was
-the clue. All 173 are in 8 documents; 168 of them are 2x2 pixels and none is
-larger than four. Those documents set coloured text by stretching a solid
-2x2 swatch under a large `/SMask`, and page 1 of `cerfa_10074.pdf` draws 211 of
-them, every one uniform. `match` pairs a picture with the first unclaimed
-picture of the same size, so a black swatch of ours is paired with a white
-swatch of theirs and `difference` reads 1.0. Matched by object identity
-instead, the 8 documents come to 3414 agreeing, 29 complements and 6 differing,
-where this instrument reads 2906, 173 and 370. **144 of the 173 are the
-matcher.** The 29 that survive are a second `pdfimages` behaviour: a one-bit
-`/Indexed` picture is written black only when the palette entry is exactly
-`#000000`, so a `#333333` swatch comes out as paper. Both are recorded in
-[conformance#13](https://github.com/go-pdfkit/conformance/issues/13), with the
-minimal documents that reproduce them.
+Of the direct `(samples)` pictures that agree, **all 638 are bit-identical**.
+Uncompressed samples in `gray` or `rgb` have nothing to round, so that is the
+answer that had to come out, and it is a check on the instrument as much as on
+the decoder.
 
-### 4. The comparison reduces colour to one bit, which makes colour pictures fragile
+### 5. The gate bought the lossless filters nothing, which is how it should be
 
-`difference` asks only whether a pixel is ink — luminance below 128, alpha
-above it. For a bilevel scan that is exactly right and is why the CCITT and
-JBIG2 numbers can be trusted. For a colour picture it is a bisection: a small
-shift in colour management moves pixels across the threshold wholesale.
+One gate applies to every filter, and that is a loosening for the lossless
+ones. `identical` measures the loosening, and for them it is zero:
 
-`fr-cerfa` shows the effect at its strongest, and it is the largest single
-disagreement in the corpus — 535 differing `(samples)` pictures at a median of
-0.286, a quarter of every pixel — and poppler reports those pictures as `icc`
-(3 components, 8 bits) and `index`. Two implementations doing different ICC
-conversion, compared through a luminance bisection, can disagree on a quarter
-of the pixels while both being right.
+| filter | compared | exact | identical |
+|---|---:|---:|---:|
+| `JBIG2Decode` | 10 | 10 | **10** |
+| `JBIG2Decode mask` | 250 | 250 | **250** |
+| `JPXDecode mask` | 2 | 2 | **2** |
+| `(samples)` | 916 | 638 | **638** |
+| `(samples) mask` | 1117 | 1074 | **1074** |
 
-**So this is named as the top candidate and explicitly not as a defect.** It
-has not been established either way, and the check that would settle it is a
-per-channel comparison rather than an ink/paper one.
+**Every agreeing picture of every lossless filter is bit-equal.** Not one of
+them needed the gate. So the uniform `D = 2` costs nothing on the filters that
+could defensibly be held to 0, and there is still no measured case for a
+per-filter exception table.
 
-**The same bisection is what the two lossy columns are measured through**, and
-there it is worse than fragile: it cannot see a uniform level or chroma shift
-at all, which is the characteristic failure of a lossy decoder. `DCTDecode` and
-`JPXDecode` therefore have a rate in the table above that could be 100% on a
-decoder wrong by 100 levels everywhere. Per-channel comparison is the fix for
-those two as much as for `(samples)`, and it is why the 1% tolerance read off
-these numbers was withdrawn rather than kept with a second condition.
+### 6. Four documents poppler opens and we do not
 
-## The version seam: these records are v0.19.0, the instrument is now v0.20.0
+`refused` is **4** across 3280 documents, and all four are in
+`ia-biodiversity` — a population that had never completed, so the previous
+baseline's *"`refused` is 0"* was true of the 20 populations it covered and
+untested here. Every other population reports 0.
 
-These records were taken against **`render` v0.19.0**, which is what the
-`modules` block of every JSON file says and what the conditions table above
-repeats. **The instrument that took them has since moved to v0.20.0**, so a run
-taken today is on the far side of a seam from every number in this document,
-and the two must not be subtracted from one another without saying so.
+**Which four documents, and why, is not established.** Identifying them is a
+second pass over that corpus and it has not been run; guessing would be worse
+than the gap. `unopenable` is 63 and `declined` is 1 across the fleet, and
+neither of those is a defect.
 
-The seam is what `Images` returns. Under v0.19.0 a page that draws the same
-XObject repeatedly yields one entry per draw; under v0.20.0 it yields one per
-picture. The instrument compensated for v0.19.0's behaviour by taking each
-picture once, keyed on the name the page draws it by, and **that compensation
-has been removed**, because against v0.20.0 it is not merely redundant but
-wrong: a name is unique within a resource dictionary and not across them.
+### 7. Inversions are still concentrated, and still conventions
 
-The figure that decided it was re-measured rather than inherited. An earlier
-note here read *"over 368 documents, 16 of them have two pictures sharing a
-name … collapsing on the name would drop 28 distinct pictures"*. Measured again
-under v0.20.0 over the **whole** forms corpus — 2268 documents, first page,
-825 of which draw any picture at all — the count is larger:
-
-| population | documents whose first page shares a name | pictures the compensation would drop |
-|---|---:|---:|
-| `gh-qpdf` | 16 | 28 |
-| `fr-impots` | 24 | 36 |
-| **total** | **40 of 2268** | **64** |
-
-The 16 and the 28 are exactly the earlier note's figure: it was counting
-`gh-qpdf` alone. `gh-qpdf` is qpdf's `form-xobjects-*` and `shared-form-*`
-fixtures, where two form XObjects each name their own `Im1`, and a fixture
-corpus is meant to hold cases like that. **`fr-impots` is not a fixture
-corpus.** Twenty-four of its fifty documents — one issuer's real tax forms —
-put two different pictures under `Im0` on their first page, and it is that half
-of the count which says the compensation had to go rather than merely could.
-
-The same sweep over `/Users/Shared/pdfscans` was started and stopped before it
-finished, so **there is no scanned-corpus figure here**; the number above is
-the forms corpus and says nothing about the other one.
+268 `JBIG2Decode mask`, 151 `(samples) mask` complements. They are the stencil
+polarity convention — `pdfimages` writes a stencil with the opposite polarity
+to the samples it holds — and `render` v0.20.0 plus the object-identity finding
+in [conformance#13](https://github.com/go-pdfkit/conformance/issues/13) have
+already taken most of the spurious `(samples)` complements out: `fr-cerfa`'s
+173 are now **15**. The remaining `(samples)` complements are masks, where the
+convention belongs.
 
 ## What is not measured, and why
 
-Three populations were attempted and did not finish. They are in the tables above
-by name, marked **not run**, because a population that gave trouble is exactly
-the one whose omission would flatter the result.
-
-Two of them — `gh-openpdf` at 27.5 GB and `ia-biodiversity` at 24.9 GB — were
-killed by a memory watchdog. `render` v0.19.0 walks a page's resources as a
-tree when they are a graph, and a document whose form XObjects name each other
-fans out combinatorially. One document reached **87 GB resident** before being
-killed. It reproduces in a plain `render.Images(d, 1)` call with none of this
-repository's code involved, and `render` v0.20.0 fixes it.
-
-The third, `ia-americana`, is a different failure and is recorded as one: it
-ran to the 45-minute cap with memory flat, so it was not the allocation defect.
-Whether it is merely a slow population of large scans or something that does
-not terminate is **not known**, and saying so is more useful than guessing.
-
-Re-running these three is the first thing a later run should do, and under
-v0.20.0 two of them should now complete.
+- **The four `ia-biodiversity` refusals are counted, not diagnosed.**
+- **`DCTDecode`'s 284 differing pictures are not diagnosed either.** Finding 1
+  says the disagreement is real and moderate; it does not say whose it is.
+  [conformance#13](https://github.com/go-pdfkit/conformance/issues/13) shows
+  `match` manufactures disagreements when a page draws many pictures of one
+  size, and no per-picture pairing audit was run for this baseline.
+- **No aggregate bound is applied.** `mse` and `mean` are recorded in FFmpeg's
+  and pdfium's units and bounded by nothing, because no bound has been measured
+  for pictures that were *extracted* rather than rendered. Choosing one from
+  these records is a job for a later run, and it is now possible because the
+  records carry the terms.
+- **One page per document.** A first page is not a document.
