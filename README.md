@@ -457,65 +457,107 @@ lossless filter could never be granted anything however good the reason, and
 `(samples)` was the live candidate: its 84.9% was two implementations doing
 different ICC conversion read through a bisection. What that needed was not a
 wider count budget but comparison per channel with the colour-converted
-pictures counted apart, and it now has both: 3083 of `(samples)`'s 4292
+pictures counted apart, and it now has both: 3084 of `(samples)`'s 4292
 pictures are colour-converted and are tallied on their own, leaving a
-decoder figure of 69.7% over 916.
+decoder figure of 69.7% over 915.
 
 ## What the landed record says under all this
 
-**The band was an artefact of the bisection, and it did not survive.** The
-withdrawn 1% was read off eighteen population × lossy-filter rows whose medians
-fell into fourteen from 0.000011 to 0.001966 and four from 0.047161 to 0.898821
-— a factor of **24** of empty band with 1% inside it. Measured per channel over
-the same two corpora, the 21 direct-bucket rows that had anything differ are a
-continuum: the largest gap anywhere in them is a factor of **6.8**, and where
-fourteen of eighteen used to sit below 1%, **two of twenty-one do**.
+**Everything below is at `render` v0.21.0**, which put a JPEG's chroma back the
+way every other reader does. The figures the previous revision of this file
+carried were at v0.20.0 and are quoted here only as the previous run's.
+[`baseline/README.md`](baseline/README.md) is the whole of it; this is the part
+that changes what this document claims.
 
-**And those two are the argument against ever putting the threshold back.**
-Their peak medians are **18 and 23 levels**, nine and eleven times the gate.
-Under the bisection the low group was rounding *by construction* — a pixel one
-level from luminance 128 could flip it. Under a magnitude measure the low group
-is **sparse gross error**, so a 1% budget would now forgive pictures wrong by up
-to 81 levels on a few hundred pixels. That is Cairo's *"otherwise some problems
-could be masked"* in this corpus's own numbers, and it is why `N` stays at 0.
+**The improvement was being quoted as 61.2% → 99.3% corpus-wide. It is not
+that, and the correction is not a smaller improvement — it is a different
+quantity.** That figure is `DCTDecode` **alone**, at a **gate of 4**, over the
+559 pictures `pdfimages -list` calls `gray` or `rgb` — a denominator
+[conformance#20](https://github.com/go-pdfkit/conformance/issues/20) showed
+admits `/CalRGB`, so it does not exist in this repository any more. Measured
+with the landed instrument at gate 2 over all 23 populations:
 
-**The measure separates the two lossy filters, which the bisection could not.**
-`JPXDecode` and `DCTDecode` used to read 15.4% and 33.2% and looked like two
-versions of one problem:
+| | v0.20.0 | v0.21.0 |
+|---|---:|---:|
+| `DCTDecode` agreement | 34.0% (146 of 430) | **43.2%** (184 of 426) |
+| whole fleet | 84.5% (3347 of 3962) | **85.5%** (3385 of 3957) |
 
-| filter | compared | exact | **identical** | agreement | was |
-|---|---:|---:|---:|---:|---:|
-| `JPXDecode` | 1225 | 1215 | **7** | **99.2%** | 15.4% |
-| `DCTDecode` | 430 | 146 | **4** | **34.0%** | 33.2% |
+**The rate understates it, because the gate is a cliff and what changed was
+magnitude.** The per-population medians of the worst channel on the direct
+`DCTDecode` rows:
 
-JPEG 2000 agrees within two levels almost everywhere and is bit-equal almost
-nowhere, which is what a conformant lossy decoder looks like. **JPEG did not
-move**, so it differs from poppler by more than the ISO/IEC 10918-2 IDCT
-allowance on two thirds of what it was compared on — by 16 to 62 levels in most
-populations. That is a specific finding about a decoder, and it is the first
-one this repository has produced; the two rates are not comparable to one
-another and neither is subtracted from the old one.
+```
+v0.20.0   16  18  23  23  26  31  34  47  50  58  62  171  244  255      (14 rows)
+v0.21.0    3   3   3   3   3   3   4   4   4    4      171  233  255     (13 rows)
+```
+
+Ten of thirteen rows now sit **one or two levels above a gate of two**, where
+eleven of fourteen used to sit between 16 and 62; the row that vanished is
+`uk-govuk`, 11 differing pictures to none, **92.3% → 100.0%**. The two lists are
+each sorted, so they are **not** paired population for population;
+[`baseline/README.md`](baseline/README.md) pairs them. **Three rows stayed
+gross** — `gh-qpdf` 171 → 171, `fr-impots` 255 → 255 and `gh-pypdf` 244 → 233 —
+and none of the three is chroma reconstruction. **That is the `DCTDecode`
+finding now, and it is a much smaller thing than it was.**
+
+**And the only filter that moved is the only filter the change touched.** Every
+other filter's `exact` count is identical picture for picture — 638, 1074, 1215,
+12, 10, 250, 2 — and so is the fleet's 1990 bit-identical; the only denominator
+that moved is the one `(samples)` picture #20 reclassified. That is a check on
+the instrument as much as on the library.
+
+**The fleet figure is over direct-comparable pictures**, first page of each
+document, converted bucket excluded by construction — and it spans three changes
+rather than one, since the denominators differ by #20's five moved pictures and
+`gfx` moved v0.16.0 to v0.19.0 as well. Holding the bucketing fixed, v0.21.0
+reads `DCTDecode` **42.8%** and the fleet **85.4%**; the rest is the instrument
+declining to score four pictures it should never have scored.
+
+**JPEG 2000 is still what a conformant lossy decoder looks like**: 1215 of 1225
+within two levels, **7** of them bit-equal. It agrees almost everywhere and is
+identical almost nowhere, which is what ISO/IEC 15444 promises — the transform
+is specified, the rounding is not.
+
+**The band came back, and the previous run's argument against it did not
+survive its own library.** That run found the empty band gone: 2 of 21 direct
+rows under 1%, largest gap 6.8, and the two low rows carrying peak medians of
+**18 and 23** — *"sparse gross error"*, it said. At v0.21.0 the twenty direct
+rows have **ten under 1%**, a gap of **64.5** above them, and the low group's
+peak medians are **3 and 4**. What made that group "gross" was the chroma
+defect. **It does not put the 1% back and nothing here proposes to**: with `N`
+at 0 the criterion is the peak and the share is a report, so a band in the
+share is evidence about `D` and not about `N`. It is recorded rather than
+spent.
+
+**The colour-space rule moved five pictures.** Exactly five, and it is
+measurable rather than asserted: the per-filter `pictures` and `unmatched`
+counts are **identical filter for filter** across the two runs, so every
+difference in the direct/converted split is that rule and nothing else. Four
+are `DCTDecode` — the four `/CalRGB` pictures the issue named — and one is
+`(samples)`. `calibrated`, at 1802, is a different quantity and is not that
+count.
 
 **And one thing the record says about itself.** `refused` is 4 across 3280
-documents, all in `ia-biodiversity`, and all four are `render` v0.20.0's own
-256-megapixel decode budget declining a page rather than a document we cannot
-read. That is the other half of the fix that let the population run at all: it
-bounded the decode, and a bound that fires reads here as a refusal. The
-instrument folds "cannot read" and "declined to decode" into one count and
-should not; the four are named in the baseline so nobody reads them as a
-coverage gap.
+documents, all in `ia-biodiversity`, and the same four documents as before:
+`render`'s own 256-megapixel decode budget declining a page rather than a
+document we cannot read. The instrument folds "cannot read" and "declined to
+decode" into one count and should not; the four are named in the baseline so
+nobody reads them as a coverage gap.
 
-The rest — every population, every filter, the ordered medians — is in
-[`baseline/README.md`](baseline/README.md).
+**`hung` is 0 in all 23 populations, and that is not "nothing hangs".** The
+document that hangs draws no picture on its first page, so `images` never asks
+poppler about it at all; `compare` does meet it and names it. The bound is
+unexercised by `images` on this corpus, and the baseline says so rather than
+letting a reader infer otherwise.
 
 ## What it comes to today
 
 A number that is not written down cannot be regressed against. `baseline/`
 holds a whole run of `images` over both corpora — the counts per population per
 filter, and beside them the corpus, the poppler that judged it, **the gate the
-comparison used**, every module version it was built against and when it was
-taken, because a figure that drops between two runs means a regression only if
-everything else held.
+comparison used**, **the bound the judge was held to**, every module version it
+was built against and when it was taken, because a figure that drops between
+two runs means a regression only if everything else held.
 
 ```
 images -dir /Users/Shared/pdfscans -only ia-medical -json
@@ -523,23 +565,27 @@ images -dir /Users/Shared/pdfscans -only ia-medical -json
 
 [`baseline/README.md`](baseline/README.md) reads it out.
 
-### Every population ran, including the three that never had
+### Every population runs, and has since v0.20.0
 
-| population | before | now |
-|---|---|---|
-| `pdfscans-ia-biodiversity` | killed at 24.9 GB, `rc=137` | completed, peak 3.9 GB |
-| `pdfforms-gh-openpdf` | killed at 27.5 GB, `rc=137` | completed |
-| `pdfscans-ia-americana` | hit the 45-minute cap, `rc=124`, cause unknown | completed, peak 5.2 GB, in 53 minutes |
+| population | at v0.19.0 | at v0.20.0 | at v0.21.0 |
+|---|---|---|---|
+| `pdfscans-ia-biodiversity` | killed at 24.9 GB, `rc=137` | completed, peak 3.9 GB | completed, peak **3.6 GB** |
+| `pdfforms-gh-openpdf` | killed at 27.5 GB, `rc=137` | completed | completed |
+| `pdfscans-ia-americana` | hit the 45-minute cap, `rc=124`, cause unknown | completed, peak 5.2 GB | completed, peak **5.9 GB** |
 
 The two allocation failures were `render` v0.19.0 walking a page's resources as
-a tree when they are a graph; **v0.20.0's fix is confirmed on both**. The third
-was never a defect — a slow population of large scans and a cap that was too
-short — and that open question is closed.
+a tree when they are a graph, and v0.20.0's fix has now held over two runs. The
+third was never a defect — a slow population of large scans and a cap that was
+too short.
 
-**Both seams are behind these records, not in front of them.** They were taken
-at `render` v0.20.0 with the per-channel measure, so all 23 populations are one
-instrument and one library version, and nothing under `baseline/` is inherited
-from the ink bisection at v0.19.0 any more.
+**Every seam is behind these records, not in front of them.** All 23
+populations were taken at `render` v0.21.0 with the per-channel measure, the
+colour-space rule of
+[conformance#20](https://github.com/go-pdfkit/conformance/issues/20) and the
+bound of
+[conformance#21](https://github.com/go-pdfkit/conformance/issues/21) — one
+instrument and one set of library versions, with nothing inherited from the ink
+bisection at v0.19.0 or from the chroma defect at v0.20.0.
 
 ## How it is checked
 

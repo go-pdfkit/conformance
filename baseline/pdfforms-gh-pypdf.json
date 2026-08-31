@@ -1,8 +1,9 @@
 {
   "corpus": "/Users/Shared/pdfforms",
-  "taken": "2026-08-31T12:11:23Z",
+  "taken": "2026-08-31T14:05:21Z",
   "pages": 1,
   "gate": 2,
+  "timeout": "2m0s",
   "judge": "pdfimages version 26.04.0",
   "modules": [
     {
@@ -15,7 +16,7 @@
     },
     {
       "path": "github.com/go-gfx/gfx",
-      "version": "v0.16.0"
+      "version": "v0.19.0"
     },
     {
       "path": "github.com/go-opentype/fonts",
@@ -35,7 +36,7 @@
     },
     {
       "path": "github.com/go-pdfkit/render",
-      "version": "v0.20.0"
+      "version": "v0.21.0"
     },
     {
       "path": "github.com/sergeymakinen/go-bmp",
@@ -79,20 +80,20 @@
             "differing": 2,
             "terms": {
               "share": {
-                "median": 0.8954253472222222,
-                "worst": 0.8954253472222222
+                "median": 0.8948133680555556,
+                "worst": 0.8948133680555556
               },
               "peak": {
-                "median": 244,
-                "worst": 244
+                "median": 233,
+                "worst": 233
               },
               "mse": {
-                "median": 1375.6107146990742,
-                "worst": 1375.6107146990742
+                "median": 1373.1803226273148,
+                "worst": 1373.1803226273148
               },
               "mean": {
-                "median": 0.4075173611111111,
-                "worst": 0.4075173611111111
+                "median": 0.3971657986111111,
+                "worst": 0.3971657986111111
               }
             }
           }
@@ -115,6 +116,7 @@
             "identical": 5,
             "inverted": 0,
             "differing": 1,
+            "calibrated": 3,
             "terms": {
               "share": {
                 "median": 0.9857830477870161,

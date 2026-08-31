@@ -1,8 +1,9 @@
 {
   "corpus": "/Users/Shared/pdfscans",
-  "taken": "2026-08-31T09:43:25Z",
+  "taken": "2026-08-31T14:07:23Z",
   "pages": 1,
   "gate": 2,
+  "timeout": "2m0s",
   "judge": "pdfimages version 26.04.0",
   "modules": [
     {
@@ -15,7 +16,7 @@
     },
     {
       "path": "github.com/go-gfx/gfx",
-      "version": "v0.16.0"
+      "version": "v0.19.0"
     },
     {
       "path": "github.com/go-opentype/fonts",
@@ -35,7 +36,7 @@
     },
     {
       "path": "github.com/go-pdfkit/render",
-      "version": "v0.20.0"
+      "version": "v0.21.0"
     },
     {
       "path": "github.com/sergeymakinen/go-bmp",
@@ -73,25 +74,25 @@
           "remapped": 0,
           "direct": {
             "pictures": 17,
-            "exact": 6,
+            "exact": 9,
             "identical": 1,
             "inverted": 0,
-            "differing": 11,
+            "differing": 8,
             "terms": {
               "share": {
-                "median": 0.0070241235888294715,
-                "worst": 0.22729237787152845
+                "median": 0.00017725752508361204,
+                "worst": 0.00035898314277965713
               },
               "peak": {
-                "median": 23,
-                "worst": 81
+                "median": 3,
+                "worst": 4
               },
               "mse": {
-                "median": 0.2898416320063379,
-                "worst": 4.080425157645235
+                "median": 0.06541248606465998,
+                "worst": 0.18848541943219285
               },
               "mean": {
-                "median": -0.00012597547380156077,
+                "median": -0.007011148272017837,
                 "worst": -0.07832969354401291
               }
             }
@@ -102,6 +103,7 @@
             "identical": 1,
             "inverted": 0,
             "differing": 2,
+            "calibrated": 1,
             "terms": {
               "share": {
                 "median": 0.1388580931263858,
@@ -184,11 +186,11 @@
           "unmatched": 0,
           "remapped": 2,
           "direct": {
-            "pictures": 32,
+            "pictures": 31,
             "exact": 30,
             "identical": 30,
             "inverted": 0,
-            "differing": 2,
+            "differing": 1,
             "terms": {
               "share": {
                 "median": 1,
@@ -209,26 +211,27 @@
             }
           },
           "converted": {
-            "pictures": 10,
+            "pictures": 11,
             "exact": 8,
             "identical": 8,
             "inverted": 0,
-            "differing": 2,
+            "differing": 3,
+            "calibrated": 1,
             "terms": {
               "share": {
-                "median": 1,
+                "median": 0.04390625,
                 "worst": 1
               },
               "peak": {
-                "median": 101,
+                "median": 97,
                 "worst": 101
               },
               "mse": {
-                "median": 1089.9151515151516,
+                "median": 25.18060606060606,
                 "worst": 1089.9151515151516
               },
               "mean": {
-                "median": 0.24666666666666667,
+                "median": 0.24600694444444443,
                 "worst": -28.91919191919192
               }
             }
