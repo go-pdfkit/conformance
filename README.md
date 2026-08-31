@@ -91,36 +91,101 @@ carry one, and all 22 are soft masks.
 A filter with nothing comparable left is not reported as the worst thing in the
 corpus: nothing to compare is not evidence of being wrong.
 
-## What is compared, and what "exact" asserts
+## What is compared, and what `exact` asserts
 
-**The comparison reduces every pixel to one bit.** `difference` in
-[`images/images.go`](images/images.go) asks of each pixel, on each side,
-whether it is *ink* — alpha at least 128, luminance below 128 — and counts the
-pixels whose answer differs. So `Share` is **not** the fraction of pixels that
-differ. It is the fraction whose black/white classification differs, and
-**`exact` means no pixel's classification differs.**
+**The comparison is per channel**, and it landed with the re-measurement
+below. `difference` in [`images/images.go`](images/images.go) subtracts the two
+pictures channel by channel and carries four terms out of one walk:
 
-For a **bilevel** picture those are the same claim. A one-bit stencil, a CCITT
-page, a JBIG2 page hold nothing the bisection can lose, so `exact` there is
-bit equality, and the 100% both JBIG2 columns read means what a reader takes
-it to mean.
+| term | what it is |
+|---|---|
+| **`peak`** | the largest absolute difference any channel reached, in levels of 255. **This is the criterion**: a picture agrees when its peak is at most `D`. |
+| **`share`** | the fraction of pixels where some channel differs by more than `D`. It is a **report and never a budget**: with the count budget `N` at zero, *"share is nought"* and *"peak is within `D`"* are the same statement, which is why pdfium computes a percentage and then requires it to be zero (`testing/image_diff.cpp:287-288`). |
+| **`mse`** | the mean squared error over every compared channel, in levels squared — FFmpeg's `omse` (`dct.c:256`) and pdfium's `mse` (`image_diff.cpp:181`) in their own units, so a published limit can be read against it directly. |
+| **`mean`** | the **signed** mean error, ours minus theirs, in levels — FFmpeg's `ome`. This is the term that catches **bias**. |
 
-For a **greyscale or colour** picture it is strictly weaker, and weaker in one
-particular direction. A decoder that renders every pixel of a scan at
-luminance 120 where poppler renders 20 scores **0.000** — perfect agreement —
-because both sides are ink. That is an error of 100 levels on every single
-pixel, and this instrument cannot see it. **A systematic level or chroma shift
-is the characteristic failure of a lossy decoder**, so on `DCTDecode`,
-`JPXDecode` and `(samples)` the measure is blind in exactly the direction
-those codecs fail.
+`D` is **2** and `N` is **0**. Neither aggregate term is a pass criterion, and
+that is deliberate: **no bound on either has been measured for pictures that
+were extracted rather than rendered**, and adopting pdfium's 0.05 for a
+different operation would repeat exactly the mistake the withdrawn 1% was — a
+number carried onto an instrument that did not produce it. They are recorded so
+that a bound can be chosen from evidence later.
 
-Every published figure that comes from comparing pixels inherits that.
-`exact`, `agreement`, `differing`, `median`, `worst` and `inverted` are
-statements about ink classification, bit equality only where the picture is
-bilevel. The counts that do not compare pixels — `documents`, `refused`,
-`unopenable`, `declined`, `unmatched`, `remapped` — are unaffected, so
-**`refused` is 0 in the full sense**, and so is the reading that nothing in
-the corpus is refused that poppler can read.
+### What it replaced, and what that could not see
+
+Until this landed, the per-pixel predicate was a **bisection**: a pixel was
+*ink* when its alpha was at least 128 and its luminance below 128, and `Share`
+was the fraction of pixels whose ink **classification** differed. For a bilevel
+picture that is exact — a stencil, a CCITT page, a JBIG2 page hold nothing the
+bisection can lose. For anything else it was strictly weaker, in one
+particular direction: **a decoder rendering every pixel of a scan at luminance
+120 where poppler renders 20 scored 0.000**, perfect agreement, on an error of
+100 levels at every pixel. A systematic level or chroma shift is the
+characteristic failure of a lossy decoder, so the instrument was blind in
+exactly the direction the codecs fail.
+
+**Every figure taken with that instrument is that narrower thing, and cannot be
+subtracted from a figure taken with this one.** `baseline/README.md` says
+which populations carry which, and no table mixes them.
+
+### The three things the rule did not settle
+
+**Colour conversion is not codec error, and per channel it is large.** Our side
+is RGBA from `render`; theirs is a PNG `pdfimages` wrote. A CMYK, ICC or Lab
+picture reaches those two forms through two different sets of colour
+arithmetic, and a `D` of 2 fires on all of it. Widening `D` to absorb that
+would destroy the gate, so instead **each picture carries the colour space
+`pdfimages` reports for it** — `ImageOutputDev.cc:152-190` prints `gray`,
+`rgb`, `cmyk`, `lab`, `icc`, `index`, `sep`, `devn`, and `-` for a mask — and
+the pictures poppler had to *convert* to reach RGB are tallied in **their own
+bucket**, with their own agreement figure and their own magnitudes, the way
+`remapped` and `inverted` are already counted apart.
+
+Two honesties about that classification. `index` is counted **converted**
+although its base space is often `DeviceRGB`, because `pdfimages` does not
+report the base and a picture that cannot be classified must not be credited as
+agreement. And poppler folds `CalGray` onto `gray` and `CalRGB` onto `rgb`, so
+a few pictures counted direct did pass through a CIE conversion — that is
+poppler's resolution and not a claim of ours. A picture whose listing row could
+not be read at all also lands in the converted bucket, which makes a failure of
+`pdfimages -list` **loud** — every filter would read as wholly converted —
+rather than silently generous.
+
+**`Inverted` survives as its own signal.** `pdfimages` writes a stencil with
+the opposite polarity to the samples it holds, which a magnitude measure would
+report as maximal error at every pixel. So the complement is tested in the same
+pass, and `inverted` means *the direct comparison failed the gate and the
+complemented one passed it*. The direct comparison is tried first, so a uniform
+mid-grey — which is within the gate of its own complement — is reported as
+agreeing rather than filed away as a convention.
+
+**Alpha, and what a mask is compared in.** For an ordinary picture the compared
+channels are `R`, `G` and `B`; alpha is left out, because `pdfimages` writes an
+opaque picture for anything that is not a mask and writes a soft mask out as
+its own file, so a difference in alpha would be a difference in what the two
+tools chose to *emit*. A mask is not comparable channel for channel, and
+`render` does not put one in a single place either. Both layouts were read out
+of the buffers rather than assumed:
+
+- a `/ImageMask true` **stencil** carries no colour of its own, so `render`
+  returns it black with the shape in the **alpha** channel — `us-opm`'s
+  `SF2801PR.pdf` `Im0`, 325×240, every RGB nought and exactly two alpha values;
+- an `/SMask` is eight-bit greyscale, so `render` returns it **opaque with its
+  levels in RGB** — `us-opm`'s `sf2822.pdf` `Im0/SMask`, 116×73, alpha 255 at
+  all 8468 of its pixels.
+
+poppler writes both as opaque grey, black where the mask paints. So a mask is
+compared in **one derived channel, ink coverage**, by the same formula on both
+sides: `alpha × (255 − luminance) ÷ 255`. On a stencil the luminance is nought
+and it is the alpha; on a soft mask the alpha is 255 and it is the inverted
+luminance; on poppler's side it is always the inverted luminance. One formula,
+correct for all three layouts, and it is what the bisection was doing per bit.
+
+Taking the alpha of a soft mask instead — which the first draft of this measure
+did — made `us-opm`'s one agreeing `(samples) mask` read as a 48% disagreement
+with a peak of 255 and a mean of +88.6. That was an artefact of the reduction
+and not a decoder, and it is recorded here because it is the kind of thing a
+new instrument produces before anyone checks it against the buffers.
 
 ## The 1% tolerance is withdrawn
 
@@ -170,8 +235,9 @@ not to 1%: Playwright's `maxDiffPixels = maxDiffPixels1 ?? maxDiffPixels2 ??
 `--thresholdPixel` both "0 by default" and both "Applied after
 `matchingThreshold`" (`README.md:50-51`). Even blink-diff, the one default
 budget here that is not zero, has a per-pixel `delta` of 20 in front of it
-(`index.js:153`). Our `Share` is a count over a predicate with no severity in
-it at all, which is the one construction all of them independently avoid.
+(`index.js:153`). `Share` **was** a count over a predicate with no severity in
+it at all, which is the one construction all of them independently avoid; it
+is now a count over a magnitude gate, and it is reported rather than spent.
 
 Cairo states the objection outright, and it is the one that applies to us.
 `test/buffer-diff.c:43-44`:
@@ -194,17 +260,16 @@ not be.** 1% of a 4000×4000 render is 160 000 pixels — a contiguous block of
 (`index.js`, the `windowSize` scan) exists to bound *density* instead, and a
 whole-image count is its degenerate case.
 
-## What should replace it
+## Where `D` and `N` come from
 
-The rule this repository should adopt, and the reasons are ours rather than
-borrowed:
+The rule, and the reasons are ours rather than borrowed:
 
 > **Compare per channel. A pixel counts as differing only when some channel
 > differs by more than `D`. A picture agrees when at most `N` such pixels
 > differ, and when the aggregate error is within bound. `D` and `N` default to
 > 0 and are raised per case with a recorded reason.**
 
-**`D` should be 2, not pdfium's 3.** pdfium compares *rendered pages*, so its
+**`D` is 2, not pdfium's 3.** pdfium compares *rendered pages*, so its
 3 buys slack for rasteriser and anti-aliasing differences. We have none to
 buy: `pdfimages` extracts rather than renders, which is why this tool asks it,
 so there is nothing between the codec and the pixels. What is left is codec
@@ -224,20 +289,22 @@ so JPX is required exact on most conformance files and permitted a small
 bounded error on a few.
 
 **Whatever a per-case exception is raised to, 25 is a ceiling it must not
-cross**, for Cairo's stated reason.
+cross**, for Cairo's stated reason. There is **one gate and no per-case table**
+in the code, because there is no case yet: nothing measured has asked for an
+exception, and an exception mechanism with nothing in it is a promise rather
+than a measurement.
 
-**An aggregate term is warranted, and it should be two terms.** pdfium found
+**An aggregate term is warranted, and it is two terms.** pdfium found
 the mirror of our defect — a per-pixel gate with an unbounded count, where
 many small forgiven differences accumulate — and answered it with a
 mean-squared error (`testing/utils/pixel_diff_util.h:11-12`,
-`testing/image_diff.cpp:171-183`). We should take that, and take a **signed
-mean** with it, as FFmpeg does at `dct.c:259` where `fabs(ome) > 0.0015` sits
-beside `omse > 0.02`. The two catch different things: MSE catches accumulated
-noise, the signed mean catches *bias*. Bias is the failure this instrument is
-documented above as being blind to, so it is the term we most specifically
-need, and it is cheap.
+`testing/image_diff.cpp:171-183`). Both are taken, as FFmpeg carries them at `dct.c:259` where
+`fabs(ome) > 0.0015` sits beside `omse > 0.02`. The two catch different things:
+MSE catches accumulated noise, the signed mean catches *bias*. Bias is the
+failure the bisection was blind to, so it is the term most specifically needed
+here, and it is cheap.
 
-**`N` should default to 0.** That is the field's default wherever a count
+**`N` is 0.** That is the field's default wherever a count
 budget exists at all, and pdfium — doing our exact job — requires its
 percentage to be zero. A nonzero `N` should be per population and per filter,
 each one carrying a written reason, as pdfium's 142 scoped entries in
@@ -246,16 +313,8 @@ each one carrying a written reason, as pdfium's 142 scoped entries in
 within a window rather than a share of the whole picture**, so that the
 threshold does not loosen as the picture grows.
 
-**`Inverted` must survive the change.** `Share == 1` detects that ours and
-theirs are exact complements, which is the stencil polarity convention and not
-a disagreement; a magnitude measure would report it as a maximal error and
-lose the distinction. Whatever replaces `difference`, polarity stays its own
-signal.
-
-The design and the re-measurement it requires are
-[conformance#16](https://github.com/go-pdfkit/conformance/issues/16). This
-document states the rule and does not yet claim it: **no per-channel figure
-has been measured**, and every number below is the ink-classification measure.
+The design, and the re-measurement it required, are
+[conformance#16](https://github.com/go-pdfkit/conformance/issues/16).
 
 ## One rule for every filter, not one per codec
 
