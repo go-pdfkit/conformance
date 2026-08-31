@@ -901,3 +901,272 @@ func TestTheRecordNamesEveryDocumentThatHung(t *testing.T) {
 		t.Errorf("a hang was counted as something else: %+v", got)
 	}
 }
+
+// pageWithResources writes a document whose one page carries the resource
+// dictionary the test builds, and returns its path. It is pageOfPictures with
+// the whole of /Resources in the test's hands, which a colour space named
+// rather than written out needs.
+func pageWithResources(t *testing.T, build func(w *reader.Writer) reader.Dict) string {
+	t.Helper()
+	w := reader.NewWriter("1.7")
+	pagesRef := w.Reserve()
+	pageRef := w.Add(reader.Dict{"Type": reader.Name("Page"), "Parent": pagesRef,
+		"MediaBox":  reader.Array{reader.Integer(0), reader.Integer(0), reader.Integer(20), reader.Integer(20)},
+		"Resources": build(w),
+		"Contents":  w.Add(&reader.Stream{Dict: reader.Dict{}, Raw: []byte("")})})
+	w.Put(pagesRef, reader.Dict{"Type": reader.Name("Pages"),
+		"Kids": reader.Array{pageRef}, "Count": reader.Integer(1)})
+	out, err := w.Finish(reader.Dict{"Root": w.Add(reader.Dict{
+		"Type": reader.Name("Catalog"), "Pages": pagesRef})})
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "res.pdf")
+	if err := os.WriteFile(path, out, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+// opened is the document at a path, for the tests that ask about its structure
+// rather than about a comparison.
+func opened(t *testing.T, path string) *reader.Document {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := reader.Open(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return d
+}
+
+// inSpace adds the two-pixel greyscale picture under a colour space the test
+// chooses, which is the only thing that decides its bucket now.
+func inSpace(space reader.Object) func(w *reader.Writer) reader.Object {
+	return func(w *reader.Writer) reader.Object {
+		return w.Add(&reader.Stream{Dict: reader.Dict{
+			"Type": reader.Name("XObject"), "Subtype": reader.Name("Image"),
+			"Width": reader.Integer(2), "Height": reader.Integer(1),
+			"ColorSpace": space, "BitsPerComponent": reader.Integer(8),
+		}, Raw: []byte{0x00, 0xff}})
+	}
+}
+
+// calRGB is a CalRGB space with the D50 white point of the picture that found
+// this, openpdf's PDF 2.0 image with BPC.
+var calRGB = reader.Array{reader.Name("CalRGB"), reader.Dict{
+	"WhitePoint": reader.Array{reader.Real(0.9643), reader.Real(1), reader.Real(0.8251)}}}
+
+func TestACalRGBPictureIsNotADirectComparison(t *testing.T) {
+	// conformance#20. pdfimages lists a CalRGB picture as "rgb"
+	// (ImageOutputDev.cc:159-164) while writing pixels that went through
+	// colorMap->getRGB (:451) — the gamma, the matrix and the chromatic
+	// adaptation. So the listing alone put it in the direct bucket and
+	// charged a colour conversion to a codec.
+	standInSpaces(t, "rgb", twoPixels(true))
+	got := Judge(pageWithResources(t, func(w *reader.Writer) reader.Dict {
+		return reader.Dict{"XObject": reader.Dict{"I": inSpace(calRGB)(w)}}
+	}), Options{})
+	if len(got) != 1 {
+		t.Fatalf("got %+v", got)
+	}
+	// What poppler said is kept, because it is poppler's answer and not ours.
+	if got[0].Space != "rgb" {
+		t.Errorf("the listing is no longer recorded: %+v", got[0])
+	}
+	if !got[0].Calibrated || !got[0].Converted {
+		t.Fatalf("a CalRGB picture is still a direct comparison: %+v", got[0])
+	}
+	// And the tally says which half of the rule moved it, so the change can
+	// be measured rather than asserted.
+	c := Tally(got)["(samples)"]
+	if c.Direct.Pictures != 0 || c.Converted.Pictures != 1 || c.Converted.Calibrated != 1 {
+		t.Errorf("bucketed as direct %+v, converted %+v", c.Direct, c.Converted)
+	}
+}
+
+func TestADeviceRGBPictureIsStillADirectComparison(t *testing.T) {
+	// The rule has to move the CIE pictures and nothing else, or the direct
+	// bucket empties and the agreement figure stops being about a decoder.
+	standInSpaces(t, "rgb", twoPixels(true))
+	got := Judge(pageWithResources(t, func(w *reader.Writer) reader.Dict {
+		return reader.Dict{"XObject": reader.Dict{"I": inSpace(reader.Name("DeviceGray"))(w)}}
+	}), Options{})
+	if len(got) != 1 || got[0].Calibrated || got[0].Converted {
+		t.Fatalf("a DeviceGray picture was moved: %+v", got)
+	}
+	if c := Tally(got)["(samples)"]; c.Direct.Calibrated != 0 {
+		t.Errorf("the direct bucket counts calibrated pictures: %+v", c.Direct)
+	}
+}
+
+func TestAColourSpaceNamedRatherThanWrittenOutIsResolved(t *testing.T) {
+	// A picture may say /CS0 and leave the space in the resource dictionary.
+	// Reading only the picture's own dictionary would classify every one of
+	// those on poppler's listing alone, which is the bug.
+	path := pageWithResources(t, func(w *reader.Writer) reader.Dict {
+		return reader.Dict{
+			"ColorSpace": reader.Dict{"CS0": reader.Array{reader.Name("CalGray"),
+				reader.Dict{"Gamma": reader.Real(2.22221)}}},
+			"XObject": reader.Dict{"I": inSpace(reader.Name("CS0"))(w)},
+		}
+	})
+	if got := calibratedNames(opened(t, path), 1); !got["I"] {
+		t.Errorf("a named CalGray space was not resolved: %v", got)
+	}
+}
+
+func TestWhatIsAndIsNotACalibratedSpace(t *testing.T) {
+	// One table, because every one of these is a way of saying "not CIE" that
+	// a file really writes, and each was a nil or a wrong answer away from
+	// putting a colour conversion back in the direct bucket.
+	res := reader.Dict{"ColorSpace": reader.Dict{
+		"Cal":        reader.Array{reader.Name("CalRGB"), reader.Dict{}},
+		"Plain":      reader.Array{reader.Name("Indexed"), reader.Name("DeviceRGB")},
+		"Empty":      reader.Array{},
+		"NotAnArray": reader.Name("DeviceRGB"),
+	}}
+	for _, tc := range []struct {
+		what string
+		v    reader.Object
+		res  reader.Dict
+		want bool
+	}{
+		{"CalRGB written out", calRGB, res, true},
+		{"CalGray written out", reader.Array{reader.Name("CalGray"), reader.Dict{}}, res, true},
+		{"ICCBased, which the listing already calls icc", reader.Array{reader.Name("ICCBased"), reader.Integer(0)}, res, true},
+		{"Lab, which the listing already calls lab", reader.Array{reader.Name("Lab"), reader.Dict{}}, res, true},
+		{"a bare name that is a family", reader.Name("CalRGB"), res, true},
+		{"named in the resources", reader.Name("Cal"), res, true},
+		{"DeviceRGB", reader.Name("DeviceRGB"), res, false},
+		{"Indexed, which the listing already calls index", reader.Array{reader.Name("Indexed"), reader.Name("DeviceRGB")}, res, false},
+		{"an empty array", reader.Array{}, res, false},
+		{"no colour space at all", nil, res, false},
+		{"a name the resources do not define", reader.Name("Missing"), res, false},
+		{"a name defined as another name", reader.Name("NotAnArray"), res, false},
+		{"a name defined as an empty array", reader.Name("Empty"), res, false},
+		{"a name, with no colour spaces in the resources", reader.Name("Cal"), reader.Dict{}, false},
+		{"a name, with colour spaces that are not a dictionary", reader.Name("Cal"),
+			reader.Dict{"ColorSpace": reader.Integer(1)}, false},
+	} {
+		t.Run(tc.what, func(t *testing.T) {
+			d := opened(t, pageWithResources(t, func(w *reader.Writer) reader.Dict {
+				return reader.Dict{}
+			}))
+			if got := calibratedSpace(d, tc.v, tc.res); got != tc.want {
+				t.Errorf("%s came out %v", tc.what, got)
+			}
+		})
+	}
+}
+
+func TestAPictureInsideAFormIsReached(t *testing.T) {
+	// render.Images follows a page's forms, so a rule that did not would
+	// leave every picture a form holds classified on the listing alone.
+	path := pageWithResources(t, func(w *reader.Writer) reader.Dict {
+		inner := w.Add(&reader.Stream{Dict: reader.Dict{
+			"Type": reader.Name("XObject"), "Subtype": reader.Name("Form"),
+			"Resources": reader.Dict{"XObject": reader.Dict{"Deep": inSpace(calRGB)(w)}},
+		}, Raw: []byte("")})
+		return reader.Dict{"XObject": reader.Dict{"F": inner}}
+	})
+	if got := calibratedNames(opened(t, path), 1); !got["Deep"] {
+		t.Errorf("a picture inside a form was not reached: %v", got)
+	}
+}
+
+func TestAFormThatReachesItselfIsWalkedOnce(t *testing.T) {
+	// A page's resources are a graph and can hold a cycle. The visited set is
+	// on the reference rather than on the name, which is what stops this.
+	path := pageWithResources(t, func(w *reader.Writer) reader.Dict {
+		self := w.Reserve()
+		w.Put(self, &reader.Stream{Dict: reader.Dict{
+			"Type": reader.Name("XObject"), "Subtype": reader.Name("Form"),
+			"Resources": reader.Dict{"XObject": reader.Dict{
+				"F": self, "I": inSpace(calRGB)(w)}},
+		}, Raw: []byte("")})
+		return reader.Dict{"XObject": reader.Dict{"F": self}}
+	})
+	if got := calibratedNames(opened(t, path), 1); !got["I"] {
+		t.Errorf("a cycle lost the picture beyond it: %v", got)
+	}
+}
+
+func TestFormsNestedTooDeepAreNotFollowed(t *testing.T) {
+	// render stops at eight, so this stops at eight: reaching further would
+	// classify pictures render.Images never returns.
+	path := pageWithResources(t, func(w *reader.Writer) reader.Dict {
+		inner := inSpace(calRGB)(w)
+		for i := 0; i <= maxFormDepth; i++ {
+			inner = w.Add(&reader.Stream{Dict: reader.Dict{
+				"Type": reader.Name("XObject"), "Subtype": reader.Name("Form"),
+				"Resources": reader.Dict{"XObject": reader.Dict{"I": inner}},
+			}, Raw: []byte("")})
+		}
+		return reader.Dict{"XObject": reader.Dict{"I": inner}}
+	})
+	if got := calibratedNames(opened(t, path), 1); len(got) != 0 {
+		t.Errorf("the walk went past its bound: %v", got)
+	}
+}
+
+func TestAPageWhoseStructureSaysNothingLeavesTheBucketingToTheListing(t *testing.T) {
+	// Every one of these is a document a corpus really holds, and none of them
+	// is an error: the listing still classifies every picture, so the worst
+	// this can do is leave the bucketing where it was before conformance#20.
+	for _, tc := range []struct {
+		what  string
+		page  int
+		build func(w *reader.Writer) reader.Dict
+	}{
+		{"a page that is not there", 9, func(w *reader.Writer) reader.Dict {
+			return reader.Dict{"XObject": reader.Dict{"I": inSpace(calRGB)(w)}}
+		}},
+		{"resources that are not a dictionary", 1, nil},
+		{"no XObject at all", 1, func(w *reader.Writer) reader.Dict {
+			return reader.Dict{"Font": reader.Dict{}}
+		}},
+		{"an XObject that is not a dictionary", 1, func(w *reader.Writer) reader.Dict {
+			return reader.Dict{"XObject": reader.Integer(1)}
+		}},
+		{"an XObject entry that is not a stream", 1, func(w *reader.Writer) reader.Dict {
+			return reader.Dict{"XObject": reader.Dict{"I": reader.Integer(1)}}
+		}},
+		{"a stream that is neither picture nor form", 1, func(w *reader.Writer) reader.Dict {
+			return reader.Dict{"XObject": reader.Dict{"I": w.Add(&reader.Stream{
+				Dict: reader.Dict{"Subtype": reader.Name("PS")}, Raw: []byte("")})}}
+		}},
+		{"a form with no resources", 1, func(w *reader.Writer) reader.Dict {
+			return reader.Dict{"XObject": reader.Dict{"F": w.Add(&reader.Stream{
+				Dict: reader.Dict{"Subtype": reader.Name("Form")}, Raw: []byte("")})}}
+		}},
+	} {
+		t.Run(tc.what, func(t *testing.T) {
+			build := tc.build
+			if build == nil {
+				build = func(w *reader.Writer) reader.Dict { return nil }
+			}
+			d := opened(t, pageWithResources(t, build))
+			if got := calibratedNames(d, tc.page); len(got) != 0 {
+				t.Errorf("%s yielded %v", tc.what, got)
+			}
+		})
+	}
+}
+
+func TestTheReportSaysHowManyPicturesTheirOwnColourSpaceMoved(t *testing.T) {
+	// A rule that changes a bucket has to be able to say what it changed, or
+	// the change is an assertion.
+	got := Report(Tally([]Result{
+		{Name: "A", Filter: "DCTDecode", Converted: true, Calibrated: true,
+			Difference: Difference{Share: 0.5, Peak: 9}},
+		{Name: "B", Filter: "DCTDecode", Converted: true,
+			Difference: Difference{Share: 0.5, Peak: 9}},
+	}))
+	if !strings.Contains(got, "1 by their own colour space") {
+		t.Errorf("the report says %q", got)
+	}
+}

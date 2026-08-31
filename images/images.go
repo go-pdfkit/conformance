@@ -96,12 +96,32 @@
 // their own magnitudes — the way Remapped and Inverted are already counted
 // apart. Only gray, rgb and "-" are treated as direct.
 //
-// Two honesties about that. index is counted as converted although its base
-// space is often DeviceRGB, because pdfimages does not report the base and a
-// picture that cannot be classified must not be counted as agreement. And
-// poppler folds CalGray onto "gray" and CalRGB onto "rgb", so a few pictures
-// counted direct did pass through a CIE conversion; that is poppler's
-// resolution, not a claim of ours.
+// The listing is not enough on its own, and conformance#20 is why. poppler
+// folds csCalGray onto "gray" and csCalRGB onto "rgb"
+// (ImageOutputDev.cc:159-164), so a CalRGB picture is listed as "rgb" while
+// the pixels it writes went through colorMap->getRGB (:451), which applies
+// that space's gamma, matrix and chromatic adaptation. The direct bucket
+// therefore admitted pictures poppler HAD converted, and measured every pixel
+// of them against a colour conversion we did not make.
+//
+// So the bucket is decided by BOTH sides. A picture is converted when the
+// listing says so, and ALSO when its own /ColorSpace resolves to a CIE-based
+// space — CalRGB, CalGray, ICCBased or Lab — whatever the listing says. Only
+// the first two of those can move a picture, since poppler lists ICCBased as
+// "icc" and Lab as "lab" and both were already converted; naming all four
+// makes the rule a statement about the document rather than a patch over one
+// judge's table.
+//
+// Bucket.Calibrated counts how much of a bucket is CIE-tagged by its own
+// dictionary. It is NOT the count of pictures this rule moved, and must not be
+// read as one: most of a corpus's calibrated pictures are ICCBased or Indexed,
+// which the listing already called converted. What the rule moves is the
+// pictures the listing called gray or rgb, and that is a difference between
+// two runs rather than a column in either.
+//
+// index is still counted converted although its base space is often
+// DeviceRGB, because pdfimages does not report the base and a picture that
+// cannot be classified must not be counted as agreement.
 //
 // A picture whose row could not be read at all also lands in the converted
 // bucket, which makes a failure of pdfimages -list LOUD — every filter would
@@ -254,6 +274,13 @@ type Result struct {
 	// per-channel difference on this picture is colour arithmetic and not
 	// codec error. Those are tallied apart; see the package comment.
 	Converted bool
+	// Calibrated says the picture's OWN dictionary names a CIE-based colour
+	// space. It is what makes Converted true for a picture the listing calls
+	// gray or rgb, which poppler does for CalGray and CalRGB although it
+	// converts them (conformance#20). It is kept beside Converted rather than
+	// folded into it so a bucket can say how much of itself the document
+	// accounts for, which is not the same as how much the rule moved.
+	Calibrated bool
 	// Size is what the picture came out as.
 	W, H int
 	// Difference is how far apart the two came out, or Share -1 when there
@@ -387,6 +414,10 @@ func judgePage(d *reader.Document, path string, p int) []Result {
 		}
 		return []Result{r}
 	}
+	// What poppler says about a picture's colour space is not enough on its
+	// own; see the package comment and conformance#20. This is the other
+	// half, read out of the document rather than out of the listing.
+	own := calibratedNames(d, p)
 	// The two do not agree on an order, and neither has a name the other
 	// knows, so a picture is matched to a picture of the same size. Where
 	// several share a size the first unclaimed one is taken, which is right
@@ -395,7 +426,7 @@ func judgePage(d *reader.Document, path string, p int) []Result {
 	out := make([]Result, 0, len(ours))
 	for _, im := range ours {
 		r := Result{Path: path, Page: p, Name: im.Name, Filter: im.Filter,
-			Stencil: im.Stencil, Decoded: im.Decoded,
+			Stencil: im.Stencil, Decoded: im.Decoded, Calibrated: own[im.Name],
 			W: im.Pic.W, H: im.Pic.H, Difference: unjudged()}
 		j := match(theirs, claimed, im.Pic)
 		if j < 0 {
@@ -405,7 +436,7 @@ func judgePage(d *reader.Document, path string, p int) []Result {
 		}
 		claimed[j] = true
 		r.Space = theirs[j].space
-		r.Converted = converted(theirs[j].space)
+		r.Converted = converted(theirs[j].space) || r.Calibrated
 		r.Difference = difference(im.Pic, theirs[j].pic, im.Stencil)
 		out = append(out, r)
 	}
@@ -505,6 +536,10 @@ func channels(im *raster.Image, i int, mask bool) [3]int {
 // direct is the set of colour spaces pdfimages reports that reach RGB without
 // a conversion: greyscale, RGB itself, and the "-" it prints for a mask, which
 // carries no colour at all.
+//
+// It is not the whole rule. poppler prints "gray" for CalGray and "rgb" for
+// CalRGB, so this set alone admits pictures it converted; calibratedNames is
+// the half that catches those.
 var direct = map[string]bool{"gray": true, "rgb": true, "-": true}
 
 // converted says poppler had to convert this colour space to write its PNG, so
@@ -512,6 +547,141 @@ var direct = map[string]bool{"gray": true, "rgb": true, "-": true}
 // decoder disagreeing. An unread space counts as converted; see the package
 // comment.
 func converted(space string) bool { return !direct[space] }
+
+// cieSpaces are the colour space families a picture may name that poppler must
+// convert to reach RGB, whatever its listing calls them.
+//
+// CalRGB and CalGray are the two that matter: ImageOutputDev.cc:159-164 folds
+// them onto "gray" and "rgb" while the pixels go through colorMap->getRGB
+// (:451), which applies the gamma, the matrix and the chromatic adaptation.
+// ICCBased and Lab are listed as "icc" and "lab" and were already converted,
+// and are named anyway so that this is a statement about what the DOCUMENT
+// says rather than a patch over one judge's table.
+var cieSpaces = map[reader.Name]bool{
+	"CalRGB": true, "CalGray": true, "ICCBased": true, "Lab": true,
+}
+
+// maxFormDepth is how far a form XObject may nest before the walk for colour
+// spaces stops. It is render's own bound (maxImageDepth), so that this reaches
+// the pictures render.Images returns and no others.
+const maxFormDepth = 8
+
+// calibratedNames is the resource names on one page whose picture declares a
+// CIE-based colour space.
+//
+// Two things about it are deliberate, and both are the conservative direction.
+//
+// A name is keyed rather than an object, because that is all render.Images
+// hands back to pair with. A name is unique within one resource dictionary and
+// NOT across the several a page reaches through its forms, so a page where two
+// forms each name their own Im1 and only one of them is CalRGB marks both.
+// That over-counts the converted bucket by at most those pictures, and the
+// alternative under-counts it — which is the direction that credits a colour
+// conversion to a codec, the very thing conformance#20 is about.
+//
+// A page whose structure cannot be read yields nothing rather than an error.
+// The listing still classifies every picture, so the worst this can do is
+// leave the bucketing exactly where it was before conformance#20.
+func calibratedNames(d *reader.Document, page int) map[string]bool {
+	out := map[string]bool{}
+	pg, err := d.Page(page)
+	if err != nil {
+		return out
+	}
+	res, _ := d.Resolve(pg["Resources"])
+	calibratedIn(d, res, out, map[reader.Ref]bool{}, 0)
+	return out
+}
+
+// calibratedIn adds one resource dictionary's calibrated picture names, and
+// follows the forms it reaches.
+//
+// The visited set is on the REFERENCE and not on the name, because a page's
+// resources are a graph: a form reached through two others would otherwise be
+// walked twice, and a cycle would not terminate at all.
+func calibratedIn(d *reader.Document, res reader.Object, out map[string]bool,
+	seen map[reader.Ref]bool, depth int) {
+	if depth > maxFormDepth {
+		return
+	}
+	rd, ok := reader.ToDict(res)
+	if !ok {
+		return
+	}
+	xo, _ := d.Resolve(rd["XObject"])
+	xd, ok := reader.ToDict(xo)
+	if !ok {
+		return
+	}
+	for name, entry := range xd {
+		if ref, isRef := entry.(reader.Ref); isRef {
+			if seen[ref] {
+				continue
+			}
+			seen[ref] = true
+		}
+		o, _ := d.Resolve(entry)
+		st, ok := reader.ToStream(o)
+		if !ok {
+			continue
+		}
+		switch sub, _ := reader.ToName(st.Dict["Subtype"]); sub {
+		case "Image":
+			if calibratedSpace(d, st.Dict["ColorSpace"], rd) {
+				out[string(name)] = true
+			}
+		case "Form":
+			inner, _ := d.Resolve(st.Dict["Resources"])
+			calibratedIn(d, inner, out, seen, depth+1)
+		}
+	}
+}
+
+// calibratedSpace says whether a picture's /ColorSpace is one of the CIE-based
+// families.
+//
+// A colour space is written either inline as an array — [/CalRGB <<...>>] — or
+// as a NAME standing for an entry in the resource dictionary's /ColorSpace,
+// which is why the resources are passed in: a picture that says /CS0 says
+// nothing at all without them, and every such picture would otherwise be
+// classified on poppler's listing alone.
+func calibratedSpace(d *reader.Document, v reader.Object, res reader.Dict) bool {
+	o, _ := d.Resolve(v)
+	if arr, ok := reader.ToArray(o); ok && len(arr) > 0 {
+		family, _ := reader.ToName(arr[0])
+		return cieSpaces[family]
+	}
+	n, ok := reader.ToName(o)
+	if !ok {
+		return false
+	}
+	if cieSpaces[n] {
+		// A CIE family is never spelled as a bare name in a conformant file —
+		// each of them needs its dictionary — but a name that IS one says what
+		// it means, and reading it costs nothing.
+		return true
+	}
+	named, _ := d.Resolve(res["ColorSpace"])
+	nd, ok := reader.ToDict(named)
+	if !ok {
+		return false
+	}
+	entry, defined := nd[n]
+	if !defined {
+		return false
+	}
+	// One level of indirection only. A named space whose definition is another
+	// name is not something a conformant file writes, and following names
+	// through a dictionary that may point at itself is a loop this does not
+	// need to have.
+	e, _ := d.Resolve(entry)
+	arr, ok := reader.ToArray(e)
+	if !ok || len(arr) == 0 {
+		return false
+	}
+	family, _ := reader.ToName(arr[0])
+	return cieSpaces[family]
+}
 
 // infoCommand is a variable so a test can ask without poppler installed. It
 // answers whether the tool hung, and then whether it failed.
@@ -705,6 +875,18 @@ type Bucket struct {
 	Identical int
 	// Inverted is how many agreed with the judge's complement instead.
 	Inverted int
+	// Calibrated is how many of this bucket's pictures name a CIE-based space
+	// in their own dictionary.
+	//
+	// It is nought in the direct bucket by construction, since a calibrated
+	// picture is converted whatever the listing said. In the converted bucket
+	// it is how much of that bucket the document itself accounts for — and it
+	// is NOT what conformance#20's rule moved, which is a much smaller number:
+	// most calibrated pictures are ICCBased or Indexed, which the listing
+	// already called converted. What moved is what the listing called gray or
+	// rgb, and that is the difference between two runs rather than a column
+	// in either.
+	Calibrated int
 	// Diffs holds the magnitude of each picture that differed.
 	Diffs []Difference
 }
@@ -756,7 +938,7 @@ func Tally(rs []Result) map[string]*Counts {
 		case r.Share < 0:
 			c.Unmatched++
 		default:
-			bucket(c, r.Converted).add(r.Difference)
+			bucket(c, r.Converted).add(r.Difference, r.Calibrated)
 		}
 	}
 	return by
@@ -771,8 +953,11 @@ func bucket(c *Counts, isConverted bool) *Bucket {
 }
 
 // add files one judged picture under how it came out.
-func (b *Bucket) add(d Difference) {
+func (b *Bucket) add(d Difference, calibrated bool) {
 	b.Pictures++
+	if calibrated {
+		b.Calibrated++
+	}
 	switch {
 	case d.Share == 0:
 		b.Exact++
@@ -813,6 +998,9 @@ func reportBucket(sb *strings.Builder, name string, b *Bucket) {
 	}
 	fmt.Fprintf(sb, "  %-9s %5d pictures  %5d exact (%d identical)  %5d inverted  %5d differing",
 		name, b.Pictures, b.Exact, b.Identical, b.Inverted, len(b.Diffs))
+	if b.Calibrated > 0 {
+		fmt.Fprintf(sb, "  %d by their own colour space", b.Calibrated)
+	}
 	if len(b.Diffs) > 0 {
 		t := terms(b.Diffs)
 		fmt.Fprintf(sb, "  share %.4f/%.4f  peak %.0f/%.0f  mse %.4f/%.4f  mean %+.4f/%+.4f",
@@ -895,6 +1083,10 @@ type BucketCounts struct {
 	Identical int `json:"identical"`
 	Inverted  int `json:"inverted"`
 	Differing int `json:"differing"`
+	// Calibrated is how many of these pictures name a CIE-based /ColorSpace in
+	// their own dictionary. Nought in the direct bucket by construction, and
+	// not the count of what conformance#20's rule moved; see Bucket.Calibrated.
+	Calibrated int `json:"calibrated,omitempty"`
 	// Terms is the spread of each magnitude over the differing pictures,
 	// absent when none differed. A pointer because 0 is a real answer here —
 	// a bucket whose worst peak is nought is not the same as one with nothing
@@ -950,7 +1142,8 @@ func bucketCounts(b *Bucket) *BucketCounts {
 		return nil
 	}
 	out := &BucketCounts{Pictures: b.Pictures, Exact: b.Exact,
-		Identical: b.Identical, Inverted: b.Inverted, Differing: len(b.Diffs)}
+		Identical: b.Identical, Inverted: b.Inverted, Differing: len(b.Diffs),
+		Calibrated: b.Calibrated}
 	if len(b.Diffs) > 0 {
 		t := terms(b.Diffs)
 		out.Terms = &t
