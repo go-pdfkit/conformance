@@ -1,8 +1,9 @@
 {
   "corpus": "/Users/Shared/pdfscans",
-  "taken": "2026-08-31T11:16:13Z",
+  "taken": "2026-08-31T15:21:44Z",
   "pages": 1,
   "gate": 2,
+  "timeout": "2m0s",
   "judge": "pdfimages version 26.04.0",
   "modules": [
     {
@@ -15,7 +16,7 @@
     },
     {
       "path": "github.com/go-gfx/gfx",
-      "version": "v0.16.0"
+      "version": "v0.19.0"
     },
     {
       "path": "github.com/go-opentype/fonts",
@@ -35,7 +36,7 @@
     },
     {
       "path": "github.com/go-pdfkit/render",
-      "version": "v0.20.0"
+      "version": "v0.21.0"
     },
     {
       "path": "github.com/sergeymakinen/go-bmp",
@@ -79,20 +80,20 @@
             "differing": 26,
             "terms": {
               "share": {
-                "median": 0.047733391802691774,
-                "worst": 0.334129055169883
+                "median": 0.00013594909411883692,
+                "worst": 0.0009485178884205056
               },
               "peak": {
-                "median": 23,
-                "worst": 50
+                "median": 4,
+                "worst": 4
               },
               "mse": {
-                "median": 0.841873906042148,
-                "worst": 11.097493512103702
+                "median": 0.27044382592435173,
+                "worst": 0.4511837373732716
               },
               "mean": {
-                "median": 0.1717878897074029,
-                "worst": 0.37630779955301924
+                "median": 0.17233769337548493,
+                "worst": 0.37683164515868467
               }
             }
           },
@@ -102,18 +103,19 @@
             "identical": 0,
             "inverted": 0,
             "differing": 3,
+            "calibrated": 3,
             "terms": {
               "share": {
                 "median": 0.00011291125584813027,
-                "worst": 0.24165707710011508
+                "worst": 0.00039556962025316455
               },
               "peak": {
                 "median": 4,
-                "worst": 37
+                "worst": 4
               },
               "mse": {
-                "median": 0.3278406102590114,
-                "worst": 11.354274549290372
+                "median": 0.19740919602411736,
+                "worst": 0.3278406102590114
               },
               "mean": {
                 "median": 0.14027757269913704,
@@ -178,7 +180,8 @@
             "exact": 5,
             "identical": 3,
             "inverted": 0,
-            "differing": 0
+            "differing": 0,
+            "calibrated": 5
           }
         }
       ]
