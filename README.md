@@ -493,16 +493,25 @@ v0.21.0    3   3   3   3   3   3   4   4   4    4      171  233  255     (13 row
 
 Ten of thirteen rows now sit **one or two levels above a gate of two**, where
 eleven of fourteen used to sit between 16 and 62; the row that vanished is
-`uk-govuk`, 11 differing pictures to none, **92.3% → 100.0%**. Three did not
-move — `fr-impots` at 255, `gh-pypdf` at 233, `gh-qpdf` at 171 — and those are
-not chroma reconstruction. **That is the `DCTDecode` finding now, and it is a
-much smaller thing than it was.**
+`uk-govuk`, 11 differing pictures to none, **92.3% → 100.0%**. The two lists are
+each sorted, so they are **not** paired population for population;
+[`baseline/README.md`](baseline/README.md) pairs them. **Three rows stayed
+gross** — `gh-qpdf` 171 → 171, `fr-impots` 255 → 255 and `gh-pypdf` 244 → 233 —
+and none of the three is chroma reconstruction. **That is the `DCTDecode`
+finding now, and it is a much smaller thing than it was.**
 
-**And the only filter that moved is the only filter the change touched.**
-`(samples)` 69.7%, `(samples) mask` 96.2%, `JPXDecode` 99.2%, and the three
-lossless filters at 100.0%, are unchanged to the picture, as is the fleet's
-count of 1990 bit-identical. That is a check on the instrument as much as on
-the library.
+**And the only filter that moved is the only filter the change touched.** Every
+other filter's `exact` count is identical picture for picture — 638, 1074, 1215,
+12, 10, 250, 2 — and so is the fleet's 1990 bit-identical; the only denominator
+that moved is the one `(samples)` picture #20 reclassified. That is a check on
+the instrument as much as on the library.
+
+**The fleet figure is over direct-comparable pictures**, first page of each
+document, converted bucket excluded by construction — and it spans three changes
+rather than one, since the denominators differ by #20's five moved pictures and
+`gfx` moved v0.16.0 to v0.19.0 as well. Holding the bucketing fixed, v0.21.0
+reads `DCTDecode` **42.8%** and the fleet **85.4%**; the rest is the instrument
+declining to score four pictures it should never have scored.
 
 **JPEG 2000 is still what a conformant lossy decoder looks like**: 1215 of 1225
 within two levels, **7** of them bit-equal. It agrees almost everywhere and is

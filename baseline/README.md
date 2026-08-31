@@ -196,6 +196,23 @@ the finding that *"what `pdfimages -list` calls `rgb`"* silently includes
 | whole fleet, direct comparable | 3962 | 3957 |
 | **whole-fleet agreement** | **84.5%** | **85.5%** |
 
+**Whole fleet here means direct-comparable pictures on the first page of each
+document, across all 23 populations** — not documents, not pages, and not the
+converted bucket, which is 3139 pictures this figure declines to score at all.
+A rate quoted without that is the kind of rate this section exists to correct.
+
+**And those two columns differ by three changes, not one**, which matters if the
+figure is quoted as `render` v0.21.0's: the denominators are 3962 and 3957
+because #20's bucketing rule moved five pictures out, and `go-gfx/gfx` went
+v0.16.0 to v0.19.0 in between. All five moved pictures differ at v0.21.0 — the
+four CalRGB ones at peaks 110, 11, 10, 10 and the `(samples)` one in
+`ia-uscourts`, which differs in both runs — so **holding the bucketing at
+v0.20.0's, v0.21.0 reads `DCTDecode` 184/430 = 42.8% and the fleet 3385/3962 =
+85.4%.** That is the figure attributable to the library rather than to the
+instrument, and it is still not v0.21.0 in isolation because of the `gfx` bump.
+The cleanest single attributable number is `uk-govuk`, which moved no pictures
+between buckets: **92.3% → 100.0%**, 131 of 142 to 142 of 142.
+
 Nine points on JPEG and one on the fleet. **That is the honest number, and it
 understates what happened, because the gate is a cliff and the change was a
 change of magnitude.** The magnitudes are where it shows. The per-population
@@ -212,11 +229,33 @@ eleven of fourteen used to sit between 16 and 62. The row that vanished is
 `fr-cerfa`'s went from 139 differing at a median peak of 31 to 114 at a median
 peak of **3**.
 
+Paired by population rather than sorted, which is how it should be read — the
+two ordered lists above are **not** aligned, and pairing their columns would be
+wrong:
+
+| population | v0.20.0 | v0.21.0 |
+|---|---:|---:|
+| `uk-govuk` | 18 | **no differing picture at all** |
+| `gh-safedocs` | 16 | 4 |
+| `ia-americana` | 23 | 4 |
+| `ia-uscourts` | 23 | 3 |
+| `gh-pdfcpu` | 26 | 3 |
+| `fr-cerfa` | 31 | 3 |
+| `us-dol` | 34 | 3 |
+| `us-irs` | 47 | 3 |
+| `gh-openpdf` | 50 | 3 |
+| `gh-pdfbox` | 58 | 4 |
+| `ia-medical` | 62 | 4 |
+| `gh-pypdf` | 244 | 233 |
+| `gh-qpdf` | 171 | 171 |
+| `fr-impots` | 255 | 255 |
+
 So the improvement is real and it is large, and it is a **magnitude** result
-rather than a rate result at this gate. Three rows did not move at all —
-`fr-impots` at 255, `gh-pypdf` at 233, `gh-qpdf` at 171 — and those are not
-chroma reconstruction. They are the remaining `DCTDecode` finding, and this run
-does not diagnose them.
+rather than a rate result at this gate. **Three rows stayed gross** —
+`gh-qpdf` 171 → 171, `fr-impots` 255 → 255, and `gh-pypdf` 244 → 233, which
+moved but not to anywhere near rounding. None of the three is chroma
+reconstruction. They are the remaining `DCTDecode` finding, and this run does
+not diagnose them.
 
 **Nothing here changes the gate.** That ten rows now sit at 3 and 4 is evidence
 about `D` and it is recorded, not acted on: a gate moved because it would flatter
@@ -292,7 +331,9 @@ it up as though it were would overstate the change by two orders of magnitude.
 ### 4. The only filter that moved is the only filter the change touched
 
 This is the check on the instrument rather than on the library, and it passes
-exactly:
+exactly. Every other filter's **`exact` count is identical, picture for
+picture** — 638, 1074, 1215, 12, 10, 250, 2 — and the only denominator that
+moved anywhere is the one `(samples)` picture #20 reclassified:
 
 | filter | v0.20.0 | v0.21.0 |
 |---|---:|---:|
@@ -307,8 +348,8 @@ exactly:
 
 `render` v0.21.0 changed JPEG chroma reconstruction and nothing else, and the
 measurement says so: every other filter's agreement, and the fleet's identical
-count of 1990, are unchanged to the picture. **`JPXDecode` stays at 99.2% with 7
-of 1225 bit-equal** — a conformant lossy decoder, agreeing within two levels
+count of 1990, are unchanged. **`JPXDecode` stays at 99.2% with 7 of 1225
+bit-equal** — a conformant lossy decoder, agreeing within two levels
 almost everywhere and bit-equal almost nowhere, exactly as ISO/IEC 15444
 promises.
 
