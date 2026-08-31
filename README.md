@@ -204,15 +204,45 @@ the pictures poppler had to *convert* to reach RGB are tallied in **their own
 bucket**, with their own agreement figure and their own magnitudes, the way
 `remapped` and `inverted` are already counted apart.
 
-Two honesties about that classification. `index` is counted **converted**
-although its base space is often `DeviceRGB`, because `pdfimages` does not
-report the base and a picture that cannot be classified must not be credited as
-agreement. And poppler folds `CalGray` onto `gray` and `CalRGB` onto `rgb`, so
-a few pictures counted direct did pass through a CIE conversion — that is
-poppler's resolution and not a claim of ours. A picture whose listing row could
-not be read at all also lands in the converted bucket, which makes a failure of
-`pdfimages -list` **loud** — every filter would read as wholly converted —
-rather than silently generous.
+**The listing alone was not enough, and that was
+[conformance#20](https://github.com/go-pdfkit/conformance/issues/20).** poppler
+folds `csCalGray` onto `gray` and `csCalRGB` onto `rgb`
+(`utils/ImageOutputDev.cc:159-164`) while the pixels it writes go through
+`colorMap->getRGB` (`:451`), which for a `GfxCalRGBColorSpace` applies the
+gamma, the matrix and the chromatic adaptation. So the `direct` bucket admitted
+pictures poppler **had** converted, and measured every pixel of them against a
+colour conversion we did not make. All four pictures that still differed by
+more than four levels after `render` v0.21.0's chroma fix were `/CalRGB`.
+
+**So the bucket is decided by both sides.** A picture is `converted` when
+`pdfimages` says so, **and also when its own `/ColorSpace` resolves to a
+CIE-based space — `CalRGB`, `CalGray`, `ICCBased` or `Lab` — whatever the
+listing says.** Only the first two can move anything, since poppler lists
+`ICCBased` as `icc` and `Lab` as `lab` and both were converted already; naming
+all four makes the rule a statement about what the **document** says rather
+than a patch over one judge's table. The space is read from the picture's own
+dictionary, through the page's forms as `render.Images` walks them, and through
+the resource dictionary when the picture names its space rather than writing it
+out. **`calibrated` counts how much of a bucket the document itself accounts
+for** — the pictures whose own `/ColorSpace` is CIE-based — per filter and per
+bucket. It is **not** the count of what the rule *moved*, and reading it as one
+overstates the change by two orders of magnitude: most calibrated pictures are
+`ICCBased` or `Indexed`, which the listing already called converted. What moved
+is what the listing called `gray` or `rgb`, and that is a difference between two
+runs rather than a column in either — `baseline/README.md` measures it.
+
+Where it cannot decide, it does not: a name unique within one resource
+dictionary is not unique across the several a page reaches, so a page where two
+forms each name their own `Im1` and only one is `/CalRGB` marks both. That
+over-counts `converted` by at most those pictures, and the other direction is
+the one that credits a colour conversion to a codec.
+
+Two honesties remain. `index` is counted **converted** although its base space
+is often `DeviceRGB`, because `pdfimages` does not report the base and a picture
+that cannot be classified must not be credited as agreement. And a picture whose
+listing row could not be read at all also lands in the converted bucket, which
+makes a failure of `pdfimages -list` **loud** — every filter would read as
+wholly converted — rather than silently generous.
 
 **`Inverted` survives as its own signal.** `pdfimages` writes a stencil with
 the opposite polarity to the samples it holds, which a magnitude measure would
