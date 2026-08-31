@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-pdfkit/conformance/corpus"
 	"github.com/go-pdfkit/conformance/images"
+	"github.com/go-pdfkit/conformance/internal/poppler"
 )
 
 // tinyCorpus writes a manifest naming two populations and a file for each.
@@ -276,4 +277,45 @@ func TestTheRealJudgeIsTheOneThatIsAsked(t *testing.T) {
 	// Whether poppler is installed decides the answer, not whether the
 	// statement runs, so this covers the wiring either way.
 	_, _ = versionCommand()
+}
+
+func TestTheReportNamesEveryDocumentTheJudgeHungOn(t *testing.T) {
+	// conformance#21. A document skipped because pdfimages would not finish
+	// is not a document that scored badly, and in a report that leaves it out
+	// the two are the same absence. It is named in the report as well as in
+	// the record, with the tool and with its whole path.
+	judge(t, images.Result{Path: "/corpus/gh-qpdf/hangs.pdf", Page: 1,
+		Missing: images.Hung, Tool: "pdfimages", Difference: images.Difference{Share: -1}})
+	var out, errOut bytes.Buffer
+	if code := run([]string{"-dir", tinyCorpus(t), "-only", "alpha"}, &out, &errOut); code != 0 {
+		t.Fatalf("exit %d: %s", code, errOut.String())
+	}
+	got := out.String()
+	if !strings.Contains(got, "hung  pdfimages  /corpus/gh-qpdf/hangs.pdf page 1") {
+		t.Errorf("the hang is not named with its tool and path: %q", got)
+	}
+}
+
+func TestTheRecordSaysWhatBoundTheJudgeWasHeldTo(t *testing.T) {
+	// The bound is part of the instrument, like the gate: a run under a
+	// shorter one can name documents as hung that a longer one measures, and
+	// the populations they are in would then read as smaller without saying
+	// why. So the record carries the value the run used.
+	was := poppler.Timeout
+	defer func() { poppler.Timeout = was }()
+	judge(t, images.Result{Name: "I", Filter: "JBIG2Decode"})
+	var out, errOut bytes.Buffer
+	if code := run([]string{"-dir", tinyCorpus(t), "-json", "-timeout", "9m"}, &out, &errOut); code != 0 {
+		t.Fatalf("exit %d: %s", code, errOut.String())
+	}
+	var got baseline
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Timeout != "9m0s" {
+		t.Errorf("the record says the judge was bounded at %q", got.Timeout)
+	}
+	if poppler.Timeout != 9*time.Minute {
+		t.Errorf("the flag did not reach the judge: %v", poppler.Timeout)
+	}
 }

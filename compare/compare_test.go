@@ -42,14 +42,14 @@ func standIn(t *testing.T, draw func(w, h int) image.Image, w, h int) {
 	t.Helper()
 	was := popplerCommand
 	t.Cleanup(func() { popplerCommand = was })
-	popplerCommand = func(args ...string) error {
+	popplerCommand = func(args ...string) (bool, error) {
 		stem := args[len(args)-1]
 		f, err := os.Create(stem + "-1.png")
 		if err != nil {
-			return err
+			return false, err
 		}
 		defer f.Close()
-		return png.Encode(f, draw(w, h))
+		return false, png.Encode(f, draw(w, h))
 	}
 }
 
@@ -122,7 +122,7 @@ func TestWhatCannotBeJudgedSaysWhy(t *testing.T) {
 	t.Run("the other renderer refusing", func(t *testing.T) {
 		was := popplerCommand
 		defer func() { popplerCommand = was }()
-		popplerCommand = func(...string) error { return os.ErrPermission }
+		popplerCommand = func(...string) (bool, error) { return false, os.ErrPermission }
 		got := Compare(onePage(t, ""), Options{})
 		if got[0].Share != -1 || got[0].Note == "" {
 			t.Errorf("got %+v", got)
@@ -131,7 +131,7 @@ func TestWhatCannotBeJudgedSaysWhy(t *testing.T) {
 	t.Run("the other renderer writing nothing", func(t *testing.T) {
 		was := popplerCommand
 		defer func() { popplerCommand = was }()
-		popplerCommand = func(...string) error { return nil }
+		popplerCommand = func(...string) (bool, error) { return false, nil }
 		got := Compare(onePage(t, ""), Options{})
 		if got[0].Share != -1 {
 			t.Errorf("got %+v", got)
@@ -140,8 +140,8 @@ func TestWhatCannotBeJudgedSaysWhy(t *testing.T) {
 	t.Run("the other renderer writing something that is not a picture", func(t *testing.T) {
 		was := popplerCommand
 		defer func() { popplerCommand = was }()
-		popplerCommand = func(args ...string) error {
-			return os.WriteFile(args[len(args)-1]+"-1.png", []byte("not a png"), 0o644)
+		popplerCommand = func(args ...string) (bool, error) {
+			return false, os.WriteFile(args[len(args)-1]+"-1.png", []byte("not a png"), 0o644)
 		}
 		got := Compare(onePage(t, ""), Options{})
 		if got[0].Share != -1 {
@@ -241,12 +241,12 @@ func TestTheRealCommandIsTheOneThatIsRun(t *testing.T) {
 	// The default reaches for pdftoppm. Whether it is installed decides the
 	// error, not whether the statement runs — so this covers the wiring on a
 	// machine with nothing installed as well as on one with poppler.
-	_ = popplerCommand("-h")
+	_, _ = popplerCommand("-h")
 }
 
 func TestATemporaryDirectoryItCannotMakeIsReported(t *testing.T) {
 	t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "not-a-directory"))
-	if _, _, err := poppler("whatever.pdf", 1, 72); err == nil {
+	if _, _, _, err := draw("whatever.pdf", 1, 72); err == nil {
 		t.Error("no error when there is nowhere to work")
 	}
 }
@@ -254,14 +254,14 @@ func TestATemporaryDirectoryItCannotMakeIsReported(t *testing.T) {
 func TestAPictureItCannotOpenIsReported(t *testing.T) {
 	was := popplerCommand
 	defer func() { popplerCommand = was }()
-	popplerCommand = func(args ...string) error {
+	popplerCommand = func(args ...string) (bool, error) {
 		p := args[len(args)-1] + "-1.png"
 		if err := os.WriteFile(p, []byte("x"), 0o644); err != nil {
-			return err
+			return false, err
 		}
-		return os.Chmod(p, 0o000)
+		return false, os.Chmod(p, 0o000)
 	}
-	if _, _, err := poppler("whatever.pdf", 1, 72); err == nil {
+	if _, _, _, err := draw("whatever.pdf", 1, 72); err == nil {
 		t.Error("a picture that cannot be opened was read")
 	}
 }
@@ -340,5 +340,32 @@ func TestPagesOfTheSameLengthInDifferentDocuments(t *testing.T) {
 	}, time.Second)
 	if len(s.Slow) != 2 || s.Slow[0].Path != "/a.pdf" {
 		t.Errorf("named %s first", s.Slow[0].Path)
+	}
+}
+
+func TestAJudgeThatWillNotFinishIsNamedRatherThanWaitedOn(t *testing.T) {
+	// conformance#21: pdftoppm hangs for ever on at least one document of the
+	// forms corpus, and from outside a hang and a slow page are the same
+	// thing. The bound is only worth having if the page comes back by name
+	// with the tool that hung, so it can be told from a page that disagreed.
+	was := popplerCommand
+	defer func() { popplerCommand = was }()
+	popplerCommand = func(...string) (bool, error) { return true, os.ErrDeadlineExceeded }
+	path := onePage(t, "")
+	got := Compare(path, Options{})
+	if len(got) != 1 || got[0].Share != -1 || got[0].Tool != "pdftoppm" {
+		t.Fatalf("a hang came back as %+v", got)
+	}
+	if !contains(got[0].Note, "did not finish within") {
+		t.Errorf("the note says %q", got[0].Note)
+	}
+	// And the run's summary names every one of them, uncapped: a cap is a way
+	// of dropping names, and the point of the bound is that they are kept.
+	s := Summarise(got, time.Hour)
+	if len(s.Hung) != 1 || s.Hung[0].Path != path {
+		t.Fatalf("the summary names %+v", s.Hung)
+	}
+	if s.NotCompared != 1 || s.Compared != 0 {
+		t.Errorf("a hang was counted as a comparison: %+v", s)
 	}
 }

@@ -135,6 +135,17 @@
 // always 255 and it is the inverted luminance. One formula, correct for both
 // layouts, and it is what the old bisection was doing per bit.
 //
+// # Every poppler invocation is bounded, and a hang is named
+//
+// pdfimages can hang, on a document this corpus holds; the reason and the
+// bound are in internal/poppler. All three of this package's invocations go
+// through it, and a document that exceeds the bound is RECORDED BY NAME with
+// the tool that hung — Missing.Hung, Result.Tool, and Summary.Hung in the
+// record. It is never dropped and never retried. A named timeout is data
+// about the corpus; a silent one is a gap a reader cannot tell from a bad
+// score, which is the same distinction this package already makes between
+// Ours, Neither and Theirs.
+//
 // # Polarity stays its own signal
 //
 // pdfimages writes a stencil with the opposite polarity to the samples it
@@ -150,13 +161,13 @@ import (
 	"fmt"
 	"image/png"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/go-gfx/gfx/raster"
+	"github.com/go-pdfkit/conformance/internal/poppler"
 	"github.com/go-pdfkit/reader"
 	"github.com/go-pdfkit/render"
 )
@@ -254,7 +265,11 @@ type Result struct {
 	// documents and a run that agrees less because it decoded them wrongly
 	// are different events, and a total that lumps them says neither.
 	Missing Missing
-	Note    string
+	// Tool is the poppler tool that did not finish, when Missing is Hung. It
+	// is empty otherwise. A hang is only useful as data if it says which of
+	// the three invocations it was, because they fail independently.
+	Tool string
+	Note string
 }
 
 // A Missing says which side produced nothing.
@@ -283,6 +298,14 @@ const (
 	// this cannot get an answer about, and one that must be counted so that a
 	// corpus getting harder is not read as a decoder getting worse.
 	Theirs Missing = "theirs"
+	// Hung means a poppler tool did not finish within Timeout.
+	//
+	// It is its own value rather than a kind of Theirs because a judge that
+	// would not answer and a judge that answered "nothing" are different
+	// facts, and because this one has to be recorded BY NAME: the whole point
+	// of bounding the call is that the document can be gone and looked at.
+	// Result.Tool says which tool it was and Summary.Hung carries the list.
+	Hung Missing = "hung"
 )
 
 // Options say how much to look at.
@@ -308,8 +331,13 @@ func Judge(path string, opt Options) []Result {
 	}
 	d, err := reader.Open(b)
 	if err != nil {
-		return []Result{{Path: path, Difference: unjudged(),
-			Missing: blame(path), Note: "refused: " + err.Error()}}
+		r := Result{Path: path, Difference: unjudged(),
+			Note: "refused: " + err.Error()}
+		r.Missing, r.Tool = blame(path)
+		if r.Missing == Hung {
+			r.Note += "; " + r.Tool + " hung, so whose refusal this is is not known"
+		}
+		return []Result{r}
 	}
 	if n := d.PageCount(); pages > n {
 		pages = n
@@ -349,10 +377,15 @@ func judgePage(d *reader.Document, path string, p int) []Result {
 	if len(ours) == 0 {
 		return nil
 	}
-	theirs, err := poppler(path, p)
+	theirs, tool, err := judgeShots(path, p)
 	if err != nil {
-		return []Result{{Path: path, Page: p, Difference: unjudged(),
-			Missing: Theirs, Note: "they took nothing out: " + err.Error()}}
+		r := Result{Path: path, Page: p, Difference: unjudged(),
+			Missing: Theirs, Note: "they took nothing out: " + err.Error()}
+		if tool != "" {
+			r.Missing, r.Tool = Hung, tool
+			r.Note = tool + " hung: " + err.Error()
+		}
+		return []Result{r}
 	}
 	// The two do not agree on an order, and neither has a name the other
 	// knows, so a picture is matched to a picture of the same size. Where
@@ -480,35 +513,52 @@ var direct = map[string]bool{"gray": true, "rgb": true, "-": true}
 // comment.
 func converted(space string) bool { return !direct[space] }
 
-// infoCommand is a variable so a test can ask without poppler installed.
+// infoCommand is a variable so a test can ask without poppler installed. It
+// answers whether the tool hung, and then whether it failed.
 //
 // pdfinfo rather than pdfimages, because the question is only whether the
 // document opens: pdfimages answers "no pictures came out" for a document it
 // read perfectly well and one it could not read at all, and those are the two
 // things that must not be confused here.
-var infoCommand = func(path string) error { return exec.Command("pdfinfo", path).Run() }
+var infoCommand = func(path string) (bool, error) {
+	_, hung, err := poppler.Run("pdfinfo", path)
+	return hung, err
+}
 
-// blame says whose refusal it was, by asking the judge the same question.
+// blame says whose refusal it was, by asking the judge the same question, and
+// names the tool when the judge would not finish answering.
 //
 // A document ours refuses is not evidence of a defect until it is known that
 // something else could read it. Encrypted-with-DRM, truncated and malformed
 // documents are ordinary in a mass-digitisation corpus, and a refusal every
 // implementation makes is a fact about the corpus.
-func blame(path string) Missing {
-	if infoCommand(path) != nil {
-		return Neither
+//
+// A pdfinfo that hangs is neither answer. Counting it as Neither would credit
+// a document as unopenable on the strength of a question nobody answered, and
+// unopenable is subtracted from a population's real size — so it would shrink
+// the denominator every rate is quoted over. It is reported as Hung instead.
+func blame(path string) (Missing, string) {
+	hung, err := infoCommand(path)
+	if hung {
+		return Hung, "pdfinfo"
 	}
-	return Ours
+	if err != nil {
+		return Neither, ""
+	}
+	return Ours, ""
 }
 
 // popplerCommand is a variable so a test can stand in for the other
 // implementation without one being installed.
-var popplerCommand = func(args ...string) error { return exec.Command("pdfimages", args...).Run() }
+var popplerCommand = func(args ...string) (bool, error) {
+	_, hung, err := poppler.Run("pdfimages", args...)
+	return hung, err
+}
 
 // listCommand is a variable for the same reason, and is separate because this
 // one is asked for its OUTPUT rather than for whether it worked.
-var listCommand = func(args ...string) ([]byte, error) {
-	return exec.Command("pdfimages", args...).Output()
+var listCommand = func(args ...string) ([]byte, bool, error) {
+	return poppler.Run("pdfimages", args...)
 }
 
 // A shot is one picture the judge took out, with what it says about it.
@@ -521,30 +571,42 @@ type shot struct {
 	space string
 }
 
-// poppler takes the pictures out of one page with pdfimages, and asks it what
-// colour space each was in.
+// judgeShots takes the pictures out of one page with pdfimages, and asks it
+// what colour space each was in.
 //
 // pdfimages EXTRACTS rather than renders, which is the whole point: asking
 // pdftoppm would put poppler's rasteriser between the codec and the answer,
 // and its resampling shows up as every decoder disagreeing with it slightly.
 // Measured that way, four JBIG2 decoders all looked wrong; measured this way,
 // one was exact on every stream and another was wrong on 91% of them.
-func poppler(path string, page int) ([]shot, error) {
+func judgeShots(path string, page int) ([]shot, string, error) {
 	dir, err := os.MkdirTemp("", "images")
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer os.RemoveAll(dir)
 	stem := filepath.Join(dir, "i")
-	if err := popplerCommand("-png", "-f", fmt.Sprint(page), "-l", fmt.Sprint(page),
-		path, stem); err != nil {
-		return nil, err
+	hung, err := popplerCommand("-png", "-f", fmt.Sprint(page), "-l", fmt.Sprint(page),
+		path, stem)
+	if hung {
+		return nil, "pdfimages", poppler.DidNotFinish("pdfimages")
+	}
+	if err != nil {
+		return nil, "", err
 	}
 	// Glob answers with an error only for a pattern it cannot parse, and this
 	// pattern is a temporary directory of our own making, so a failure here
 	// leaves no names and is reported below as nothing having come out.
 	names, _ := filepath.Glob(stem + "-*.png")
-	spaces := listing(path, page)
+	spaces, hung := listing(path, page)
+	if hung {
+		// The listing is half the instrument: it is what puts every picture
+		// on this page into the direct bucket or the converted one. A page
+		// whose listing did not come back would be tallied as wholly
+		// converted, which is a real number in a real column, so it is
+		// reported as a hang instead of being quietly absorbed.
+		return nil, "pdfimages -list", poppler.DidNotFinish("pdfimages -list")
+	}
 	out := make([]shot, 0, len(names))
 	for _, name := range names {
 		im, err := readPNG(name)
@@ -559,9 +621,9 @@ func poppler(path string, page int) ([]shot, error) {
 	// 1000, which sorts before 999. The number is what orders them.
 	sort.Slice(out, func(i, j int) bool { return out[i].num < out[j].num })
 	if len(out) == 0 {
-		return nil, fmt.Errorf("no pictures came out")
+		return nil, "", fmt.Errorf("no pictures came out")
 	}
-	return out, nil
+	return out, "", nil
 }
 
 // number is the index pdfimages wrote into a file's name.
@@ -587,10 +649,13 @@ func number(name string) int {
 // header and rule lines fail to parse as a number and are skipped. A listing
 // that could not be taken at all leaves every picture unclassified, which the
 // package comment explains is deliberately loud.
-func listing(path string, page int) map[int]string {
-	out, err := listCommand("-list", "-f", fmt.Sprint(page), "-l", fmt.Sprint(page), path)
+func listing(path string, page int) (map[int]string, bool) {
+	out, hung, err := listCommand("-list", "-f", fmt.Sprint(page), "-l", fmt.Sprint(page), path)
+	if hung {
+		return nil, true
+	}
 	if err != nil {
-		return nil
+		return nil, false
 	}
 	spaces := map[int]string{}
 	for _, line := range strings.Split(string(out), "\n") {
@@ -604,7 +669,7 @@ func listing(path string, page int) map[int]string {
 		}
 		spaces[num] = f[5]
 	}
-	return spaces
+	return spaces, false
 }
 
 // readPNG reads one of the files pdfimages wrote.
@@ -791,8 +856,21 @@ type Summary struct {
 	Unopenable int `json:"unopenable"`
 	// Declined is how many pages ours drew pictures for and the judge took
 	// none out of, so there was nothing to compare them with.
-	Declined int            `json:"declined"`
-	Filters  []FilterCounts `json:"filters"`
+	Declined int `json:"declined"`
+	// Hung names the documents a poppler tool would not finish on, with the
+	// tool. A document that was skipped because the judge hung is not a
+	// document that scored badly, and the two are indistinguishable in a
+	// total, so these are carried by name rather than as a count. Absent when
+	// nothing hung.
+	Hung    []Hang         `json:"hung,omitempty"`
+	Filters []FilterCounts `json:"filters"`
+}
+
+// A Hang is one document a poppler tool did not finish on, and which tool.
+type Hang struct {
+	Path string `json:"path"`
+	Page int    `json:"page"`
+	Tool string `json:"tool"`
 }
 
 // FilterCounts is one filter's line of a report, as data.
@@ -852,6 +930,8 @@ func Summarize(population string, documents int, rs []Result) Summary {
 			s.Unopenable++
 		case Theirs:
 			s.Declined++
+		case Hung:
+			s.Hung = append(s.Hung, Hang{Path: r.Path, Page: r.Page, Tool: r.Tool})
 		}
 	}
 	by := Tally(rs)
