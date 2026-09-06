@@ -425,6 +425,7 @@ func TestFetchingReportsWhatWentWrong(t *testing.T) {
 		files: map[string][]map[string]string{
 			"refused":    {{"name": "r.pdf", "format": "Text PDF", "size": "20"}},
 			"unwritable": {{"name": "u.pdf", "format": "Text PDF", "size": "20"}},
+			"enormous":   {{"name": "e.pdf", "format": "Text PDF", "size": "5000000"}},
 		},
 		refuse: map[string]int{"refused/r.pdf": http.StatusUnauthorized},
 	}
@@ -444,6 +445,23 @@ func TestFetchingReportsWhatWentWrong(t *testing.T) {
 	// restricted, so this is the common case rather than the odd one.
 	if _, err := fetchOne(context.Background(), a, p, into, "refused"); err == nil {
 		t.Error("no error for a refused download")
+	}
+	// A document past the size a plan allows, refused BEFORE it is fetched:
+	// the corpus is bounded by what it will hold, not by what it downloads.
+	//
+	// This branch had no test of its own. It was reached only when a harvest
+	// that had already filled its Want went on fetching in the background --
+	// so the repository's exact-100% gate was passing on a race, showing
+	// 95.2% or 100.0% for this function from one run to the next on the same
+	// toolchain. Stopping that background work made the gap permanent, which
+	// is how it was found.
+	tiny := p
+	tiny.MaxBytes = 10
+	if _, err := fetchOne(context.Background(), a, tiny, into, "enormous"); err == nil {
+		t.Error("no error for a document over the plan's limit")
+	}
+	if _, err := os.Stat(filepath.Join(into, "e.pdf")); !os.IsNotExist(err) {
+		t.Error("a document over the limit was written before being refused")
 	}
 	// A place the file cannot be created.
 	if _, err := fetchOne(context.Background(), a, p, filepath.Join(into, "nope"), "unwritable"); err == nil {
