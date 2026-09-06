@@ -1,0 +1,12 @@
+{
+  "name": "judges",
+  "version": "1.0.0",
+  "private": true,
+  "description": "pdf.js (Firefox's engine) as a judge for cmd/judges: text and render helpers run under node",
+  "license": "BSD-3-Clause",
+  "type": "commonjs",
+  "dependencies": {
+    "@napi-rs/canvas": "^1.0.8",
+    "pdfjs-dist": "^6.3.289"
+  }
+}
