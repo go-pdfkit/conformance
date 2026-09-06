@@ -91,6 +91,92 @@ carry one, and all 22 are soft masks.
 A filter with nothing comparable left is not reported as the worst thing in the
 corpus: nothing to compare is not evidence of being wrong.
 
+## Every reader, not one: `judges`
+
+`compare` and `images` ask poppler how well we read the world's files. `judges`
+asks the other direction — how well the world reads **ours** — and asks
+**everyone the machine has**. A PDF that is the smallest, or that our own reader
+reads back perfectly, is worth nothing if one reader in the field disagrees with
+the others about it. That is a claim every producer in `go-pdfkit` —
+`html2pdf`, `render`, `ops`, `gotex` — has to be able to make, which is why the
+harness lives here and not in the producer that first needed it.
+
+```
+judges -pdfs 'out/*.pdf,out/bench/*.pdf' -pdfium /path/to/pdfium_test \
+       -out out/judges -report JUDGES.md -results judges.json
+```
+
+| judge | what it is | gives |
+|---|---|---|
+| `qpdf --check` | structural validator | clean / warnings / errors |
+| poppler (`pdfinfo` / `pdftoppm` / `pdftotext`) | the reference the per-judge Δ is taken against | pages, text, renders |
+| MuPDF (`mutool`) | independent parser and rasteriser | pages, text, renders |
+| Ghostscript (`gs`) | PostScript-lineage interpreter | text, renders |
+| pdfium (`pdfium_test`) | Chrome's engine — `-pdfium /path` or `PDFIUM_TEST` | pages, text, renders |
+| pdf.js (`judges/pdfjs-*.mjs` under node) | Firefox's engine | pages, text, renders |
+| Quartz (`sips`) | macOS ImageIO — Preview's engine | page-1 render |
+
+A judge whose binary is absent is **skipped with a note, never faked**. Each
+cell reads `pages · text ratio · Δworst (page)`: the pages the judge reports,
+its extracted text as a ratio of poppler's, and the largest distance of its
+renders from poppler's over a sample of pages — the first, the middle and the
+last, at 96 dpi, as the share of pixels whose grey level moves by more than 48
+of 255 after both are box-downsampled to 400 px wide — with the page it
+happened on. `⚠n` is n lines the judge complained on; `❌` is a judge that
+would not process the file, with the first thing it said.
+
+Four things are decided rather than defaulted.
+
+**Poppler is the reference, and the `consensus` column is why it is not the
+truth.** A distance needs a second point and poppler is the reader every
+machine this runs on has; but poppler is one reader, so each sampled page also
+carries the mean pairwise distance between *all* judges' renders of it, no
+reader privileged. A page every reader draws differently is a page to look at,
+whichever one is "right".
+
+**Text is counted without its whitespace.** Judges disagree wildly on it for
+reasons that are not about the file — Ghostscript's `txtwrite` pads lines to
+reproduce the column layout, pdfium separates every glyph run — while the
+glyphs they *recover* are what the comparison is about. And pdfium's `--txt` is
+UTF-32LE with a byte-order mark, four bytes a character, verified with `xxd`:
+it is decoded before it is counted, or it reads as four times the text.
+
+**Quartz is composited over white before it is compared.** `sips` renders a
+page on a transparent background, and a transparent pixel converted straight to
+grey is black: every Quartz render would read as a 99% mismatch against an
+opaque one. `sips` has no page selection either, so Quartz is judged on page 1
+only and its cell says so.
+
+**A judge's narration is not a warning.** `pdfium_test` says "Processing PDF
+file x." and "Processed N pages." on stderr as it goes; those lines are
+progress, and are struck before the rest is counted.
+
+Judge a **control** beside your own output. `html2pdf` judges Chrome's PDFs of
+the same pages alongside its own: a judge that disagrees on the control too is
+judge noise, and one that disagrees only on ours is a defect. The table is
+written above an `<!-- BEGIN ANALYSIS -->` marker, and whatever a reader writes
+beneath it — which cells were noise, which were defects, where they were fixed
+— survives the next run.
+
+Every judge runs under `-timeout` (three minutes per judge per file), and one
+that does not answer is reported as `hung`, by tool, rather than as the first
+warning it printed before it was killed. The reason is the next section's.
+
+pdf.js is two node scripts under [`judges/`](judges/); they are not Go, and CI
+does not build them. Once, on the machine that judges:
+
+```
+cd judges && npm ci        # pdfjs-dist + @napi-rs/canvas, from the lock
+```
+
+`-nodedir judges` (the default) then finds them, and a machine without them
+simply has no pdf.js column. From another repository:
+
+```
+go run github.com/go-pdfkit/conformance/cmd/judges@latest \
+    -pdfs 'out/*.pdf' -nodedir /path/to/conformance/judges -pdfium "$PDFIUM_TEST"
+```
+
 ## The judge can hang, and a hang looks like a slow run
 
 `pdfimages -list` **does not return** on
@@ -590,4 +676,7 @@ bisection at v0.19.0 or from the chroma defect at v0.20.0.
 ## How it is checked
 
 Exact 100% statement coverage including every error branch, `go vet`, `-race`,
-and nine cross-compile targets. Nothing outside the standard library.
+and nine cross-compile targets. Nothing outside the standard library. The
+readers `judges` shells out to are stood in for under test, so the whole
+harness — every judge, every refusal, the hang — is exercised on a runner
+that has none of them.
