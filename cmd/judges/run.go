@@ -94,6 +94,8 @@ func run(args []string, out, errOut io.Writer) int {
 				ctx, cancel := context.WithTimeout(context.Background(), judgeTimeout)
 				v = j.run(ctx, abs, dir, pages)
 				cancel()
+				// Both runs are poppler's time; the record used to say 0.
+				v.Ms = time.Since(t0).Milliseconds()
 			}
 			if fr.SampledPages == nil {
 				fr.SampledPages = pages
