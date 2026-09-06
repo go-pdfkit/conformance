@@ -232,6 +232,55 @@ func TestHarvestIsResumable(t *testing.T) {
 	}
 }
 
+func TestAHarvestDoesNotOutliveItself(t *testing.T) {
+	// Harvest stops reading as soon as Want has landed. Everything feeding it
+	// has to stop too: a worker still running has already truncated the file
+	// it was fetching to zero, and removes it when its fetch fails. Two
+	// harvests over one directory is exactly what resuming is, so the second
+	// one used to write b.pdf and have the first one's abandoned worker
+	// truncate it underneath -- "what came back is not a PDF", about once in
+	// fifty sequences.
+	//
+	// Repeated, because the window is small and a single pass proves nothing:
+	// this fails within a few dozen iterations without the cancel-and-drain.
+	for i := 0; i < 200; i++ {
+		f := &fakeArchive{
+			pages: [][]string{{"a", "b"}, {}},
+			files: map[string][]map[string]string{
+				"a": {{"name": "a.pdf", "format": "Text PDF", "size": "20"}},
+				"b": {{"name": "b.pdf", "format": "Text PDF", "size": "20"}},
+			},
+			bytes: map[string]string{"a/a.pdf": "%PDF-a", "b/b.pdf": "%PDF-b"},
+		}
+		a := &Archive{Base: f.server(t).URL}
+		dir := t.TempDir()
+		p := Plan{Dir: dir, Origin: "scans", Query: "q", Want: 1, Workers: 1}
+		if _, err := Harvest(context.Background(), a, p); err != nil {
+			t.Fatalf("iteration %d: first harvest: %v", i, err)
+		}
+		p.Want = 2
+		got, err := Harvest(context.Background(), a, p)
+		if err != nil || len(got) != 2 {
+			t.Fatalf("iteration %d: resuming gave %d, %v", i, len(got), err)
+		}
+		// And what is on disk is what the manifest says is on disk. A file
+		// fetched by an abandoned worker is in neither, and a corpus that
+		// holds documents nothing names is one that cannot be reproduced.
+		ents, err := os.ReadDir(filepath.Join(dir, "scans"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(ents) != len(got) {
+			var names []string
+			for _, e := range ents {
+				names = append(names, e.Name())
+			}
+			t.Fatalf("iteration %d: %d files on disk %v, %d in the manifest",
+				i, len(ents), names, len(got))
+		}
+	}
+}
+
 func TestHarvestRefusesWhatIsNotAPDF(t *testing.T) {
 	// A server that answers 200 with an error page would otherwise put an HTML
 	// document in a corpus of PDFs, and every later measurement would count it.
