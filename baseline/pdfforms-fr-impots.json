@@ -1,6 +1,6 @@
 {
   "corpus": "/Users/Shared/pdfforms",
-  "taken": "2026-08-31T14:05:04Z",
+  "taken": "2026-09-07T15:56:34Z",
   "pages": 1,
   "gate": 2,
   "timeout": "2m0s",
@@ -137,26 +137,26 @@
           },
           "converted": {
             "pictures": 22,
-            "exact": 9,
-            "identical": 9,
+            "exact": 12,
+            "identical": 12,
             "inverted": 0,
-            "differing": 13,
+            "differing": 10,
             "calibrated": 3,
             "terms": {
               "share": {
-                "median": 0.45504165469692615,
+                "median": 0.4891554151106004,
                 "worst": 0.49971272622809537
               },
               "peak": {
-                "median": 170,
-                "worst": 255
+                "median": 164,
+                "worst": 170
               },
               "mse": {
                 "median": 5784.537010437613,
-                "worst": 12765.810794512287
+                "worst": 6193.272957962271
               },
               "mean": {
-                "median": 3.4954017789838687,
+                "median": 42.556521114622235,
                 "worst": 44.50493153308436
               }
             }

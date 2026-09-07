@@ -1,6 +1,6 @@
 {
   "corpus": "/Users/Shared/pdfforms",
-  "taken": "2026-08-31T14:05:22Z",
+  "taken": "2026-09-07T15:56:54Z",
   "pages": 1,
   "gate": 2,
   "timeout": "2m0s",
@@ -105,10 +105,10 @@
           "remapped": 0,
           "direct": {
             "pictures": 51,
-            "exact": 16,
-            "identical": 16,
+            "exact": 28,
+            "identical": 28,
             "inverted": 0,
-            "differing": 35,
+            "differing": 23,
             "terms": {
               "share": {
                 "median": 0.2222222222222222,
