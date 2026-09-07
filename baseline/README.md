@@ -17,13 +17,14 @@ instrument.
 
 | | |
 |---|---|
-| taken | 2026-09-07T15:55:45Z .. 2026-09-07T18:32:41Z (UTC) |
+| taken | 2026-09-07T19:30:25Z .. 2026-09-07T21:35:00Z (UTC) |
 | judge | pdfimages version 26.04.0 |
 | **measure** | **per channel, gate `D` = 2, count budget `N` = 0** ([conformance#16](https://github.com/go-pdfkit/conformance/issues/16)) |
-| **pairing** | **by object number, falling back to size** ([conformance#13](https://github.com/go-pdfkit/conformance/issues/13)) |
+| **pairing** | **by object number, falling back to size only when one side published none** ([conformance#30](https://github.com/go-pdfkit/conformance/pull/30)) |
+| **walk** | **the page's CONTENT STREAM, not its /Resources** ([render#43](https://github.com/go-pdfkit/render/pull/43)) |
 | **bucketing** | the listing **and** the picture's own `/ColorSpace` ([conformance#20](https://github.com/go-pdfkit/conformance/issues/20)) |
 | **bound on the judge** | **2m0s per document, per tool** ([conformance#21](https://github.com/go-pdfkit/conformance/issues/21)) |
-| `go-pdfkit/render` | **v0.21.0** |
+| `go-pdfkit/render` | **v0.22.0** |
 | `go-pdfkit/reader` | v0.6.0 |
 | `go-gfx/gfx` | v0.19.0 |
 | `tannevaled/gobig2` | v0.1.0 |
@@ -34,36 +35,57 @@ instrument.
 **Every one of the 23 populations ran to completion, and every one is in the
 tables below.** All 23 exited 0.
 
-**Why this run exists.** The INSTRUMENT changed, and nothing else did. Until
-`#28`, a picture of ours was paired with the first unclaimed picture of
-poppler's **of the same size** — and where a page draws many pictures of one
-size, the two sides walk them in different orders and the pairing is a guess.
-Page 1 of `cerfa_10074.pdf` draws 211 distinct 2×2 pictures whose stream bytes
-are all `00 00`: uniform swatches, all ink or all paper, stretched under an
-`/SMask` that carries the glyph shapes. A black swatch of ours was routinely
-compared with a white one of theirs, read as a complete disagreement, and
-reported as an inversion. Pairing is now by **object number**, which is the one
-identity both sides publish.
+**Why this run exists.** The INSTRUMENT changed, and nothing else did. Twice
+over, and both changes are about the same mistake: **asking one question and
+measuring the answer to another.**
+
+`render.Images` said it returned « the pictures the i'th page **draws**, in the
+order of the names it **draws** them by ». It walked the page's `/Resources`
+dictionary. A resource dictionary is a **catalogue of what a page may draw**, and
+PDF lets every page in a file share one — the French tax forms do.
+`2044_2044_4764.pdf` gives all ten of its pages the same dictionary, holding ten
+118×118 Data Matrix barcodes, one per page; page 1 draws exactly one of them and
+the walk returned all ten.
+
+The judge extracts what a page **draws**, so the nine extras had nothing to pair
+with — and one of them was matched to the drawn barcode's row, because all ten
+are the same size. Two unrelated barcodes were compared, came out **255 apart on
+every term**, and the barcode the page really draws was left unpaired and
+unmeasured. `render#43` walks the content stream instead; `conformance#30` stops
+the size fallback claiming a row when both sides published an object number and
+the two differ.
 
 Everything else was held, and checked before the run rather than asserted
-afterwards: the same judge (`pdfimages version 26.04.0`), the same five module
-versions listed below, the same one page per document, the same two-minute
-bound. **The measure is the only thing that moved**, which is what this file
+afterwards: the same judge (`pdfimages version 26.04.0`), the same other module
+versions listed above, the same one page per document, the same two-minute
+bound. **The instrument is the only thing that moved**, which is what this file
 demands of any figure it prints.
 
-What that cost the previous run, over all 23 populations and the same 7515
-compared pictures:
+What that cost the run this replaces, over the same 23 populations, the same
+3280 documents and the same judge:
 
-| | 2026-08-31 | 2026-09-07 |
+| | v0.21.0 (19:30 earlier today) | v0.22.0 (this run) |
 |---|---:|---:|
-| pictures compared | 7515 | 7515 |
-| exact | 4611 | **6598** |
-| reported inverted | 488 | **422** |
-| reported differing | 2416 | **495** |
-| **agreement** | **65.6%** | **93.0%** |
+| pictures returned | 8190 | **8063** |
+| **with no counterpart at all** | **110** | **5** |
+| pictures compared | 7515 | 7513 |
+| exact | 6598 | **6657** |
+| reported inverted | 422 | 426 |
+| reported differing | 495 | **430** |
+| pages refused by our own budget | 4 | **1** |
+| **agreement** | **93.0%** | **93.9%** |
 
-Six of the 23 populations moved; the other seventeen are identical to the byte.
-The picture count is unchanged, so none of this comes from measuring less.
+**Read the first two rows before the last one.** 127 fewer pictures came back,
+and 105 of them were pictures that had nothing on the judge's side to be
+compared with — because the page never drew them. The agreement did not rise
+because anything decodes better; it rose because 65 comparisons of two different
+pictures stopped being counted as disagreements.
+
+Eight of the 23 populations moved and **not one moved backwards** on any term —
+not exact, not differing, not agreement. The other fifteen are identical to the
+byte, which is what says this reached only the pages the defect could reach. `gh-qpdf` moved most: 45 disagreements to 5, and
+28 exact to **58**, from **fewer** pictures than before. More right answers out
+of less material is what a pairing being fixed looks like.
 
 **It is not uniformly "fewer inversions", and that matters.** `ia-uscourts`
 gained two — 37 to 39 — while its differing count fell by the same two: the
@@ -84,9 +106,11 @@ pages, cannot use this criterion and does not.
 on the machine throughout, so every duration measured here would be a
 measurement of that job as much as of this one. Counts and pixel comparisons
 are unaffected by load; wall-clock is not. The absence is a decision, not an
-oversight. Peak memory is reported, because it is not a timing: `ia-americana`
-5.9 GB, `ia-biodiversity` 3.6 GB, `ia-medical` 3.2 GB, everything else far
-below.
+oversight. **Peak memory was not captured for this run**, and the previous run's
+figures — `ia-americana` 5.9 GB, `ia-biodiversity` 3.6 GB, `ia-medical` 3.2 GB —
+are not carried over: this run decodes 127 fewer pictures and several very large
+ones fewer, so quoting them here would be quoting a measurement of something
+else.
 
 ## How to read the columns
 
@@ -106,7 +130,10 @@ rather than folded into a disagreement:
   nothing to compare against.
 - **remapped** — the picture carries a `/Decode` array, which a viewer applies
   and `pdfimages` does not. The two sides were not asked the same question.
-- **unmatched** — theirs had no picture of that size to pair with.
+- **unmatched** — nothing of the judge's could be paired with this one: no row
+  carried its object number, and none of the right size was free to fall back
+  to. Since the walk returns what a page **draws**, this is now rare — 5 across
+  the fleet, from 110 — and each one is a question rather than a fact of life.
 - **converted** — the picture's colour space had to be converted to reach RGB.
   Per channel that arithmetic is large and is **not** a decoder disagreeing, so
   those pictures are tallied in their own bucket with their own agreement figure
@@ -148,23 +175,23 @@ Scanned pages — `/Users/Shared/pdfscans`:
 | population | documents | unopenable | refused | declined | hung | pictures | direct | inverted | compared | exact | identical | agreement | converted | calibrated |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | `ia-medical` | 250 | 0 | 0 | 0 | 0 | 745 | 722 | 193 | 529 | 528 | 33 | 99.8% | 1 | 1 |
-| `ia-biodiversity` | 250 | 0 | 4 | 0 | 0 | 781 | 694 | 50 | 644 | 644 | 157 | 100.0% | 0 | 0 |
-| `ia-americana` | 250 | 28 | 0 | 0 | 0 | 505 | 494 | 89 | 405 | 379 | 96 | 93.6% | 8 | 8 |
+| `ia-biodiversity` | 250 | 0 | 1 | 0 | 0 | 752 | 703 | 53 | 650 | 650 | 157 | 100.0% | 0 | 0 |
+| `ia-americana` | 250 | 28 | 0 | 0 | 0 | 502 | 494 | 89 | 405 | 379 | 96 | 93.6% | 8 | 8 |
 | `ia-texts` | 12 | 7 | 0 | 0 | 0 | 14 | 14 | 3 | 11 | 11 | 2 | 100.0% | 0 | 0 |
-| `ia-uscourts` | 250 | 0 | 0 | 0 | 0 | 134 | 114 | 39 | 75 | 66 | 54 | 88.0% | 17 | 2 |
+| `ia-uscourts` | 250 | 0 | 0 | 0 | 0 | 133 | 114 | 40 | 74 | 66 | 54 | 89.2% | 17 | 2 |
 
 Government and library forms — `/Users/Shared/pdfforms`:
 
 | population | documents | unopenable | refused | declined | hung | pictures | direct | inverted | compared | exact | identical | agreement | converted | calibrated |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | `ca-cra` | 84 | 0 | 0 | 0 | 0 | 151 | 0 | 0 | 0 | 0 | 0 | n/a | 0 | 0 |
-| `fr-cerfa` | 450 | 0 | 0 | 0 | 0 | 4380 | 1338 | 15 | 1323 | 1170 | 1110 | 88.4% | 2978 | 1741 |
-| `fr-impots` | 50 | 0 | 0 | 0 | 0 | 138 | 20 | 0 | 20 | 16 | 6 | 80.0% | 25 | 3 |
-| `gh-openpdf` | 56 | 14 | 0 | 0 | 0 | 88 | 27 | 0 | 27 | 21 | 6 | 77.8% | 2 | 1 |
-| `gh-pdfbox` | 157 | 8 | 0 | 1 | 0 | 41 | 29 | 1 | 28 | 26 | 23 | 92.9% | 11 | 1 |
+| `fr-cerfa` | 450 | 0 | 0 | 0 | 0 | 4378 | 1338 | 15 | 1323 | 1189 | 1129 | 89.9% | 2978 | 1741 |
+| `fr-impots` | 50 | 0 | 0 | 0 | 0 | 109 | 20 | 0 | 20 | 19 | 6 | 95.0% | 25 | 3 |
+| `gh-openpdf` | 56 | 14 | 0 | 0 | 0 | 49 | 26 | 0 | 26 | 21 | 6 | 80.8% | 2 | 1 |
+| `gh-pdfbox` | 157 | 8 | 0 | 0 | 0 | 41 | 29 | 1 | 28 | 26 | 23 | 92.9% | 11 | 1 |
 | `gh-pdfcpu` | 147 | 0 | 0 | 0 | 0 | 696 | 639 | 0 | 639 | 599 | 597 | 93.7% | 57 | 32 |
-| `gh-pypdf` | 34 | 1 | 0 | 0 | 0 | 17 | 8 | 0 | 8 | 6 | 6 | 75.0% | 6 | 3 |
-| `gh-qpdf` | 81 | 0 | 0 | 0 | 0 | 85 | 73 | 0 | 73 | 28 | 28 | 38.4% | 0 | 0 |
+| `gh-pypdf` | 34 | 1 | 0 | 0 | 0 | 15 | 8 | 0 | 8 | 6 | 6 | 75.0% | 6 | 3 |
+| `gh-qpdf` | 81 | 0 | 0 | 0 | 0 | 63 | 63 | 0 | 63 | 58 | 39 | 92.1% | 0 | 0 |
 | `gh-safedocs` | 26 | 5 | 0 | 0 | 0 | 2 | 2 | 0 | 2 | 1 | 1 | 50.0% | 0 | 0 |
 | `gh-verapdf` | 134 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | n/a | 0 | 0 |
 | `int-wipo` | 116 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | n/a | 0 | 0 |
@@ -185,11 +212,11 @@ because the two are far apart and only one of them is the claim, and beside
 
 | filter | pictures | direct | inverted | **compared** | exact | identical | agreement | converted | conv. exact | conv. differing | calibrated | remapped | unmatched | differing | worst peak |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `(samples)` | 4292 | 915 | 0 | 915 | 891 | 891 | **97.4%** | 3084 | 2920 | 164 | 1761 | 286 | 7 | 24 | 255 |
-| `(samples) mask` | 1357 | 1268 | 153 | 1115 | 1074 | 1074 | **96.3%** | 1 | 0 | 1 | 0 | 87 | 1 | 41 | 255 |
-| `JPXDecode` | 1264 | 1225 | 0 | 1225 | 1225 | 7 | **100.0%** | 10 | 9 | 1 | 9 | 0 | 29 | 0 | 255 |
-| `DCTDecode` | 652 | 426 | 0 | 426 | 186 | 4 | **43.7%** | 44 | 19 | 24 | 32 | 121 | 61 | 240 | 255 |
-| `JBIG2Decode mask` | 600 | 518 | 268 | 250 | 250 | 250 | **100.0%** | 0 | 0 | 0 | 0 | 70 | 12 | 0 | — |
+| `(samples)` | 4280 | 904 | 0 | 904 | 902 | 902 | **99.8%** | 3085 | 2921 | 164 | 1761 | 286 | 5 | 2 | 255 |
+| `(samples) mask` | 1336 | 1269 | 154 | 1115 | 1093 | 1093 | **98.0%** | 0 | 0 | 0 | 0 | 67 | 0 | 22 | 255 |
+| `JPXDecode` | 1241 | 1231 | 0 | 1231 | 1231 | 7 | **100.0%** | 10 | 9 | 1 | 9 | 0 | 0 | 0 | 255 |
+| `JBIG2Decode mask` | 591 | 521 | 271 | 250 | 250 | 250 | **100.0%** | 0 | 0 | 0 | 0 | 70 | 0 | 0 | — |
+| `DCTDecode` | 590 | 425 | 0 | 425 | 208 | 4 | **48.9%** | 44 | 19 | 24 | 32 | 121 | 0 | 217 | 255 |
 | `DCTDecode mask` | 12 | 12 | 0 | 12 | 12 | 5 | **100.0%** | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — |
 | `JBIG2Decode` | 11 | 10 | 0 | 10 | 10 | 10 | **100.0%** | 0 | 0 | 0 | 0 | 1 | 0 | 0 | — |
 | `JPXDecode mask` | 2 | 2 | 0 | 2 | 2 | 2 | **100.0%** | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — |
@@ -200,12 +227,13 @@ with the same 1990 identical.
 
 ## What this says
 
-**Eight findings, and they are about two different runs.** §1 to §7 were written
-about the v0.20.0 → v0.21.0 comparison of 2026-08-31 and are kept because their
-reasoning still holds; where they quote a figure, that figure is the one that
-run measured, under the pairing this one replaced. §8 was written then too, and
-this run **disproves it** — it is rewritten below rather than left standing.
-§9 is new and belongs to this run.
+**Ten findings, and they are about three runs.** §1 to §5 and §7 were written
+about the v0.20.0 → v0.21.0 comparison of 2026-08-31, and §8 about the pairing
+change of 2026-09-07; they are kept because their reasoning still holds, and
+where they quote a figure, that figure is the one their own run measured. **§6
+is disproved by THIS run** and is rewritten rather than left standing — three of
+the four refusals it called permanent are gone. §9 is updated, because the gap
+it names moved. §10 is new and belongs to this run.
 
 ### 1. The claimed "61.2% → 99.3%" is not what this instrument measures, and the correction is not a smaller improvement — it is a different quantity
 
@@ -339,7 +367,8 @@ comparable in the one respect that matters here: the per-filter **`pictures`**
 and **`unmatched`** counts are **identical, filter for filter**, across v0.20.0
 and v0.21.0 — 652, 4292, 1357, 1264, 600, 12, 11, 2 and 61, 7, 1, 29, 12. Neither
 the set of pictures nor the size-matching changed, so **every difference in the
-direct/converted split is the rule and nothing else**:
+direct/converted split is the rule and nothing else**. (Those counts are that
+comparison's, not this run's: §6 and §10 explain why the picture counts fell.)
 
 | population | direct | converted | moved |
 |---|---|---|---:|
@@ -418,23 +447,41 @@ So the bound is **unexercised by `images` on this corpus**, and its value is tha
 the next document does not stop a sweep dead at document 900 of 2268 with nothing
 to distinguish the stall from a long job.
 
-### 6. The four refusals are the same four, and still our own budget
+### 6. Three of the four refusals were the walk, not the budget
 
-`refused` is **4** across 3280 documents, all in `ia-biodiversity`, and they are
-the same four documents as at v0.20.0: `bulletinno38tasm.pdf` (9449 × 13701),
-`checklistofbirds00wood.pdf` (2868 × 4780), `informeacercade00soci.pdf`
-(2790 × 3737) and `bulletindelasoci4243soci.pdf` (794 × 1372). Each opens and
-each page 1 resolves; what fails is `render.Images` with
-`render.ErrTooMuchToDecode`, the 256-megapixel budget declining a page. The last
-is the telling one: an ordinary 794 × 1372 picture refused because the page had
-already spent all but 223 089 of its 268 435 456 pixels.
+`refused` is **1** across 3280 documents, down from 4, and the one that remains
+is a real page: `bulletinno38tasm.pdf`, whose page 1 has already spent all but
+9 513 958 of its 268 435 456 pixels when it reaches a picture of 9449 × 13701.
+That page genuinely draws more than the budget allows.
+
+The other three now decode, and the previous run's own text said why without
+knowing it. It called `bulletindelasoci4243soci.pdf` « the telling one: an
+ordinary 794 × 1372 picture refused because the page had already spent all but
+223 089 of its 268 435 456 pixels ». The page had not spent them on what it
+draws. It had spent them on every picture in the **document**, because the walk
+read the shared `/Resources` dictionary. Asked what it draws, that page comes
+back with **three** pictures and 25 155 674 pixels — a tenth of the budget:
+
+| document | v0.21.0 | v0.22.0 |
+|---|---|---|
+| `bulletinno38tasm.pdf` | refused | **refused** (9449 × 13701, genuinely) |
+| `checklistofbirds00wood.pdf` | refused | 3 pictures, 28 922 225 px |
+| `informeacercade00soci.pdf` | refused | 3 pictures, 23 155 356 px |
+| `bulletindelasoci4243soci.pdf` | refused | 3 pictures, 25 155 674 px |
+
+**A budget refusing three pages out of four for work nobody asked for is not a
+budget being conservative, it is an instrument answering the wrong question** —
+and it presented as a resource limit, which is one of the most convincing
+disguises a defect has. The previous run named the anomaly precisely and drew
+the wrong conclusion from it, because the number it needed to doubt was the one
+it was measuring with.
 
 **`Missing.Ours` still folds "we could not read this" together with "we chose not
 to decode this", and only the first is a defect.** The instrument should tell
-them apart and does not; the four are named here so nobody reads the 4 as a
-coverage gap.
+them apart and does not; the one that remains is named here so nobody reads the
+1 as a coverage gap.
 
-`unopenable` is 63 and `declined` is 1 across the fleet, and neither is a defect.
+`unopenable` is 63 and `declined` is **0**, down from 1, and neither is a defect.
 
 ### 7. The gate still buys the lossless filters nothing
 
@@ -482,48 +529,94 @@ ones a form corpus reported were mostly an artefact of how the two sides were
 lined up.** The first half was always true. The second was not visible until
 the instrument stopped guessing.
 
-### 9. `DCTDecode` is now the only real gap, and it was never the one being reported
+### 9. `DCTDecode` is still the only real gap, and it is smaller than it looked
 
-With the pairing fixed, every lossless path is at or near the top:
-`JPXDecode` **100.0%**, `JBIG2Decode` 100.0%, `(samples)` **97.4%**, the mask
-filters 96.3% and 100.0%. `DCTDecode` sits at **43.7%**, having moved 0.5 points
-— from 43.2% — because the pairing was never its problem.
+With both the pairing and the walk fixed, every lossless path is at or near the
+top: `JPXDecode` **100.0%**, `JBIG2Decode` 100.0%, `(samples)` **99.8%**, the
+mask filters **98.0%** and 100.0%. `DCTDecode` sits at **48.9%**.
 
-That is the shape of the remaining work, and the old numbers hid it. At 69.7%
-for `(samples)` against 43.2% for `DCTDecode`, the two looked like the same kind
-of problem at different depths. They are not: one was a measurement artefact and
-one is a codec difference, and only the second is worth a library change.
+It has now moved twice, and the two moves are different in kind:
+
+| | agreement | differing | unmatched |
+|---|---:|---:|---:|
+| 2026-08-31, v0.20.0 | 43.2% | — | — |
+| pairing by object | **43.7%** | 240 | 61 |
+| walking what is drawn | **48.9%** | **217** | **0** |
+
+The first move was 0.5 points, because pairing by object was never `DCTDecode`'s
+problem. The second is 5.2 points and it took **all 61** of its unpaired
+pictures to zero — those were pictures no page drew. Twenty-three of its
+disagreements went with them.
+
+**217 remain, and they are the work.** They are paired by object number on both
+sides, they are the pictures the pages actually draw, and they disagree. That is
+now a question about a codec and nothing else, which is the first time in this
+file's history it has been only that.
+
+### 10. The instrument was wrong twice in one day, and both times it read as a defect somewhere else
+
+Two changes landed between the previous run and this one, and neither is in a
+decoder:
+
+1. `render.Images` returned the pictures a page's `/Resources` **hold** rather
+   than the ones it **draws** (`render#43`).
+2. The size fallback claimed a judge's row even when both sides had published an
+   object number and the two differed (`conformance#30`).
+
+Each on its own produced a coherent, plausible, entirely fabricated result. The
+one that started the investigation was a Data Matrix barcode reported **255
+apart on every term** with an MSE of 11 906 — a number so large it reads as a
+broken codec. The correct pair, measured afterwards, differs from poppler's
+extraction by **165 pixels of 13 924 at a peak of 1**, which is the codec's
+rounding. Go's own `image/jpeg`, which is what `render` calls, agrees with
+poppler and with macOS ImageIO to **zero pixels** on it.
+
+**What caught it was a count that would not reconcile, never a re-reading.** The
+document's page 1 draws one 118×118 barcode; the walk returned ten. Nothing in
+the code looked wrong, and the comment above it stated the correct rule in
+words.
+
+**And what hid it was that everything agreed.** The fixtures in both packages
+built a page with pictures in its `/Resources` and an **empty content stream**,
+while their own comments said the page « draws » them. The stand-in judge in
+`conformance` wrote `object 7` on every listing row, and 7 is an object none of
+those fixtures holds — so every end-to-end test there was pairing by size, and
+the by-object path added a week earlier was never once exercised by them. A
+fixture that agrees with nothing contradicts nothing.
+
+The three tests that now stand against this were each confirmed to **fail**
+without their change before being kept.
 
 ## Every differing bucket in the run
 
 | population | filter | bucket | differing | share med | share worst | peak med | peak worst | mse med | mse worst | mean med | mean worst |
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `fr-impots` | `DCTDecode` | direct | 1 | 0.000100 | 0.000100 | 3 | 3 | 0.3344 | 0.3344 | -0.2371 | -0.2371 |
 | `ia-medical` | `DCTDecode` | direct | 1 | 0.000112 | 0.000112 | 4 | 4 | 0.1112 | 0.1112 | +0.0282 | +0.0282 |
 | `ia-americana` | `DCTDecode` | converted | 3 | 0.000113 | 0.000396 | 4 | 4 | 0.1974 | 0.3278 | +0.1403 | +0.2795 |
+| `gh-openpdf` | `DCTDecode` | direct | 5 | 0.000134 | 0.001350 | 3 | 4 | 0.1450 | 0.2069 | +0.0591 | -0.1269 |
 | `ia-americana` | `DCTDecode` | direct | 26 | 0.000136 | 0.000949 | 4 | 4 | 0.2704 | 0.4512 | +0.1723 | +0.3768 |
 | `us-irs` | `DCTDecode` | direct | 1 | 0.000140 | 0.000140 | 3 | 3 | 0.1805 | 0.1805 | -0.0392 | -0.0392 |
 | `gh-pdfbox` | `DCTDecode` | converted | 1 | 0.000156 | 0.000156 | 3 | 3 | 0.2781 | 0.2781 | +0.2348 | +0.2348 |
 | `fr-cerfa` | `DCTDecode` | direct | 112 | 0.000160 | 0.001926 | 3 | 4 | 0.1308 | 0.6541 | +0.0355 | -0.5794 |
 | `ia-uscourts` | `DCTDecode` | direct | 8 | 0.000177 | 0.000359 | 3 | 4 | 0.0654 | 0.1885 | -0.0070 | -0.0783 |
 | `gh-pdfcpu` | `DCTDecode` | converted | 1 | 0.000195 | 0.000195 | 3 | 3 | 0.2439 | 0.2439 | -0.0339 | -0.0339 |
+| `gh-qpdf` | `DCTDecode` | direct | 3 | 0.000319 | 0.000319 | 3 | 3 | 0.3483 | 0.3822 | +0.2801 | +0.3099 |
 | `gh-pdfcpu` | `DCTDecode` | direct | 40 | 0.000349 | 0.000923 | 3 | 4 | 0.2554 | 0.3582 | +0.0015 | -0.2789 |
-| `gh-openpdf` | `DCTDecode` | direct | 6 | 0.000386 | 0.997683 | 3 | 255 | 0.1645 | 9934.6949 | +0.0887 | +53.3166 |
 | `fr-cerfa` | `DCTDecode` | converted | 11 | 0.000498 | 0.742372 | 4 | 43 | 0.3225 | 118.4345 | +0.1899 | +3.1964 |
 | `gh-pdfbox` | `DCTDecode` | direct | 2 | 0.000508 | 0.000508 | 4 | 4 | 0.2605 | 0.2605 | +0.0024 | -0.1511 |
+| `gh-pypdf` | `DCTDecode` | direct | 2 | 0.000517 | 0.000517 | 3 | 3 | 0.2581 | 0.2581 | -0.0561 | -0.0989 |
 | `gh-safedocs` | `DCTDecode` | direct | 1 | 0.000595 | 0.000595 | 4 | 4 | 0.2810 | 0.2810 | -0.1230 | -0.1230 |
 | `us-dol` | `DCTDecode` | direct | 15 | 0.001119 | 0.001339 | 3 | 4 | 0.3029 | 0.3190 | -0.2787 | -0.2882 |
 | `ia-uscourts` | `(samples)` | converted | 3 | 0.043906 | 1.000000 | 97 | 101 | 25.1806 | 1089.9152 | +0.2460 | -28.9192 |
-| `fr-cerfa` | `(samples) mask` | direct | 41 | 0.072224 | 0.248274 | 255 | 255 | 4696.3384 | 16144.0274 | -0.0843 | +50.0687 |
+| `fr-cerfa` | `(samples) mask` | direct | 22 | 0.072224 | 0.217945 | 255 | 255 | 4696.3384 | 14171.9016 | -0.0843 | -50.0687 |
 | `us-opm` | `(samples)` | converted | 1 | 0.100000 | 0.100000 | 9 | 9 | 4.6706 | 4.6706 | +0.6183 | +0.6183 |
 | `ia-uscourts` | `DCTDecode` | converted | 2 | 0.138858 | 0.138858 | 105 | 105 | 95.0602 | 95.0602 | +0.9965 | +0.9965 |
-| `gh-qpdf` | `(samples)` | direct | 23 | 0.222222 | 0.222222 | 32 | 32 | 227.5556 | 227.5556 | +0.0000 | +0.0000 |
-| `fr-impots` | `DCTDecode` | direct | 4 | 0.257613 | 0.274275 | 255 | 255 | 12004.3773 | 12011.1328 | -0.2371 | -15.1967 |
+| `gh-qpdf` | `(samples)` | direct | 2 | 0.222222 | 0.222222 | 32 | 32 | 227.5556 | 227.5556 | +0.0000 | +0.0000 |
 | `uk-govuk` | `(samples)` | converted | 1 | 0.273188 | 0.273188 | 35 | 35 | 292.3110 | 292.3110 | -8.9241 | -8.9241 |
-| `gh-qpdf` | `DCTDecode` | direct | 22 | 0.412628 | 0.466199 | 171 | 171 | 2595.6229 | 3100.8935 | +1.6654 | +8.2570 |
 | `us-uscis` | `(samples)` | converted | 1 | 0.466357 | 0.466357 | 35 | 35 | 365.4217 | 365.4217 | -12.2960 | -12.2960 |
 | `fr-impots` | `(samples)` | converted | 10 | 0.489155 | 0.499713 | 164 | 170 | 5784.5370 | 6193.2730 | +42.5565 | +44.5049 |
 | `ia-medical` | `(samples)` | converted | 1 | 0.628462 | 0.628462 | 19 | 19 | 121.8514 | 121.8514 | -8.3359 | -8.3359 |
-| `gh-pypdf` | `DCTDecode` | direct | 2 | 0.894813 | 0.894813 | 233 | 233 | 1373.1803 | 1373.1803 | +0.3972 | +0.3972 |
 | `gh-openpdf` | `DCTDecode` | converted | 2 | 0.939036 | 0.939036 | 110 | 110 | 909.3403 | 909.3403 | +9.2931 | +9.2931 |
 | `gh-pypdf` | `(samples)` | converted | 1 | 0.985783 | 0.985783 | 27 | 27 | 121.3016 | 121.3016 | -4.2622 | -4.2622 |
 | `uk-govuk` | `DCTDecode` | converted | 1 | 0.994621 | 0.994621 | 61 | 61 | 115.5974 | 115.5974 | -2.1431 | -2.1431 |
@@ -531,8 +624,6 @@ one is a codec difference, and only the second is worth a library change.
 | `fr-impots` | `DCTDecode` | converted | 3 | 1.000000 | 1.000000 | 255 | 255 | 22819.4133 | 22891.5689 | -115.6788 | -115.6788 |
 | `gh-pdfbox` | `(samples)` | converted | 1 | 1.000000 | 1.000000 | 255 | 255 | 20952.5000 | 20952.5000 | +25.5000 | +25.5000 |
 | `gh-pdfbox` | `JPXDecode` | converted | 1 | 1.000000 | 1.000000 | 255 | 255 | 42179.8812 | 42179.8812 | -170.0170 | -170.0170 |
-| `ia-uscourts` | `(samples)` | direct | 1 | 1.000000 | 1.000000 | 207 | 207 | 16181.4161 | 16181.4161 | +96.8730 | +96.8730 |
-| `ia-uscourts` | `(samples) mask` | converted | 1 | 1.000000 | 1.000000 | 207 | 207 | 16375.4434 | 16375.4434 | -98.1878 | -98.1878 |
 
 ## What is not measured, and why
 

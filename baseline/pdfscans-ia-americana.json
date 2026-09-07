@@ -1,6 +1,6 @@
 {
   "corpus": "/Users/Shared/pdfscans",
-  "taken": "2026-09-07T15:57:55Z",
+  "taken": "2026-09-07T19:32:30Z",
   "pages": 1,
   "gate": 2,
   "timeout": "2m0s",
@@ -36,7 +36,7 @@
     },
     {
       "path": "github.com/go-pdfkit/render",
-      "version": "v0.21.0"
+      "version": "v0.22.0"
     },
     {
       "path": "github.com/sergeymakinen/go-bmp",
@@ -165,8 +165,8 @@
         },
         {
           "filter": "JPXDecode",
-          "pictures": 229,
-          "unmatched": 3,
+          "pictures": 226,
+          "unmatched": 0,
           "remapped": 0,
           "direct": {
             "pictures": 221,

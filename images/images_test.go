@@ -24,10 +24,15 @@ func pageOfPictures(t *testing.T, build func(w *reader.Writer) reader.Dict) stri
 	t.Helper()
 	w := reader.NewWriter("1.7")
 	pagesRef := w.Reserve()
+	var drawn []byte
 	pageRef := w.Add(reader.Dict{"Type": reader.Name("Page"), "Parent": pagesRef,
-		"MediaBox":  reader.Array{reader.Integer(0), reader.Integer(0), reader.Integer(20), reader.Integer(20)},
-		"Resources": reader.Dict{"XObject": build(w)},
-		"Contents":  w.Add(&reader.Stream{Dict: reader.Dict{}, Raw: []byte("")})})
+		"MediaBox": reader.Array{reader.Integer(0), reader.Integer(0), reader.Integer(20), reader.Integer(20)},
+		"Resources": func() reader.Dict {
+			xo := build(w)
+			drawn = draws(reader.Dict{"XObject": xo})
+			return reader.Dict{"XObject": xo}
+		}(),
+		"Contents": w.Add(&reader.Stream{Dict: reader.Dict{}, Raw: drawn})})
 	w.Put(pagesRef, reader.Dict{"Type": reader.Name("Pages"),
 		"Kids": reader.Array{pageRef}, "Count": reader.Integer(1)})
 	out, err := w.Finish(reader.Dict{"Root": w.Add(reader.Dict{
@@ -40,6 +45,30 @@ func pageOfPictures(t *testing.T, build func(w *reader.Writer) reader.Dict) stri
 		t.Fatal(err)
 	}
 	return path
+}
+
+// draws is a content stream drawing every XObject a resource dictionary names.
+//
+// A page that holds a picture and draws nothing is not a page with a picture on
+// it: render.Images walks the content stream, as pdfimages does, so a fixture
+// whose /Contents is empty has no pictures to compare and the test measures
+// nothing. Both builders here said they wrote a page that DREW their pictures
+// and wrote an empty stream, for as long as they existed -- the same untrue
+// comment go-pdfkit/render#43 found on its own fixtures.
+//
+// The names are sorted so a map's order cannot decide what a test measures.
+func draws(res reader.Dict) []byte {
+	xo, _ := reader.ToDict(res.Get("XObject"))
+	names := make([]string, 0, len(xo))
+	for name := range xo {
+		names = append(names, string(name))
+	}
+	sort.Strings(names)
+	var out []byte
+	for _, n := range names {
+		out = append(out, "/"+n+" Do\n"...)
+	}
+	return out
 }
 
 // grey adds a two-pixel picture: dark then light.
@@ -989,10 +1018,15 @@ func pageWithResources(t *testing.T, build func(w *reader.Writer) reader.Dict) s
 	t.Helper()
 	w := reader.NewWriter("1.7")
 	pagesRef := w.Reserve()
+	var drawn []byte
 	pageRef := w.Add(reader.Dict{"Type": reader.Name("Page"), "Parent": pagesRef,
-		"MediaBox":  reader.Array{reader.Integer(0), reader.Integer(0), reader.Integer(20), reader.Integer(20)},
-		"Resources": build(w),
-		"Contents":  w.Add(&reader.Stream{Dict: reader.Dict{}, Raw: []byte("")})})
+		"MediaBox": reader.Array{reader.Integer(0), reader.Integer(0), reader.Integer(20), reader.Integer(20)},
+		"Resources": func() reader.Dict {
+			res := build(w)
+			drawn = draws(res)
+			return res
+		}(),
+		"Contents": w.Add(&reader.Stream{Dict: reader.Dict{}, Raw: drawn})})
 	w.Put(pagesRef, reader.Dict{"Type": reader.Name("Pages"),
 		"Kids": reader.Array{pageRef}, "Count": reader.Integer(1)})
 	out, err := w.Finish(reader.Dict{"Root": w.Add(reader.Dict{

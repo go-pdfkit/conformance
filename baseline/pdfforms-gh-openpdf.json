@@ -1,6 +1,6 @@
 {
   "corpus": "/Users/Shared/pdfforms",
-  "taken": "2026-09-07T15:56:36Z",
+  "taken": "2026-09-07T19:31:16Z",
   "pages": 1,
   "gate": 2,
   "timeout": "2m0s",
@@ -36,7 +36,7 @@
     },
     {
       "path": "github.com/go-pdfkit/render",
-      "version": "v0.21.0"
+      "version": "v0.22.0"
     },
     {
       "path": "github.com/sergeymakinen/go-bmp",
@@ -69,31 +69,31 @@
       "filters": [
         {
           "filter": "DCTDecode",
-          "pictures": 43,
-          "unmatched": 20,
+          "pictures": 22,
+          "unmatched": 0,
           "remapped": 0,
           "direct": {
-            "pictures": 21,
+            "pictures": 20,
             "exact": 15,
             "identical": 0,
             "inverted": 0,
-            "differing": 6,
+            "differing": 5,
             "terms": {
               "share": {
-                "median": 0.0003861003861003861,
-                "worst": 0.9976833976833976
+                "median": 0.0001344357061235464,
+                "worst": 0.0013503086419753086
               },
               "peak": {
                 "median": 3,
-                "worst": 255
+                "worst": 4
               },
               "mse": {
-                "median": 0.16454475308641975,
-                "worst": 9934.694851994853
+                "median": 0.1449889090542448,
+                "worst": 0.20694980694980694
               },
               "mean": {
-                "median": 0.08874750980014139,
-                "worst": 53.316602316602314
+                "median": 0.059092078189300415,
+                "worst": -0.1268983268983269
               }
             }
           },
@@ -139,9 +139,9 @@
         },
         {
           "filter": "(samples) mask",
-          "pictures": 35,
+          "pictures": 17,
           "unmatched": 0,
-          "remapped": 34,
+          "remapped": 16,
           "direct": {
             "pictures": 1,
             "exact": 1,

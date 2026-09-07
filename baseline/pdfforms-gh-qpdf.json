@@ -1,6 +1,6 @@
 {
   "corpus": "/Users/Shared/pdfforms",
-  "taken": "2026-09-07T15:56:54Z",
+  "taken": "2026-09-07T19:31:32Z",
   "pages": 1,
   "gate": 2,
   "timeout": "2m0s",
@@ -36,7 +36,7 @@
     },
     {
       "path": "github.com/go-pdfkit/render",
-      "version": "v0.21.0"
+      "version": "v0.22.0"
     },
     {
       "path": "github.com/sergeymakinen/go-bmp",
@@ -69,46 +69,46 @@
       "filters": [
         {
           "filter": "DCTDecode",
-          "pictures": 34,
-          "unmatched": 12,
+          "pictures": 22,
+          "unmatched": 0,
           "remapped": 0,
           "direct": {
             "pictures": 22,
-            "exact": 0,
+            "exact": 19,
             "identical": 0,
             "inverted": 0,
-            "differing": 22,
+            "differing": 3,
             "terms": {
               "share": {
-                "median": 0.41262755102040816,
-                "worst": 0.46619897959183676
+                "median": 0.00031887755102040814,
+                "worst": 0.00031887755102040814
               },
               "peak": {
-                "median": 171,
-                "worst": 171
+                "median": 3,
+                "worst": 3
               },
               "mse": {
-                "median": 2595.6228741496598,
-                "worst": 3100.893494897959
+                "median": 0.34832057823129253,
+                "worst": 0.3822278911564626
               },
               "mean": {
-                "median": 1.665391156462585,
-                "worst": 8.25701530612245
+                "median": 0.28008078231292516,
+                "worst": 0.30994897959183676
               }
             }
           }
         },
         {
           "filter": "(samples)",
-          "pictures": 51,
+          "pictures": 41,
           "unmatched": 0,
           "remapped": 0,
           "direct": {
-            "pictures": 51,
-            "exact": 28,
-            "identical": 28,
+            "pictures": 41,
+            "exact": 39,
+            "identical": 39,
             "inverted": 0,
-            "differing": 23,
+            "differing": 2,
             "terms": {
               "share": {
                 "median": 0.2222222222222222,
