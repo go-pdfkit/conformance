@@ -63,6 +63,20 @@ func Harvest(ctx context.Context, a *Archive, p Plan) ([]Entry, error) {
 		}
 	}
 
+	// The consumer below stops as soon as Want has landed, and everything
+	// feeding it has to stop with it. Without this the feeder and the workers
+	// outlive Harvest and go on CREATING, WRITING and DELETING files in the
+	// corpus directory after it has returned -- a worker blocked on `added`
+	// has already truncated its file to zero and will remove it when its
+	// fetch finally fails.
+	//
+	// The symptom was a resumable-harvest test failing about once in fifty
+	// runs with "what came back is not a PDF": the second harvest wrote
+	// b.pdf and the FIRST harvest's abandoned worker truncated it underneath.
+	// Two harvests over one directory is exactly what resuming is.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	added := make(chan Entry)
 	var wg sync.WaitGroup
 	work := make(chan string)
@@ -108,16 +122,27 @@ func Harvest(ctx context.Context, a *Archive, p Plan) ([]Entry, error) {
 	}()
 
 	out := existing
+	var werr error
 	for e := range added {
 		out = append(out, e)
 		inOrigin++
 		p.Log("%s (%d/%d)", e.Path, inOrigin, p.Want)
-		if err := Write(p.Dir, out); err != nil {
-			return out, err
+		if werr = Write(p.Dir, out); werr != nil {
+			break
 		}
 		if inOrigin >= p.Want {
 			break
 		}
+	}
+	// Stop the feeder and the workers, then let them finish. A worker parked
+	// on `added` cannot see the cancellation until somebody reads from it, so
+	// the drain is what actually releases them; without it they hold the file
+	// they were fetching open for as long as the process lives.
+	cancel()
+	for range added { //nolint:revive // draining, the values are past Want
+	}
+	if werr != nil {
+		return out, werr
 	}
 	return out, Write(p.Dir, out)
 }
