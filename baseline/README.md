@@ -17,9 +17,10 @@ instrument.
 
 | | |
 |---|---|
-| taken | 2026-08-31T14:04:51Z .. 2026-08-31T15:21:44Z (UTC) |
+| taken | 2026-09-07T15:55:45Z .. 2026-09-07T18:32:41Z (UTC) |
 | judge | pdfimages version 26.04.0 |
 | **measure** | **per channel, gate `D` = 2, count budget `N` = 0** ([conformance#16](https://github.com/go-pdfkit/conformance/issues/16)) |
+| **pairing** | **by object number, falling back to size** ([conformance#13](https://github.com/go-pdfkit/conformance/issues/13)) |
 | **bucketing** | the listing **and** the picture's own `/ColorSpace` ([conformance#20](https://github.com/go-pdfkit/conformance/issues/20)) |
 | **bound on the judge** | **2m0s per document, per tool** ([conformance#21](https://github.com/go-pdfkit/conformance/issues/21)) |
 | `go-pdfkit/render` | **v0.21.0** |
@@ -33,14 +34,42 @@ instrument.
 **Every one of the 23 populations ran to completion, and every one is in the
 tables below.** All 23 exited 0.
 
-**Why this run exists.** `render` v0.21.0 changes the decoded output of *every
-subsampled JPEG in the fleet*: Go's `image/jpeg` replicates a subsampled chroma
-sample where libjpeg interpolates, and v0.21.0 reproduces libjpeg's filter. The
-records this file described before were taken at v0.20.0, so they described a
-library that no longer exists. `go-gfx/gfx` also moved from v0.16.0 to v0.19.0
-in between. **Every figure here was taken at one version of everything**, which
-is what the `modules` block in each record is for; the previous run's figures
-are quoted below only where they are named as the previous run's.
+**Why this run exists.** The INSTRUMENT changed, and nothing else did. Until
+`#28`, a picture of ours was paired with the first unclaimed picture of
+poppler's **of the same size** — and where a page draws many pictures of one
+size, the two sides walk them in different orders and the pairing is a guess.
+Page 1 of `cerfa_10074.pdf` draws 211 distinct 2×2 pictures whose stream bytes
+are all `00 00`: uniform swatches, all ink or all paper, stretched under an
+`/SMask` that carries the glyph shapes. A black swatch of ours was routinely
+compared with a white one of theirs, read as a complete disagreement, and
+reported as an inversion. Pairing is now by **object number**, which is the one
+identity both sides publish.
+
+Everything else was held, and checked before the run rather than asserted
+afterwards: the same judge (`pdfimages version 26.04.0`), the same five module
+versions listed below, the same one page per document, the same two-minute
+bound. **The measure is the only thing that moved**, which is what this file
+demands of any figure it prints.
+
+What that cost the previous run, over all 23 populations and the same 7515
+compared pictures:
+
+| | 2026-08-31 | 2026-09-07 |
+|---|---:|---:|
+| pictures compared | 7515 | 7515 |
+| exact | 4611 | **6598** |
+| reported inverted | 488 | **422** |
+| reported differing | 2416 | **495** |
+| **agreement** | **65.6%** | **93.0%** |
+
+Six of the 23 populations moved; the other seventeen are identical to the byte.
+The picture count is unchanged, so none of this comes from measuring less.
+
+**It is not uniformly "fewer inversions", and that matters.** `ia-uscourts`
+gained two — 37 to 39 — while its differing count fell by the same two: the
+right pairing found two genuine complements the wrong one had hidden inside a
+disagreement. A change that only ever removed inversions would be a change that
+only ever flattered.
 
 **What `exact` asserts here.** A picture agrees when **no channel of any pixel
 differs from poppler's by more than two levels of 255**. Two is the ISO/IEC
@@ -119,23 +148,23 @@ Scanned pages — `/Users/Shared/pdfscans`:
 | population | documents | unopenable | refused | declined | hung | pictures | direct | inverted | compared | exact | identical | agreement | converted | calibrated |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | `ia-medical` | 250 | 0 | 0 | 0 | 0 | 745 | 722 | 193 | 529 | 528 | 33 | 99.8% | 1 | 1 |
-| `ia-biodiversity` | 250 | 0 | 4 | 0 | 0 | 781 | 694 | 50 | 644 | 634 | 157 | 98.4% | 0 | 0 |
+| `ia-biodiversity` | 250 | 0 | 4 | 0 | 0 | 781 | 694 | 50 | 644 | 644 | 157 | 100.0% | 0 | 0 |
 | `ia-americana` | 250 | 28 | 0 | 0 | 0 | 505 | 494 | 89 | 405 | 379 | 96 | 93.6% | 8 | 8 |
 | `ia-texts` | 12 | 7 | 0 | 0 | 0 | 14 | 14 | 3 | 11 | 11 | 2 | 100.0% | 0 | 0 |
-| `ia-uscourts` | 250 | 0 | 0 | 0 | 0 | 134 | 114 | 37 | 77 | 66 | 54 | 85.7% | 17 | 2 |
+| `ia-uscourts` | 250 | 0 | 0 | 0 | 0 | 134 | 114 | 39 | 75 | 66 | 54 | 88.0% | 17 | 2 |
 
 Government and library forms — `/Users/Shared/pdfforms`:
 
 | population | documents | unopenable | refused | declined | hung | pictures | direct | inverted | compared | exact | identical | agreement | converted | calibrated |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | `ca-cra` | 84 | 0 | 0 | 0 | 0 | 151 | 0 | 0 | 0 | 0 | 0 | n/a | 0 | 0 |
-| `fr-cerfa` | 450 | 0 | 0 | 0 | 0 | 4380 | 1338 | 15 | 1323 | 936 | 878 | 70.7% | 2978 | 1741 |
+| `fr-cerfa` | 450 | 0 | 0 | 0 | 0 | 4380 | 1338 | 15 | 1323 | 1170 | 1110 | 88.4% | 2978 | 1741 |
 | `fr-impots` | 50 | 0 | 0 | 0 | 0 | 138 | 20 | 0 | 20 | 16 | 6 | 80.0% | 25 | 3 |
 | `gh-openpdf` | 56 | 14 | 0 | 0 | 0 | 88 | 27 | 0 | 27 | 21 | 6 | 77.8% | 2 | 1 |
-| `gh-pdfbox` | 157 | 8 | 0 | 1 | 0 | 41 | 29 | 1 | 28 | 17 | 14 | 60.7% | 11 | 1 |
+| `gh-pdfbox` | 157 | 8 | 0 | 1 | 0 | 41 | 29 | 1 | 28 | 26 | 23 | 92.9% | 11 | 1 |
 | `gh-pdfcpu` | 147 | 0 | 0 | 0 | 0 | 696 | 639 | 0 | 639 | 599 | 597 | 93.7% | 57 | 32 |
 | `gh-pypdf` | 34 | 1 | 0 | 0 | 0 | 17 | 8 | 0 | 8 | 6 | 6 | 75.0% | 6 | 3 |
-| `gh-qpdf` | 81 | 0 | 0 | 0 | 0 | 85 | 73 | 0 | 73 | 16 | 16 | 21.9% | 0 | 0 |
+| `gh-qpdf` | 81 | 0 | 0 | 0 | 0 | 85 | 73 | 0 | 73 | 28 | 28 | 38.4% | 0 | 0 |
 | `gh-safedocs` | 26 | 5 | 0 | 0 | 0 | 2 | 2 | 0 | 2 | 1 | 1 | 50.0% | 0 | 0 |
 | `gh-verapdf` | 134 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | n/a | 0 | 0 |
 | `int-wipo` | 116 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | n/a | 0 | 0 |
@@ -156,13 +185,13 @@ because the two are far apart and only one of them is the claim, and beside
 
 | filter | pictures | direct | inverted | **compared** | exact | identical | agreement | converted | conv. exact | conv. differing | calibrated | remapped | unmatched | differing | worst peak |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `DCTDecode` | 652 | 426 | 0 | 426 | 184 | 4 | **43.2%** | 44 | 14 | 29 | 32 | 121 | 61 | 242 | 255 |
-| `(samples)` | 4292 | 915 | 0 | 915 | 638 | 638 | **69.7%** | 3084 | 1203 | 1813 | 1761 | 286 | 7 | 277 | 255 |
-| `(samples) mask` | 1357 | 1268 | 151 | 1117 | 1074 | 1074 | **96.2%** | 1 | 0 | 1 | 0 | 87 | 1 | 43 | 255 |
-| `JPXDecode` | 1264 | 1225 | 0 | 1225 | 1215 | 7 | **99.2%** | 10 | 9 | 1 | 9 | 0 | 29 | 10 | 255 |
+| `(samples)` | 4292 | 915 | 0 | 915 | 891 | 891 | **97.4%** | 3084 | 2920 | 164 | 1761 | 286 | 7 | 24 | 255 |
+| `(samples) mask` | 1357 | 1268 | 153 | 1115 | 1074 | 1074 | **96.3%** | 1 | 0 | 1 | 0 | 87 | 1 | 41 | 255 |
+| `JPXDecode` | 1264 | 1225 | 0 | 1225 | 1225 | 7 | **100.0%** | 10 | 9 | 1 | 9 | 0 | 29 | 0 | 255 |
+| `DCTDecode` | 652 | 426 | 0 | 426 | 186 | 4 | **43.7%** | 44 | 19 | 24 | 32 | 121 | 61 | 240 | 255 |
+| `JBIG2Decode mask` | 600 | 518 | 268 | 250 | 250 | 250 | **100.0%** | 0 | 0 | 0 | 0 | 70 | 12 | 0 | — |
 | `DCTDecode mask` | 12 | 12 | 0 | 12 | 12 | 5 | **100.0%** | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — |
 | `JBIG2Decode` | 11 | 10 | 0 | 10 | 10 | 10 | **100.0%** | 0 | 0 | 0 | 0 | 1 | 0 | 0 | — |
-| `JBIG2Decode mask` | 600 | 518 | 268 | 250 | 250 | 250 | **100.0%** | 0 | 0 | 0 | 0 | 70 | 12 | 0 | — |
 | `JPXDecode mask` | 2 | 2 | 0 | 2 | 2 | 2 | **100.0%** | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — |
 
 Across the whole fleet: **3385 of 3957 direct comparable pictures agree, 85.5%**,
@@ -170,6 +199,13 @@ and 1990 of them are bit-identical. At v0.20.0 it was 3347 of 3962, **84.5%**,
 with the same 1990 identical.
 
 ## What this says
+
+**Eight findings, and they are about two different runs.** §1 to §7 were written
+about the v0.20.0 → v0.21.0 comparison of 2026-08-31 and are kept because their
+reasoning still holds; where they quote a figure, that figure is the one that
+run measured, under the pairing this one replaced. §8 was written then too, and
+this run **disproves it** — it is rewritten below rather than left standing.
+§9 is new and belongs to this run.
 
 ### 1. The claimed "61.2% → 99.3%" is not what this instrument measures, and the correction is not a smaller improvement — it is a different quantity
 
@@ -407,19 +443,56 @@ coverage gap.
 | `JBIG2Decode` | 10 | 10 | **10** |
 | `JBIG2Decode mask` | 250 | 250 | **250** |
 | `JPXDecode mask` | 2 | 2 | **2** |
-| `(samples)` | 915 | 638 | **638** |
-| `(samples) mask` | 1117 | 1074 | **1074** |
+| `(samples)` | 915 | 891 | **891** |
+| `(samples) mask` | 1115 | 1074 | **1074** |
 
-**Every agreeing picture of every lossless filter is bit-equal**, as at v0.20.0.
+**Every agreeing picture of every lossless filter is bit-equal**, as at v0.20.0
+and as under the pairing this run replaced.
 Not one needed the gate, so the uniform `D = 2` costs the filters that could
 defensibly be held to 0 nothing, and there is still no measured case for a
 per-filter exception table.
 
-### 8. Inversions are unchanged, and still conventions
+### 8. Most of the inversions were the pairing, and the ones that remain are the convention
 
-268 `JBIG2Decode mask` and 151 `(samples) mask` complements, the same as at
+**This section said the opposite on 2026-08-31, and it was wrong.** It read:
+*"268 `JBIG2Decode mask` and 151 `(samples) mask` complements, the same as at
 v0.20.0 — the stencil polarity convention, where it belongs. A chroma fix has no
-reason to move them, and it did not.
+reason to move them, and it did not."* The reasoning was sound and the
+conclusion did not follow: a chroma fix had no reason to move them, and neither
+side of that sentence could see that the PAIRING was inventing some of them.
+
+Over all 23 populations, complements fall from **488 to 422**. Where they fell
+is the whole finding:
+
+| | 2026-08-31 | 2026-09-07 | |
+|---|---:|---:|---|
+| `fr-cerfa`, all filters | 83 | **15** | 68 were a black swatch paired with a white one |
+| `JBIG2Decode mask` | 268 | 268 | unchanged — the convention |
+| `(samples) mask` | 151 | 153 | **up two** |
+| `ia-uscourts` | 37 | **39** | **up two** |
+
+The two that went UP are the ones worth reading. A complement is only reported
+when the direct comparison fails the gate and the complement passes it; a wrong
+pairing can hide a real complement inside a disagreement just as easily as it
+can invent one. Four did, in two populations, and the right pairing found them.
+
+So the sentence that survives is narrower than the one it replaces: **the
+complements on the mask filters are the stencil polarity convention, and the
+ones a form corpus reported were mostly an artefact of how the two sides were
+lined up.** The first half was always true. The second was not visible until
+the instrument stopped guessing.
+
+### 9. `DCTDecode` is now the only real gap, and it was never the one being reported
+
+With the pairing fixed, every lossless path is at or near the top:
+`JPXDecode` **100.0%**, `JBIG2Decode` 100.0%, `(samples)` **97.4%**, the mask
+filters 96.3% and 100.0%. `DCTDecode` sits at **43.7%**, having moved 0.5 points
+— from 43.2% — because the pairing was never its problem.
+
+That is the shape of the remaining work, and the old numbers hid it. At 69.7%
+for `(samples)` against 43.2% for `DCTDecode`, the two looked like the same kind
+of problem at different depths. They are not: one was a measurement artefact and
+one is a codec difference, and only the second is worth a library change.
 
 ## Every differing bucket in the run
 
@@ -430,11 +503,12 @@ reason to move them, and it did not.
 | `ia-americana` | `DCTDecode` | direct | 26 | 0.000136 | 0.000949 | 4 | 4 | 0.2704 | 0.4512 | +0.1723 | +0.3768 |
 | `us-irs` | `DCTDecode` | direct | 1 | 0.000140 | 0.000140 | 3 | 3 | 0.1805 | 0.1805 | -0.0392 | -0.0392 |
 | `gh-pdfbox` | `DCTDecode` | converted | 1 | 0.000156 | 0.000156 | 3 | 3 | 0.2781 | 0.2781 | +0.2348 | +0.2348 |
-| `fr-cerfa` | `DCTDecode` | direct | 114 | 0.000163 | 0.062341 | 3 | 15 | 0.1312 | 2.4179 | +0.0355 | -0.5794 |
+| `fr-cerfa` | `DCTDecode` | direct | 112 | 0.000160 | 0.001926 | 3 | 4 | 0.1308 | 0.6541 | +0.0355 | -0.5794 |
 | `ia-uscourts` | `DCTDecode` | direct | 8 | 0.000177 | 0.000359 | 3 | 4 | 0.0654 | 0.1885 | -0.0070 | -0.0783 |
 | `gh-pdfcpu` | `DCTDecode` | converted | 1 | 0.000195 | 0.000195 | 3 | 3 | 0.2439 | 0.2439 | -0.0339 | -0.0339 |
 | `gh-pdfcpu` | `DCTDecode` | direct | 40 | 0.000349 | 0.000923 | 3 | 4 | 0.2554 | 0.3582 | +0.0015 | -0.2789 |
 | `gh-openpdf` | `DCTDecode` | direct | 6 | 0.000386 | 0.997683 | 3 | 255 | 0.1645 | 9934.6949 | +0.0887 | +53.3166 |
+| `fr-cerfa` | `DCTDecode` | converted | 11 | 0.000498 | 0.742372 | 4 | 43 | 0.3225 | 118.4345 | +0.1899 | +3.1964 |
 | `gh-pdfbox` | `DCTDecode` | direct | 2 | 0.000508 | 0.000508 | 4 | 4 | 0.2605 | 0.2605 | +0.0024 | -0.1511 |
 | `gh-safedocs` | `DCTDecode` | direct | 1 | 0.000595 | 0.000595 | 4 | 4 | 0.2810 | 0.2810 | -0.1230 | -0.1230 |
 | `us-dol` | `DCTDecode` | direct | 15 | 0.001119 | 0.001339 | 3 | 4 | 0.3029 | 0.3190 | -0.2787 | -0.2882 |
@@ -442,28 +516,23 @@ reason to move them, and it did not.
 | `fr-cerfa` | `(samples) mask` | direct | 41 | 0.072224 | 0.248274 | 255 | 255 | 4696.3384 | 16144.0274 | -0.0843 | +50.0687 |
 | `us-opm` | `(samples)` | converted | 1 | 0.100000 | 0.100000 | 9 | 9 | 4.6706 | 4.6706 | +0.6183 | +0.6183 |
 | `ia-uscourts` | `DCTDecode` | converted | 2 | 0.138858 | 0.138858 | 105 | 105 | 95.0602 | 95.0602 | +0.9965 | +0.9965 |
-| `gh-qpdf` | `(samples)` | direct | 35 | 0.222222 | 0.222222 | 32 | 32 | 227.5556 | 227.5556 | +0.0000 | +0.0000 |
+| `gh-qpdf` | `(samples)` | direct | 23 | 0.222222 | 0.222222 | 32 | 32 | 227.5556 | 227.5556 | +0.0000 | +0.0000 |
 | `fr-impots` | `DCTDecode` | direct | 4 | 0.257613 | 0.274275 | 255 | 255 | 12004.3773 | 12011.1328 | -0.2371 | -15.1967 |
 | `uk-govuk` | `(samples)` | converted | 1 | 0.273188 | 0.273188 | 35 | 35 | 292.3110 | 292.3110 | -8.9241 | -8.9241 |
-| `fr-cerfa` | `DCTDecode` | converted | 16 | 0.304263 | 1.000000 | 11 | 255 | 5.7358 | 31435.6250 | +0.2624 | +57.2083 |
 | `gh-qpdf` | `DCTDecode` | direct | 22 | 0.412628 | 0.466199 | 171 | 171 | 2595.6229 | 3100.8935 | +1.6654 | +8.2570 |
-| `fr-impots` | `(samples)` | converted | 13 | 0.455042 | 0.499713 | 170 | 255 | 5784.5370 | 12765.8108 | +3.4954 | +44.5049 |
 | `us-uscis` | `(samples)` | converted | 1 | 0.466357 | 0.466357 | 35 | 35 | 365.4217 | 365.4217 | -12.2960 | -12.2960 |
-| `fr-cerfa` | `(samples)` | converted | 1788 | 0.500000 | 1.000000 | 19 | 241 | 73.0000 | 36864.0000 | +0.3333 | +192.0000 |
+| `fr-impots` | `(samples)` | converted | 10 | 0.489155 | 0.499713 | 164 | 170 | 5784.5370 | 6193.2730 | +42.5565 | +44.5049 |
 | `ia-medical` | `(samples)` | converted | 1 | 0.628462 | 0.628462 | 19 | 19 | 121.8514 | 121.8514 | -8.3359 | -8.3359 |
-| `fr-cerfa` | `(samples)` | direct | 232 | 0.888889 | 1.000000 | 115 | 255 | 1504.8095 | 8323.0833 | +0.4167 | +53.5556 |
 | `gh-pypdf` | `DCTDecode` | direct | 2 | 0.894813 | 0.894813 | 233 | 233 | 1373.1803 | 1373.1803 | +0.3972 | +0.3972 |
 | `gh-openpdf` | `DCTDecode` | converted | 2 | 0.939036 | 0.939036 | 110 | 110 | 909.3403 | 909.3403 | +9.2931 | +9.2931 |
-| `ia-uscourts` | `(samples) mask` | direct | 2 | 0.958333 | 0.958333 | 255 | 255 | 62315.6250 | 62315.6250 | -240.3906 | -240.3906 |
 | `gh-pypdf` | `(samples)` | converted | 1 | 0.985783 | 0.985783 | 27 | 27 | 121.3016 | 121.3016 | -4.2622 | -4.2622 |
-| `ia-biodiversity` | `JPXDecode` | direct | 10 | 0.994521 | 0.999976 | 255 | 255 | 17813.8994 | 32873.8577 | +34.2609 | -172.2092 |
 | `uk-govuk` | `DCTDecode` | converted | 1 | 0.994621 | 0.994621 | 61 | 61 | 115.5974 | 115.5974 | -2.1431 | -2.1431 |
+| `fr-cerfa` | `(samples)` | converted | 145 | 1.000000 | 1.000000 | 63 | 241 | 3969.0000 | 42752.3333 | -63.0000 | -205.6667 |
 | `fr-impots` | `DCTDecode` | converted | 3 | 1.000000 | 1.000000 | 255 | 255 | 22819.4133 | 22891.5689 | -115.6788 | -115.6788 |
-| `gh-pdfbox` | `(samples)` | direct | 9 | 1.000000 | 1.000000 | 255 | 255 | 14734.9375 | 27229.9219 | -0.1458 | -62.3750 |
-| `gh-pdfbox` | `(samples)` | converted | 4 | 1.000000 | 1.000000 | 255 | 255 | 27389.5091 | 36125.0000 | +12.7500 | +63.8958 |
+| `gh-pdfbox` | `(samples)` | converted | 1 | 1.000000 | 1.000000 | 255 | 255 | 20952.5000 | 20952.5000 | +25.5000 | +25.5000 |
 | `gh-pdfbox` | `JPXDecode` | converted | 1 | 1.000000 | 1.000000 | 255 | 255 | 42179.8812 | 42179.8812 | -170.0170 | -170.0170 |
-| `ia-uscourts` | `(samples) mask` | converted | 1 | 1.000000 | 1.000000 | 207 | 207 | 16375.4434 | 16375.4434 | -98.1878 | -98.1878 |
 | `ia-uscourts` | `(samples)` | direct | 1 | 1.000000 | 1.000000 | 207 | 207 | 16181.4161 | 16181.4161 | +96.8730 | +96.8730 |
+| `ia-uscourts` | `(samples) mask` | converted | 1 | 1.000000 | 1.000000 | 207 | 207 | 16375.4434 | 16375.4434 | -98.1878 | -98.1878 |
 
 ## What is not measured, and why
 

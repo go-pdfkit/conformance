@@ -1,6 +1,6 @@
 {
   "corpus": "/Users/Shared/pdfscans",
-  "taken": "2026-08-31T14:49:37Z",
+  "taken": "2026-09-07T17:18:23Z",
   "pages": 1,
   "gate": 2,
   "timeout": "2m0s",
@@ -68,37 +68,6 @@
       "declined": 0,
       "filters": [
         {
-          "filter": "JPXDecode",
-          "pictures": 516,
-          "unmatched": 26,
-          "remapped": 0,
-          "direct": {
-            "pictures": 490,
-            "exact": 480,
-            "identical": 3,
-            "inverted": 0,
-            "differing": 10,
-            "terms": {
-              "share": {
-                "median": 0.9945214085330849,
-                "worst": 0.9999758694537447
-              },
-              "peak": {
-                "median": 255,
-                "worst": 255
-              },
-              "mse": {
-                "median": 17813.89941525084,
-                "worst": 32873.85773233192
-              },
-              "mean": {
-                "median": 34.26086072993564,
-                "worst": -172.2092178686695
-              }
-            }
-          }
-        },
-        {
           "filter": "(samples)",
           "pictures": 5,
           "unmatched": 5,
@@ -114,6 +83,19 @@
             "exact": 154,
             "identical": 154,
             "inverted": 50,
+            "differing": 0
+          }
+        },
+        {
+          "filter": "JPXDecode",
+          "pictures": 516,
+          "unmatched": 26,
+          "remapped": 0,
+          "direct": {
+            "pictures": 490,
+            "exact": 490,
+            "identical": 3,
+            "inverted": 0,
             "differing": 0
           }
         }

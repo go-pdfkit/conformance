@@ -1,6 +1,6 @@
 {
   "corpus": "/Users/Shared/pdfforms",
-  "taken": "2026-08-31T14:06:21Z",
+  "taken": "2026-09-07T15:55:57Z",
   "pages": 1,
   "gate": 2,
   "timeout": "2m0s",
@@ -74,22 +74,22 @@
           "remapped": 13,
           "direct": {
             "pictures": 168,
-            "exact": 54,
+            "exact": 56,
             "identical": 0,
             "inverted": 0,
-            "differing": 114,
+            "differing": 112,
             "terms": {
               "share": {
-                "median": 0.0001629223117818556,
-                "worst": 0.06234126067882706
+                "median": 0.00015984654731457802,
+                "worst": 0.0019255455712451862
               },
               "peak": {
                 "median": 3,
-                "worst": 15
+                "worst": 4
               },
               "mse": {
-                "median": 0.13121025437201908,
-                "worst": 2.417917340106211
+                "median": 0.1307732245232245,
+                "worst": 0.6541067538126362
               },
               "mean": {
                 "median": 0.03545560867513388,
@@ -99,84 +99,27 @@
           },
           "converted": {
             "pictures": 25,
-            "exact": 9,
-            "identical": 0,
+            "exact": 14,
+            "identical": 5,
             "inverted": 0,
-            "differing": 16,
+            "differing": 11,
             "calibrated": 23,
             "terms": {
               "share": {
-                "median": 0.3042633321271092,
-                "worst": 1
+                "median": 0.0004976076555023923,
+                "worst": 0.7423723980610208
               },
               "peak": {
-                "median": 11,
-                "worst": 255
+                "median": 4,
+                "worst": 43
               },
               "mse": {
-                "median": 5.735794871794872,
-                "worst": 31435.625
+                "median": 0.3224530279634368,
+                "worst": 118.43446629050344
               },
               "mean": {
-                "median": 0.2624048461709296,
-                "worst": 57.208333333333336
-              }
-            }
-          }
-        },
-        {
-          "filter": "(samples)",
-          "pictures": 3404,
-          "unmatched": 2,
-          "remapped": 35,
-          "direct": {
-            "pictures": 418,
-            "exact": 186,
-            "identical": 186,
-            "inverted": 0,
-            "differing": 232,
-            "terms": {
-              "share": {
-                "median": 0.8888888888888888,
-                "worst": 1
-              },
-              "peak": {
-                "median": 115,
-                "worst": 255
-              },
-              "mse": {
-                "median": 1504.8095238095239,
-                "worst": 8323.083333333334
-              },
-              "mean": {
-                "median": 0.4166666666666667,
-                "worst": 53.55555555555556
-              }
-            }
-          },
-          "converted": {
-            "pictures": 2949,
-            "exact": 1093,
-            "identical": 805,
-            "inverted": 68,
-            "differing": 1788,
-            "calibrated": 1714,
-            "terms": {
-              "share": {
-                "median": 0.5,
-                "worst": 1
-              },
-              "peak": {
-                "median": 19,
-                "worst": 241
-              },
-              "mse": {
-                "median": 73,
-                "worst": 36864
-              },
-              "mean": {
-                "median": 0.3333333333333333,
-                "worst": 192
+                "median": 0.18985837848113296,
+                "worst": 3.1964380648591173
               }
             }
           }
@@ -208,6 +151,45 @@
               "mean": {
                 "median": -0.08432539682539683,
                 "worst": 50.06868131868132
+              }
+            }
+          }
+        },
+        {
+          "filter": "(samples)",
+          "pictures": 3404,
+          "unmatched": 2,
+          "remapped": 35,
+          "direct": {
+            "pictures": 418,
+            "exact": 418,
+            "identical": 418,
+            "inverted": 0,
+            "differing": 0
+          },
+          "converted": {
+            "pictures": 2949,
+            "exact": 2804,
+            "identical": 2803,
+            "inverted": 0,
+            "differing": 145,
+            "calibrated": 1714,
+            "terms": {
+              "share": {
+                "median": 1,
+                "worst": 1
+              },
+              "peak": {
+                "median": 63,
+                "worst": 241
+              },
+              "mse": {
+                "median": 3969,
+                "worst": 42752.333333333336
+              },
+              "mean": {
+                "median": -63,
+                "worst": -205.66666666666666
               }
             }
           }

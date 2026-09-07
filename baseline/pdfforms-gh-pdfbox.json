@@ -1,6 +1,6 @@
 {
   "corpus": "/Users/Shared/pdfforms",
-  "taken": "2026-08-31T14:05:06Z",
+  "taken": "2026-09-07T15:56:37Z",
   "pages": 1,
   "gate": 2,
   "timeout": "2m0s",
@@ -68,62 +68,6 @@
       "declined": 1,
       "filters": [
         {
-          "filter": "(samples)",
-          "pictures": 27,
-          "unmatched": 0,
-          "remapped": 0,
-          "direct": {
-            "pictures": 18,
-            "exact": 9,
-            "identical": 9,
-            "inverted": 0,
-            "differing": 9,
-            "terms": {
-              "share": {
-                "median": 1,
-                "worst": 1
-              },
-              "peak": {
-                "median": 255,
-                "worst": 255
-              },
-              "mse": {
-                "median": 14734.9375,
-                "worst": 27229.921875
-              },
-              "mean": {
-                "median": -0.14583333333333334,
-                "worst": -62.375
-              }
-            }
-          },
-          "converted": {
-            "pictures": 9,
-            "exact": 5,
-            "identical": 5,
-            "inverted": 0,
-            "differing": 4,
-            "terms": {
-              "share": {
-                "median": 1,
-                "worst": 1
-              },
-              "peak": {
-                "median": 255,
-                "worst": 255
-              },
-              "mse": {
-                "median": 27389.509114583332,
-                "worst": 36125
-              },
-              "mean": {
-                "median": 12.75,
-                "worst": 63.895833333333336
-              }
-            }
-          }
-        },
-        {
           "filter": "DCTDecode",
           "pictures": 5,
           "unmatched": 0,
@@ -176,6 +120,44 @@
               "mean": {
                 "median": 0.2347665207421305,
                 "worst": 0.2347665207421305
+              }
+            }
+          }
+        },
+        {
+          "filter": "(samples)",
+          "pictures": 27,
+          "unmatched": 0,
+          "remapped": 0,
+          "direct": {
+            "pictures": 18,
+            "exact": 18,
+            "identical": 18,
+            "inverted": 0,
+            "differing": 0
+          },
+          "converted": {
+            "pictures": 9,
+            "exact": 8,
+            "identical": 8,
+            "inverted": 0,
+            "differing": 1,
+            "terms": {
+              "share": {
+                "median": 1,
+                "worst": 1
+              },
+              "peak": {
+                "median": 255,
+                "worst": 255
+              },
+              "mse": {
+                "median": 20952.5,
+                "worst": 20952.5
+              },
+              "mean": {
+                "median": 25.5,
+                "worst": 25.5
               }
             }
           }
