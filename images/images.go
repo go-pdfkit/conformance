@@ -456,6 +456,15 @@ func judgePage(d *reader.Document, path string, p int) []Result {
 		r.Space = theirs[j].space
 		r.Converted = converted(theirs[j].space) || r.Calibrated
 		r.Difference = difference(im.Pic, theirs[j].pic, im.Stencil)
+		if r.Share < 0 {
+			// Paired, and still not compared: the two came out different
+			// sizes, so there is no pixel to set against a pixel. A refusal
+			// that says nothing is indistinguishable from an agreement of
+			// zero, and this one has a cause worth reading -- it is what a
+			// decoder handing back the wrong dimensions looks like.
+			r.Note = fmt.Sprintf("they took it out %dx%d, we read it %dx%d",
+				theirs[j].pic.W, theirs[j].pic.H, im.Pic.W, im.Pic.H)
+		}
 		out = append(out, r)
 	}
 	return out
@@ -470,6 +479,12 @@ func judgePage(d *reader.Document, path string, p int) []Result {
 // By SIZE second, the rule this had before: the first unclaimed picture of the
 // same size. It is right as often as it is wrong, which is why what it decided
 // is now written down instead of only being said to be.
+//
+// Size is only ever asked when the object number cannot answer, which means at
+// least one side did not publish one. Two pictures that BOTH carry a number
+// and carry different ones are different pictures, however alike their shape,
+// and a fallback that pairs them anyway does not degrade the measurement -- it
+// replaces it with a measurement of something else.
 func match(theirs []shot, claimed []bool, ours *raster.Image, object int, mask bool) (int, string) {
 	if object > 0 {
 		for j, t := range theirs {
@@ -480,9 +495,19 @@ func match(theirs []shot, claimed []bool, ours *raster.Image, object int, mask b
 		}
 	}
 	for j, t := range theirs {
-		if !claimed[j] && t.pic.W == ours.W && t.pic.H == ours.H {
-			return j, PairedBySize
+		if claimed[j] || t.pic.W != ours.W || t.pic.H != ours.H {
+			continue
 		}
+		// Both sides published an identity and the two are not the same. That
+		// is not a picture waiting to be matched; it is a DIFFERENT picture
+		// that happens to be the same size, and taking it costs twice -- a
+		// comparison of two unrelated pictures, and the row the right picture
+		// needed. 2044_2044_4764.pdf paired a barcode the page never draws
+		// with the one it does, and reported them 255 apart.
+		if object > 0 && t.object > 0 {
+			continue
+		}
+		return j, PairedBySize
 	}
 	return -1, ""
 }

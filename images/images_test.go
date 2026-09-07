@@ -1,12 +1,16 @@
 package images
 
 import (
+	"bytes"
 	"fmt"
 	"image"
 	"image/color"
 	"image/png"
 	"os"
 	"path/filepath"
+	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -61,6 +65,19 @@ func standIn(t *testing.T, pics ...image.Image) {
 // standInSpaces is standIn with the colour space each picture is listed under.
 func standInSpaces(t *testing.T, space string, pics ...image.Image) {
 	t.Helper()
+	standInAs(t, space, true, pics...)
+}
+
+// standInWithoutObjects is a poppler whose -list has no object column, which
+// older ones do not. The pairing has nothing exact to go on and falls back to
+// size, which is where it was before conformance#28.
+func standInWithoutObjects(t *testing.T, pics ...image.Image) {
+	t.Helper()
+	standInAs(t, "gray", false, pics...)
+}
+
+func standInAs(t *testing.T, space string, objects bool, pics ...image.Image) {
+	t.Helper()
 	wasPictures, wasList := popplerCommand, listCommand
 	t.Cleanup(func() { popplerCommand, listCommand = wasPictures, wasList })
 	popplerCommand = func(args ...string) (bool, error) {
@@ -78,15 +95,53 @@ func standInSpaces(t *testing.T, space string, pics ...image.Image) {
 		}
 		return false, nil
 	}
-	listCommand = func(...string) ([]byte, bool, error) {
+	listCommand = func(args ...string) ([]byte, bool, error) {
+		var nums []int
+		if objects {
+			nums = imageObjects(args[len(args)-1])
+		}
 		var sb strings.Builder
 		sb.WriteString("page   num  type   width height color comp bpc  enc interp  object ID x-ppi y-ppi size ratio\n")
 		sb.WriteString("------\n")
 		for i := range pics {
-			fmt.Fprintf(&sb, "   1  %4d image      2     1  %s    1   8  image  no   7  0  72  72 9B 50%%\n", i, space)
+			obj := 0
+			if i < len(nums) {
+				obj = nums[i]
+			}
+			fmt.Fprintf(&sb, "   1  %4d image      2     1  %s    1   8  image  no  %2d  0  72  72 9B 50%%\n", i, space, obj)
 		}
 		return []byte(sb.String()), false, nil
 	}
+}
+
+// imageObjects reads the object numbers of a file's image XObjects, in order,
+// so a stand-in judge can say what pdfimages would say.
+//
+// It scans the bytes rather than asking this package, which would make the
+// stand-in agree with the pairing by construction. The number matters: the
+// stand-in wrote 7 on every row for as long as this existed, and 7 is not an
+// object any of these fixtures holds -- so every test that thought it was
+// exercising the pairing was pairing by SIZE, and the by-object path #28 added
+// was reached by unit tests alone.
+func imageObjects(path string) []int {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var out []int
+	for _, m := range regexp.MustCompile(`(?s)(\d+) 0 obj(.{0,400}?)(?:stream|endobj)`).FindAllSubmatch(b, -1) {
+		if !bytes.Contains(m[2], []byte("/Subtype/Image")) &&
+			!bytes.Contains(m[2], []byte("/Subtype /Image")) {
+			continue
+		}
+		n, err := strconv.Atoi(string(m[1]))
+		if err != nil {
+			continue
+		}
+		out = append(out, n)
+	}
+	sort.Ints(out)
+	return out
 }
 
 // wide adds a four-pixel picture: dark, light, dark, light.
@@ -415,12 +470,31 @@ func TestPicturesAreOrderedByTheirNumberAndNotTheirName(t *testing.T) {
 }
 
 func TestAPictureTheOtherSideDoesNotHave(t *testing.T) {
+	// Nothing exact to pair on, and nothing of our size to fall back to.
+	standInWithoutObjects(t, image.NewRGBA(image.Rect(0, 0, 9, 9)))
+	got := Judge(pageOfPictures(t, func(w *reader.Writer) reader.Dict {
+		return reader.Dict{"I": grey(w)}
+	}), Options{})
+	if len(got) != 1 || got[0].Share != -1 || got[0].PairedBy != "" ||
+		got[0].Note != "they took out nothing this size" {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+// TestAPairWhoseSizesDisagreeSaysSo is the other way a comparison does not
+// happen: both sides HAVE the picture, under the same object number, and read
+// it out at different sizes. There is no pixel to set against a pixel, and a
+// refusal that says nothing reads exactly like an agreement of zero.
+func TestAPairWhoseSizesDisagreeSaysSo(t *testing.T) {
 	standIn(t, image.NewRGBA(image.Rect(0, 0, 9, 9)))
 	got := Judge(pageOfPictures(t, func(w *reader.Writer) reader.Dict {
 		return reader.Dict{"I": grey(w)}
 	}), Options{})
-	if len(got) != 1 || got[0].Share != -1 || got[0].Note == "" {
+	if len(got) != 1 || got[0].Share != -1 || got[0].PairedBy != PairedByObject {
 		t.Fatalf("got %+v", got)
+	}
+	if got[0].Note != "they took it out 9x9, we read it 2x1" {
+		t.Errorf("the refusal said %q", got[0].Note)
 	}
 }
 
@@ -1246,9 +1320,9 @@ func TestAPictureAndItsSoftMaskShareAnObject(t *testing.T) {
 }
 
 func TestWithoutAnObjectItFallsBackToSize(t *testing.T) {
-	// A poppler that lists no object column, or a name that reached two
-	// objects, leaves the old rule standing -- and the result says so, because
-	// the two are not equally trustworthy.
+	// A poppler that lists no object column, or a picture whose object this
+	// side could not find, leaves the old rule standing -- and the result says
+	// so, because the two are not equally trustworthy.
 	theirs := []shot{
 		{pic: pic(4, 4), num: 0, object: 6, kind: "image"},
 		{pic: pic(2, 2), num: 1, object: 9, kind: "image"},
@@ -1258,14 +1332,40 @@ func TestWithoutAnObjectItFallsBackToSize(t *testing.T) {
 	if j != 1 || how != PairedBySize {
 		t.Errorf("matched row %d by %q, want row 1 by size", j, how)
 	}
-	// An object nobody listed also falls back rather than refusing.
-	if j, how := match(theirs, claimed, pic(4, 4), 404, false); j != 0 || how != PairedBySize {
-		t.Errorf("an unlisted object matched row %d by %q", j, how)
-	}
-	// And a size nobody has is no match at all.
+	// A size nobody has is no match at all.
 	claimed[0], claimed[1] = true, true
 	if j, how := match(theirs, claimed, pic(2, 2), 9, false); j != -1 || how != "" {
 		t.Errorf("everything claimed still matched row %d by %q", j, how)
+	}
+}
+
+// TestAnObjectTheJudgeDidNotListIsNotGivenSomebodyElsesRow is the failure the
+// size fallback used to produce, and it cost twice over.
+//
+// Both sides publish an object number. When ours is 404 and the judge lists 6
+// and 9, the judge did not extract our picture -- it is not waiting under
+// another row. Handing it row 0 because the shapes agree compares two
+// unrelated pictures AND claims the row the right picture would have needed,
+// so the picture that really was drawn comes back unpaired and unmeasured.
+//
+// 2044_2044_4764.pdf is where this was found: ten 118x118 Data Matrix barcodes
+// in one shared resource dictionary, and the one the page draws lost its row
+// to one it does not.
+func TestAnObjectTheJudgeDidNotListIsNotGivenSomebodyElsesRow(t *testing.T) {
+	theirs := []shot{
+		{pic: pic(4, 4), num: 0, object: 6, kind: "image"},
+		{pic: pic(2, 2), num: 1, object: 9, kind: "image"},
+	}
+	claimed := make([]bool, len(theirs))
+	if j, how := match(theirs, claimed, pic(4, 4), 404, false); j != -1 || how != "" {
+		t.Errorf("an object the judge did not list matched row %d by %q", j, how)
+	}
+	// The rule is about the two numbers disagreeing, not about refusing every
+	// picture: a row the judge listed with no number of its own is still
+	// reachable by size, which is the case the fallback exists for.
+	theirs[0].object = 0
+	if j, how := match(theirs, claimed, pic(4, 4), 404, false); j != 0 || how != PairedBySize {
+		t.Errorf("a row with no object matched row %d by %q, want row 0 by size", j, how)
 	}
 }
 
