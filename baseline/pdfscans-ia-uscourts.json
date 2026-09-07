@@ -1,6 +1,6 @@
 {
   "corpus": "/Users/Shared/pdfscans",
-  "taken": "2026-09-07T18:32:41Z",
+  "taken": "2026-09-07T21:35:00Z",
   "pages": 1,
   "gate": 2,
   "timeout": "2m0s",
@@ -36,7 +36,7 @@
     },
     {
       "path": "github.com/go-pdfkit/render",
-      "version": "v0.21.0"
+      "version": "v0.22.0"
     },
     {
       "path": "github.com/sergeymakinen/go-bmp",
@@ -130,34 +130,16 @@
           "unmatched": 0,
           "remapped": 2,
           "direct": {
-            "pictures": 31,
+            "pictures": 30,
             "exact": 30,
             "identical": 30,
             "inverted": 0,
-            "differing": 1,
-            "terms": {
-              "share": {
-                "median": 1,
-                "worst": 1
-              },
-              "peak": {
-                "median": 207,
-                "worst": 207
-              },
-              "mse": {
-                "median": 16181.416075650119,
-                "worst": 16181.416075650119
-              },
-              "mean": {
-                "median": 96.87301587301587,
-                "worst": 96.87301587301587
-              }
-            }
+            "differing": 0
           },
           "converted": {
-            "pictures": 11,
-            "exact": 8,
-            "identical": 8,
+            "pictures": 12,
+            "exact": 9,
+            "identical": 9,
             "inverted": 0,
             "differing": 3,
             "calibrated": 1,
@@ -183,40 +165,15 @@
         },
         {
           "filter": "(samples) mask",
-          "pictures": 51,
-          "unmatched": 1,
+          "pictures": 50,
+          "unmatched": 0,
           "remapped": 0,
           "direct": {
-            "pictures": 49,
+            "pictures": 50,
             "exact": 13,
             "identical": 13,
-            "inverted": 36,
+            "inverted": 37,
             "differing": 0
-          },
-          "converted": {
-            "pictures": 1,
-            "exact": 0,
-            "identical": 0,
-            "inverted": 0,
-            "differing": 1,
-            "terms": {
-              "share": {
-                "median": 1,
-                "worst": 1
-              },
-              "peak": {
-                "median": 207,
-                "worst": 207
-              },
-              "mse": {
-                "median": 16375.44343127322,
-                "worst": 16375.44343127322
-              },
-              "mean": {
-                "median": -98.18777440054036,
-                "worst": -98.18777440054036
-              }
-            }
           }
         },
         {

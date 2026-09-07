@@ -1,6 +1,6 @@
 {
   "corpus": "/Users/Shared/pdfscans",
-  "taken": "2026-09-07T17:18:23Z",
+  "taken": "2026-09-07T20:22:10Z",
   "pages": 1,
   "gate": 2,
   "timeout": "2m0s",
@@ -36,7 +36,7 @@
     },
     {
       "path": "github.com/go-pdfkit/render",
-      "version": "v0.21.0"
+      "version": "v0.22.0"
     },
     {
       "path": "github.com/sergeymakinen/go-bmp",
@@ -63,7 +63,7 @@
     {
       "population": "ia-biodiversity",
       "documents": 250,
-      "refused": 4,
+      "refused": 1,
       "unopenable": 0,
       "declined": 0,
       "filters": [
@@ -75,25 +75,25 @@
         },
         {
           "filter": "JBIG2Decode mask",
-          "pictures": 260,
-          "unmatched": 12,
+          "pictures": 251,
+          "unmatched": 0,
           "remapped": 44,
           "direct": {
-            "pictures": 204,
+            "pictures": 207,
             "exact": 154,
             "identical": 154,
-            "inverted": 50,
+            "inverted": 53,
             "differing": 0
           }
         },
         {
           "filter": "JPXDecode",
-          "pictures": 516,
-          "unmatched": 26,
+          "pictures": 496,
+          "unmatched": 0,
           "remapped": 0,
           "direct": {
-            "pictures": 490,
-            "exact": 490,
+            "pictures": 496,
+            "exact": 496,
             "identical": 3,
             "inverted": 0,
             "differing": 0
