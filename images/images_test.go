@@ -373,8 +373,13 @@ func TestTheListingIsReadPastItsHeader(t *testing.T) {
 	if hung {
 		t.Fatal("a listing that came back was called a hang")
 	}
-	if len(got) != 1 || got[0] != "index" {
+	if len(got) != 1 || got[0].space != "index" {
 		t.Errorf("the listing read as %v", got)
+	}
+	// A row too short to hold the object column is a row from a poppler that
+	// lists fewer: the space is still read, and pairing falls back to size.
+	if got[0].object != 0 {
+		t.Errorf("an object was read out of a row that has no object column: %v", got[0])
 	}
 }
 
@@ -1168,5 +1173,252 @@ func TestTheReportSaysHowManyPicturesTheirOwnColourSpaceMoved(t *testing.T) {
 	}))
 	if !strings.Contains(got, "1 by their own colour space") {
 		t.Errorf("the report says %q", got)
+	}
+}
+
+func TestTheObjectColumnIsReadWhereThereIsOne(t *testing.T) {
+	// The object number is the one identity both sides publish, and pairing on
+	// it is what conformance#13 is about.
+	was := listCommand
+	defer func() { listCommand = was }()
+	listCommand = func(...string) ([]byte, bool, error) {
+		return []byte(strings.Join([]string{
+			"page   num  type   width height color comp bpc  enc interp  object ID x-ppi y-ppi size ratio",
+			"----------------------------------------------------------------------------------------",
+			"   1     0 image       2     2  index   1   1  image  no         6  0     1    15    2B   - ",
+			"   1     1 smask     843    82  gray    1   1  image  no         6  0   599   600 1255B  15%",
+			"   1     2 image       2     2  index   1   1  image  no       nope 0    17    15    2B   - ",
+		}, "\n")), false, nil
+	}
+	got, _ := listing("whatever.pdf", 1)
+	if len(got) != 3 {
+		t.Fatalf("%d rows read", len(got))
+	}
+	// A picture and its soft mask share an object number and differ by type,
+	// which is why the object alone does not identify a row.
+	if got[0].object != 6 || got[0].kind != "image" {
+		t.Errorf("row 0 read as %+v", got[0])
+	}
+	if got[1].object != 6 || got[1].kind != "smask" {
+		t.Errorf("row 1 read as %+v", got[1])
+	}
+	// A column that is not a number leaves the row without an identity rather
+	// than failing the listing: the space is still worth having.
+	if got[2].object != 0 || got[2].space != "index" {
+		t.Errorf("row 2 read as %+v", got[2])
+	}
+}
+
+// pic is a one-pixel picture, for the tests that only care which one was
+// chosen.
+func pic(w, h int) *raster.Image { return raster.New(w, h) }
+
+func TestAPictureIsPairedByItsObjectNumber(t *testing.T) {
+	// The object is the one identity both sides publish. Two same-size
+	// pictures used to be paired by order, which on a page of 211 uniform
+	// swatches paired a black one with a white one.
+	theirs := []shot{
+		{pic: pic(2, 2), num: 0, object: 6, kind: "image"},
+		{pic: pic(2, 2), num: 1, object: 9, kind: "image"},
+	}
+	claimed := make([]bool, len(theirs))
+	j, how := match(theirs, claimed, pic(2, 2), 9, false)
+	if j != 1 || how != PairedByObject {
+		t.Errorf("object 9 matched row %d by %q", j, how)
+	}
+}
+
+func TestAPictureAndItsSoftMaskShareAnObject(t *testing.T) {
+	// pdfimages lists a picture's soft mask under the picture's own object
+	// number, so the object alone does not identify a row: the type has to
+	// agree as well.
+	theirs := []shot{
+		{pic: pic(2, 2), num: 0, object: 6, kind: "image"},
+		{pic: pic(9, 9), num: 1, object: 6, kind: "smask"},
+	}
+	claimed := make([]bool, len(theirs))
+	if j, how := match(theirs, claimed, pic(2, 2), 6, false); j != 0 || how != PairedByObject {
+		t.Errorf("the picture matched row %d by %q", j, how)
+	}
+	if j, how := match(theirs, claimed, pic(9, 9), 6, true); j != 1 || how != PairedByObject {
+		t.Errorf("the mask matched row %d by %q", j, how)
+	}
+}
+
+func TestWithoutAnObjectItFallsBackToSize(t *testing.T) {
+	// A poppler that lists no object column, or a name that reached two
+	// objects, leaves the old rule standing -- and the result says so, because
+	// the two are not equally trustworthy.
+	theirs := []shot{
+		{pic: pic(4, 4), num: 0, object: 6, kind: "image"},
+		{pic: pic(2, 2), num: 1, object: 9, kind: "image"},
+	}
+	claimed := make([]bool, len(theirs))
+	j, how := match(theirs, claimed, pic(2, 2), 0, false)
+	if j != 1 || how != PairedBySize {
+		t.Errorf("matched row %d by %q, want row 1 by size", j, how)
+	}
+	// An object nobody listed also falls back rather than refusing.
+	if j, how := match(theirs, claimed, pic(4, 4), 404, false); j != 0 || how != PairedBySize {
+		t.Errorf("an unlisted object matched row %d by %q", j, how)
+	}
+	// And a size nobody has is no match at all.
+	claimed[0], claimed[1] = true, true
+	if j, how := match(theirs, claimed, pic(2, 2), 9, false); j != -1 || how != "" {
+		t.Errorf("everything claimed still matched row %d by %q", j, how)
+	}
+}
+
+func TestWhichListingRowsStandForMasks(t *testing.T) {
+	for kind, want := range map[string]bool{
+		"image": false, "smask": true, "stencil": true, "": false,
+	} {
+		if got := isMask(kind); got != want {
+			t.Errorf("isMask(%q) = %v", kind, got)
+		}
+	}
+}
+
+// imageRef is a picture stored as its own object, so it has a number to pair on.
+func imageRef(w *reader.Writer) reader.Object {
+	return w.Add(&reader.Stream{Dict: reader.Dict{
+		"Type": reader.Name("XObject"), "Subtype": reader.Name("Image"),
+		"Width": reader.Integer(2), "Height": reader.Integer(1),
+		"ColorSpace": reader.Name("DeviceGray"), "BitsPerComponent": reader.Integer(8),
+	}, Raw: []byte{0x00, 0xff}})
+}
+
+func TestEachNameIsResolvedToTheObjectItNames(t *testing.T) {
+	var im reader.Object
+	path := pageWithResources(t, func(w *reader.Writer) reader.Dict {
+		im = imageRef(w)
+		return reader.Dict{"XObject": reader.Dict{"I": im, "Also": im}}
+	})
+	got := objectsByName(opened(t, path), 1)
+	ref, _ := im.(reader.Ref)
+	// Two names for ONE object are both recorded: a picture drawn under two
+	// names has to be paired under both.
+	if got["I"] != ref.Num || got["Also"] != ref.Num {
+		t.Errorf("names resolved to %v, want both %d", got, ref.Num)
+	}
+}
+
+func TestANameThatReachesTwoObjectsIsDroppedRatherThanGuessedAt(t *testing.T) {
+	// A name is unique within one resource dictionary and not across the
+	// several a page reaches through its forms. A wrong identity is worse than
+	// none, so the ambiguous name falls back to size.
+	path := pageWithResources(t, func(w *reader.Writer) reader.Dict {
+		inner := w.Add(&reader.Stream{Dict: reader.Dict{
+			"Type": reader.Name("XObject"), "Subtype": reader.Name("Form"),
+			"Resources": reader.Dict{"XObject": reader.Dict{"I": imageRef(w)}},
+		}, Raw: []byte("")})
+		return reader.Dict{"XObject": reader.Dict{"I": imageRef(w), "F": inner}}
+	})
+	if got := objectsByName(opened(t, path), 1); len(got) != 0 {
+		t.Errorf("an ambiguous name was resolved: %v", got)
+	}
+}
+
+func TestAPictureInsideAFormIsResolvedToItsObject(t *testing.T) {
+	path := pageWithResources(t, func(w *reader.Writer) reader.Dict {
+		inner := w.Add(&reader.Stream{Dict: reader.Dict{
+			"Type": reader.Name("XObject"), "Subtype": reader.Name("Form"),
+			"Resources": reader.Dict{"XObject": reader.Dict{"Deep": imageRef(w)}},
+		}, Raw: []byte("")})
+		return reader.Dict{"XObject": reader.Dict{"F": inner}}
+	})
+	if got := objectsByName(opened(t, path), 1); got["Deep"] == 0 {
+		t.Errorf("a picture inside a form was not reached: %v", got)
+	}
+}
+
+func TestWhatHasNoObjectToPairOn(t *testing.T) {
+	// A picture written inline in the resource dictionary has no object
+	// number, and an entry that is not a stream at all is not a picture.
+	path := pageWithResources(t, func(w *reader.Writer) reader.Dict {
+		return reader.Dict{"XObject": reader.Dict{
+			"Inline": &reader.Stream{Dict: reader.Dict{
+				"Type": reader.Name("XObject"), "Subtype": reader.Name("Image"),
+				"Width": reader.Integer(1), "Height": reader.Integer(1),
+			}, Raw: []byte{0}},
+			"NotAStream": reader.Integer(7),
+		}}
+	})
+	if got := objectsByName(opened(t, path), 1); len(got) != 0 {
+		t.Errorf("something without an object number was resolved: %v", got)
+	}
+}
+
+func TestAStructureThatCannotBeReadResolvesNothing(t *testing.T) {
+	// A page that is not there, resources that are not a dictionary, and a
+	// resource dictionary with no XObject entry: each yields nothing rather
+	// than an error, and the pairing falls back to size.
+	path := pageWithResources(t, func(w *reader.Writer) reader.Dict {
+		return reader.Dict{"XObject": reader.Integer(3)}
+	})
+	d := opened(t, path)
+	if got := objectsByName(d, 99); len(got) != 0 {
+		t.Errorf("a page that is not there resolved %v", got)
+	}
+	if got := objectsByName(d, 1); len(got) != 0 {
+		t.Errorf("an XObject that is not a dictionary resolved %v", got)
+	}
+	out := map[string]int{}
+	objectsIn(d, reader.Integer(3), out, map[string]bool{}, map[reader.Ref]bool{}, 0)
+	if len(out) != 0 {
+		t.Errorf("resources that are not a dictionary resolved %v", out)
+	}
+	objectsIn(d, reader.Dict{}, out, map[string]bool{}, map[reader.Ref]bool{}, 0)
+	if len(out) != 0 {
+		t.Errorf("a resource dictionary with no XObject resolved %v", out)
+	}
+}
+
+func TestFormsAreNotFollowedForEver(t *testing.T) {
+	// render stops at maxFormDepth, so this reaches the pictures it returns
+	// and no others. A form that names itself would otherwise not terminate.
+	path := pageWithResources(t, func(w *reader.Writer) reader.Dict {
+		ref := w.Reserve()
+		w.Put(ref, &reader.Stream{Dict: reader.Dict{
+			"Type": reader.Name("XObject"), "Subtype": reader.Name("Form"),
+			"Resources": reader.Dict{"XObject": reader.Dict{"Self": ref, "I": imageRef(w)}},
+		}, Raw: []byte("")})
+		return reader.Dict{"XObject": reader.Dict{"F": ref}}
+	})
+	got := objectsByName(opened(t, path), 1)
+	if got["I"] == 0 {
+		t.Errorf("the picture inside the self-naming form was not reached: %v", got)
+	}
+}
+
+func TestTheThreeThingsAResourceEntryCanBeThatIsNotAPicture(t *testing.T) {
+	// Asked of objectsIn directly: what a document actually stores depends on
+	// the writer, and these three have to be answered whatever it stores.
+	path := pageWithResources(t, func(w *reader.Writer) reader.Dict { return reader.Dict{} })
+	d := opened(t, path)
+
+	// Too deep. render stops at maxFormDepth, so this reaches the pictures it
+	// returns and no others.
+	out := map[string]int{}
+	objectsIn(d, reader.Dict{"XObject": reader.Dict{"I": reader.Integer(1)}},
+		out, map[string]bool{}, map[reader.Ref]bool{}, maxFormDepth+1)
+	if len(out) != 0 {
+		t.Errorf("a form past the depth limit was walked: %v", out)
+	}
+
+	// Not a stream at all.
+	objectsIn(d, reader.Dict{"XObject": reader.Dict{"I": reader.Integer(7)}},
+		out, map[string]bool{}, map[reader.Ref]bool{}, 0)
+	if len(out) != 0 {
+		t.Errorf("an entry that is not a stream resolved: %v", out)
+	}
+
+	// A picture written INLINE in the dictionary has no object number to pair
+	// on, so it is left to the size rule rather than given somebody else's.
+	objectsIn(d, reader.Dict{"XObject": reader.Dict{"I": &reader.Stream{Dict: reader.Dict{
+		"Type": reader.Name("XObject"), "Subtype": reader.Name("Image"),
+	}, Raw: []byte{0}}}}, out, map[string]bool{}, map[reader.Ref]bool{}, 0)
+	if len(out) != 0 {
+		t.Errorf("an inline picture was given an object number: %v", out)
 	}
 }

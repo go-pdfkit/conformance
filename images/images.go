@@ -266,6 +266,12 @@ type Result struct {
 	// samples as stored, so this picture and theirs are not the same question
 	// and are counted apart rather than as a disagreement.
 	Decoded bool
+	// PairedBy says how this picture was matched with the judge's: "object"
+	// when both sides named the same object number, "size" when it fell back
+	// to the first unclaimed picture of the same size. Empty when nothing was
+	// paired. A run whose size share is large is a run whose numbers are worth
+	// less, and that has to be visible.
+	PairedBy string
 	// Space is the colour space pdfimages reports for the judge's picture:
 	// gray, rgb, cmyk, lab, icc, index, sep, devn, or "-" for a mask. It is
 	// empty when no row could be read for it.
@@ -418,23 +424,35 @@ func judgePage(d *reader.Document, path string, p int) []Result {
 	// own; see the package comment and conformance#20. This is the other
 	// half, read out of the document rather than out of the listing.
 	own := calibratedNames(d, p)
-	// The two do not agree on an order, and neither has a name the other
-	// knows, so a picture is matched to a picture of the same size. Where
-	// several share a size the first unclaimed one is taken, which is right
-	// as often as it is wrong and is reported either way.
+	// A picture is paired by OBJECT NUMBER, which both sides publish: theirs
+	// in the object column of pdfimages -list, ours by resolving the resource
+	// name render.Images hands back. Where that cannot be done the old rule
+	// stands -- the first unclaimed picture of the same size -- and the result
+	// says which was used, because the two are not equally trustworthy.
+	//
+	// Size and order alone is wrong often enough to matter. Page 1 of
+	// cerfa_10074.pdf draws 211 distinct 2x2 pictures whose stream bytes are
+	// all "00 00": uniform swatches, all ink or all paper, stretched under an
+	// /SMask that carries the glyphs. Walking two orders over 211 same-size
+	// swatches paired black with white and reported 84 "inversions" on that
+	// page alone. Over the eight documents that do this, pairing by object
+	// takes agreement from 2906 to 3414 of 3449, complements from 173 to 29,
+	// and other differences from 370 to 6. See conformance#13.
+	objects := objectsByName(d, p)
 	claimed := make([]bool, len(theirs))
 	out := make([]Result, 0, len(ours))
 	for _, im := range ours {
 		r := Result{Path: path, Page: p, Name: im.Name, Filter: im.Filter,
 			Stencil: im.Stencil, Decoded: im.Decoded, Calibrated: own[im.Name],
 			W: im.Pic.W, H: im.Pic.H, Difference: unjudged()}
-		j := match(theirs, claimed, im.Pic)
+		j, how := match(theirs, claimed, im.Pic, objects[im.Name], im.Stencil)
 		if j < 0 {
 			r.Note = "they took out nothing this size"
 			out = append(out, r)
 			continue
 		}
 		claimed[j] = true
+		r.PairedBy = how
 		r.Space = theirs[j].space
 		r.Converted = converted(theirs[j].space) || r.Calibrated
 		r.Difference = difference(im.Pic, theirs[j].pic, im.Stencil)
@@ -443,15 +461,41 @@ func judgePage(d *reader.Document, path string, p int) []Result {
 	return out
 }
 
-// match finds an unclaimed picture of the same size.
-func match(theirs []shot, claimed []bool, ours *raster.Image) int {
-	for j, t := range theirs {
-		if !claimed[j] && t.pic.W == ours.W && t.pic.H == ours.H {
-			return j
+// match finds the judge's picture that is ours, and says how it decided.
+//
+// By OBJECT first: the number is the one identity both sides publish, and it
+// is exact. A picture and its soft mask are listed under the same object
+// number, so the row's type has to agree too -- ours is a mask or it is not.
+//
+// By SIZE second, the rule this had before: the first unclaimed picture of the
+// same size. It is right as often as it is wrong, which is why what it decided
+// is now written down instead of only being said to be.
+func match(theirs []shot, claimed []bool, ours *raster.Image, object int, mask bool) (int, string) {
+	if object > 0 {
+		for j, t := range theirs {
+			if claimed[j] || t.object != object || isMask(t.kind) != mask {
+				continue
+			}
+			return j, PairedByObject
 		}
 	}
-	return -1
+	for j, t := range theirs {
+		if !claimed[j] && t.pic.W == ours.W && t.pic.H == ours.H {
+			return j, PairedBySize
+		}
+	}
+	return -1, ""
 }
+
+// isMask says whether a listing row is one of the two kinds that stand for a
+// mask rather than for a picture.
+func isMask(kind string) bool { return kind == "smask" || kind == "stencil" }
+
+// How a picture was paired with the judge's.
+const (
+	PairedByObject = "object"
+	PairedBySize   = "size"
+)
 
 // difference compares two pictures channel by channel.
 //
@@ -565,6 +609,82 @@ var cieSpaces = map[reader.Name]bool{
 // spaces stops. It is render's own bound (maxImageDepth), so that this reaches
 // the pictures render.Images returns and no others.
 const maxFormDepth = 8
+
+// objectsByName maps each picture resource name a page reaches to the object
+// number of the picture it names.
+//
+// It is the other half of pairing by identity. pdfimages publishes an object
+// number for every row it lists; render.Images hands back a resource NAME.
+// This walks the same resource graph calibratedIn does and joins the two.
+//
+// A name that reaches two different objects is dropped rather than guessed at.
+// A name is unique within one resource dictionary and not across the several a
+// page reaches through its forms, so a page whose two forms each name their own
+// Im1 has one ambiguous name and everything else still paired by identity --
+// the conservative direction, since a wrong identity is worse than none.
+func objectsByName(d *reader.Document, page int) map[string]int {
+	out, ambiguous := map[string]int{}, map[string]bool{}
+	pg, err := d.Page(page)
+	if err != nil {
+		return out
+	}
+	res, _ := d.Resolve(pg["Resources"])
+	objectsIn(d, res, out, ambiguous, map[reader.Ref]bool{}, 0)
+	for name := range ambiguous {
+		delete(out, name)
+	}
+	return out
+}
+
+// objectsIn adds one resource dictionary's picture names, and follows the
+// forms it reaches.
+//
+// The visited set is on FORMS only, unlike calibratedIn's: a picture drawn
+// under two names has to be recorded under both, and skipping the second would
+// leave it paired by size.
+func objectsIn(d *reader.Document, res reader.Object, out map[string]int,
+	ambiguous map[string]bool, seen map[reader.Ref]bool, depth int) {
+	if depth > maxFormDepth {
+		return
+	}
+	rd, ok := reader.ToDict(res)
+	if !ok {
+		return
+	}
+	xo, _ := d.Resolve(rd["XObject"])
+	xd, ok := reader.ToDict(xo)
+	if !ok {
+		return
+	}
+	for name, entry := range xd {
+		ref, isRef := entry.(reader.Ref)
+		o, _ := d.Resolve(entry)
+		st, ok := reader.ToStream(o)
+		if !ok {
+			continue
+		}
+		switch sub, _ := reader.ToName(st.Dict["Subtype"]); sub {
+		case "Image":
+			if !isRef {
+				continue // an inline picture has no object number to pair on
+			}
+			if was, seenBefore := out[string(name)]; seenBefore && was != ref.Num {
+				ambiguous[string(name)] = true
+				continue
+			}
+			out[string(name)] = ref.Num
+		case "Form":
+			if isRef {
+				if seen[ref] {
+					continue
+				}
+				seen[ref] = true
+			}
+			inner, _ := d.Resolve(st.Dict["Resources"])
+			objectsIn(d, inner, out, ambiguous, seen, depth+1)
+		}
+	}
+}
 
 // calibratedNames is the resource names on one page whose picture declares a
 // CIE-based colour space.
@@ -739,6 +859,14 @@ type shot struct {
 	num int
 	// space is the colour space of that row, empty when none was read.
 	space string
+	// object is the PDF object number of the picture, from the row's own
+	// column. It is the one thing BOTH sides know a picture by, and pairing on
+	// it is what this package does before falling back to size.
+	object int
+	// kind is the row's type column: "image", "smask" or "stencil". A picture
+	// and its soft mask are listed under the SAME object number, so the object
+	// alone does not identify a row.
+	kind string
 }
 
 // judgeShots takes the pictures out of one page with pdfimages, and asks it
@@ -784,7 +912,9 @@ func judgeShots(path string, page int) ([]shot, string, error) {
 			continue
 		}
 		n := number(name)
-		out = append(out, shot{pic: im, num: n, space: spaces[n]})
+		row := spaces[n]
+		out = append(out, shot{pic: im, num: n, space: row.space,
+			object: row.object, kind: row.kind})
 	}
 	// Glob's order is the filesystem's, and a lexical sort is not pdfimages's
 	// either: a page with more than a thousand pictures numbers one of them
@@ -819,7 +949,7 @@ func number(name string) int {
 // header and rule lines fail to parse as a number and are skipped. A listing
 // that could not be taken at all leaves every picture unclassified, which the
 // package comment explains is deliberately loud.
-func listing(path string, page int) (map[int]string, bool) {
+func listing(path string, page int) (map[int]listRow, bool) {
 	out, hung, err := listCommand("-list", "-f", fmt.Sprint(page), "-l", fmt.Sprint(page), path)
 	if hung {
 		return nil, true
@@ -827,7 +957,7 @@ func listing(path string, page int) (map[int]string, bool) {
 	if err != nil {
 		return nil, false
 	}
-	spaces := map[int]string{}
+	rows := map[int]listRow{}
 	for _, line := range strings.Split(string(out), "\n") {
 		f := strings.Fields(line)
 		if len(f) < 6 {
@@ -837,9 +967,25 @@ func listing(path string, page int) (map[int]string, bool) {
 		if err != nil {
 			continue
 		}
-		spaces[num] = f[5]
+		r := listRow{space: f[5], kind: f[2]}
+		// The object column is the eleventh, and a row too short to hold it is
+		// a row from a poppler that lists fewer: the space is still read and
+		// the pairing falls back to size, which is where it was before.
+		if len(f) > 10 {
+			if obj, err := strconv.Atoi(f[10]); err == nil {
+				r.object = obj
+			}
+		}
+		rows[num] = r
 	}
-	return spaces, false
+	return rows, false
+}
+
+// A listRow is what one row of pdfimages -list says about a picture.
+type listRow struct {
+	space  string
+	kind   string
+	object int
 }
 
 // readPNG reads one of the files pdfimages wrote.
