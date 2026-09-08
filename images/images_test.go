@@ -1556,3 +1556,104 @@ func TestTheThreeThingsAResourceEntryCanBeThatIsNotAPicture(t *testing.T) {
 		t.Errorf("an inline picture was given an object number: %v", out)
 	}
 }
+
+// maskedImageRef is a picture that names a mask, which render returns beside
+// it under the key that reached it.
+func maskedImageRef(w *reader.Writer, key reader.Name) reader.Object {
+	mask := w.Add(&reader.Stream{Dict: reader.Dict{
+		"Type": reader.Name("XObject"), "Subtype": reader.Name("Image"),
+		"Width": reader.Integer(2), "Height": reader.Integer(1),
+		"ColorSpace": reader.Name("DeviceGray"), "BitsPerComponent": reader.Integer(8),
+	}, Raw: []byte{0x00, 0xff}})
+	return w.Add(&reader.Stream{Dict: reader.Dict{
+		"Type": reader.Name("XObject"), "Subtype": reader.Name("Image"),
+		"Width": reader.Integer(2), "Height": reader.Integer(1),
+		"ColorSpace": reader.Name("DeviceGray"), "BitsPerComponent": reader.Integer(8),
+		key: mask,
+	}, Raw: []byte{0x00, 0xff}})
+}
+
+// TestAMaskIsRecordedUnderTheObjectOfThePictureThatNamesIt is how pdfimages
+// lists one, and it is why every mask in the corpus was paired by size.
+//
+// cerfa_10074.pdf's object 119 is a 2x2 picture whose /SMask is object 120,
+// and the smask row of `pdfimages -list` says **119**. render names that entry
+// for the key that reached it -- Image213/SMask, Im0/Mask -- and nothing here
+// recorded such a name, so `objects[...]` was zero and the pairing fell back to
+// the first unclaimed picture of the same size. On a page drawing 211 same-size
+// pictures under masks that carry the glyph shapes, that is a lottery: all 22
+// of fr-cerfa's mask disagreements were pairs of different masks, and they go
+// to zero when the identity is published on both sides.
+func TestAMaskIsRecordedUnderTheObjectOfThePictureThatNamesIt(t *testing.T) {
+	for _, key := range []reader.Name{"SMask", "Mask"} {
+		t.Run(string(key), func(t *testing.T) {
+			var im reader.Object
+			path := pageWithResources(t, func(w *reader.Writer) reader.Dict {
+				im = maskedImageRef(w, key)
+				return reader.Dict{"XObject": reader.Dict{"I": im}}
+			})
+			got := objectsByName(opened(t, path), 1)
+			ref, _ := im.(reader.Ref)
+			if got["I"] != ref.Num {
+				t.Errorf("the picture resolved to %d, want %d", got["I"], ref.Num)
+			}
+			// The mask's own object number is NOT the answer: the judge does
+			// not publish it.
+			if got["I/"+string(key)] != ref.Num {
+				t.Errorf("%s resolved to %d, want the picture's %d -- %v",
+					"I/"+string(key), got["I/"+string(key)], ref.Num, got)
+			}
+		})
+	}
+}
+
+// TestAMaskOfANameThatMeansTwoPicturesIsDroppedToo: the ambiguity rule has to
+// reach the mask as well, or a name that was refused an identity would get one
+// through the back door.
+func TestAMaskOfANameThatMeansTwoPicturesIsDroppedToo(t *testing.T) {
+	path := pageWithResources(t, func(w *reader.Writer) reader.Dict {
+		inner := w.Add(&reader.Stream{Dict: reader.Dict{
+			"Type": reader.Name("XObject"), "Subtype": reader.Name("Form"),
+			"Resources": reader.Dict{"XObject": reader.Dict{
+				"I": maskedImageRef(w, "SMask")}},
+		}, Raw: []byte("")})
+		return reader.Dict{"XObject": reader.Dict{
+			"F": inner, "I": maskedImageRef(w, "SMask")}}
+	})
+	got := objectsByName(opened(t, path), 1)
+	if _, ok := got["I"]; ok {
+		t.Errorf("an ambiguous name kept an identity: %v", got)
+	}
+	if _, ok := got["I/SMask"]; ok {
+		t.Errorf("an ambiguous name's mask kept an identity: %v", got)
+	}
+}
+
+// TestAPictureWithNoMaskRecordsNoMaskName: only a mask that is really there is
+// named, or a picture would claim a row the judge never wrote.
+func TestAPictureWithNoMaskRecordsNoMaskName(t *testing.T) {
+	path := pageWithResources(t, func(w *reader.Writer) reader.Dict {
+		return reader.Dict{"XObject": reader.Dict{"I": imageRef(w)}}
+	})
+	got := objectsByName(opened(t, path), 1)
+	for _, k := range []string{"I/SMask", "I/Mask"} {
+		if _, ok := got[k]; ok {
+			t.Errorf("%s was recorded for a picture that names no mask: %v", k, got)
+		}
+	}
+
+	// A /Mask may also be an ARRAY -- colour-key masking, a range of colours
+	// to treat as absent. render returns no entry for one, so neither does
+	// this: a name nobody hands back cannot be paired with anything.
+	path = pageWithResources(t, func(w *reader.Writer) reader.Dict {
+		return reader.Dict{"XObject": reader.Dict{"I": w.Add(&reader.Stream{Dict: reader.Dict{
+			"Type": reader.Name("XObject"), "Subtype": reader.Name("Image"),
+			"Width": reader.Integer(2), "Height": reader.Integer(1),
+			"ColorSpace": reader.Name("DeviceGray"), "BitsPerComponent": reader.Integer(8),
+			"Mask": reader.Array{reader.Integer(0), reader.Integer(0)},
+		}, Raw: []byte{0x00, 0xff}})}}
+	})
+	if got := objectsByName(opened(t, path), 1); got["I/Mask"] != 0 {
+		t.Errorf("a colour-key mask was recorded as an object: %v", got)
+	}
+}
