@@ -262,6 +262,16 @@ type Result struct {
 	// a /ImageMask true stencil, or a stream some picture named as its /SMask
 	// or /Mask. It decides what channel the two sides are compared in.
 	Stencil bool
+	// RawBits says pdfimages wrote this picture's SAMPLES rather than its
+	// colour. ImageOutputDev.cc:642 picks PNGWriter::MONOCHROME whenever the
+	// colour map has one component and one bit, and then writes
+	// `str->getChar() ^ invert_bits` -- the bits themselves, with the colour
+	// space never consulted. For a one-bit DeviceGray that is the same thing:
+	// the sample IS the level. For an index or a tint it is not, and
+	// cerfa_10074.pdf is the case that found it -- an Indexed palette of
+	// 808080 and ffffff, drawn by us as the mid grey it says and written by
+	// the judge as a bit.
+	RawBits bool
 	// Decoded says a /Decode array shaped our samples. pdfimages writes the
 	// samples as stored, so this picture and theirs are not the same question
 	// and are counted apart rather than as a disagreement.
@@ -424,6 +434,7 @@ func judgePage(d *reader.Document, path string, p int) []Result {
 	// own; see the package comment and conformance#20. This is the other
 	// half, read out of the document rather than out of the listing.
 	own := calibratedNames(d, p)
+	bits := rawBitNames(d, p)
 	// A picture is paired by OBJECT NUMBER, which both sides publish: theirs
 	// in the object column of pdfimages -list, ours by resolving the resource
 	// name render.Images hands back. Where that cannot be done the old rule
@@ -444,7 +455,8 @@ func judgePage(d *reader.Document, path string, p int) []Result {
 	for _, im := range ours {
 		r := Result{Path: path, Page: p, Name: im.Name, Filter: im.Filter,
 			Stencil: im.Stencil, Decoded: im.Decoded, Calibrated: own[im.Name],
-			W: im.Pic.W, H: im.Pic.H, Difference: unjudged()}
+			RawBits: bits[im.Name],
+			W:       im.Pic.W, H: im.Pic.H, Difference: unjudged()}
 		j, how := match(theirs, claimed, im.Pic, objects[im.Name], im.Stencil)
 		if j < 0 {
 			r.Note = "they took out nothing this size"
@@ -731,6 +743,90 @@ func record(out map[string]int, ambiguous map[string]bool, name string, num int)
 		return
 	}
 	out[name] = num
+}
+
+// rawBitNames is the resource names on one page whose picture pdfimages writes
+// as samples rather than as colour.
+//
+// The rule is poppler's, not a reading of it: ImageOutputDev.cc:642 takes
+// PNGWriter::MONOCHROME when the colour map has one component and one bit, and
+// the monochrome path writes the bytes straight out. A one-bit DeviceGray or
+// CalGray loses nothing that way -- the sample is the level -- so only the
+// spaces whose sample is an INDEX or a TINT are named here.
+func rawBitNames(d *reader.Document, page int) map[string]bool {
+	out := map[string]bool{}
+	pg, err := d.Page(page)
+	if err != nil {
+		return out
+	}
+	res, _ := d.Resolve(pg["Resources"])
+	rawBitsIn(d, res, out, map[reader.Ref]bool{}, 0)
+	return out
+}
+
+func rawBitsIn(d *reader.Document, res reader.Object, out map[string]bool,
+	seen map[reader.Ref]bool, depth int) {
+	if depth > maxFormDepth {
+		return
+	}
+	rd, ok := reader.ToDict(res)
+	if !ok {
+		return
+	}
+	xo, _ := d.Resolve(rd["XObject"])
+	xd, ok := reader.ToDict(xo)
+	if !ok {
+		return
+	}
+	for name, entry := range xd {
+		if ref, isRef := entry.(reader.Ref); isRef {
+			if seen[ref] {
+				continue
+			}
+			seen[ref] = true
+		}
+		o, _ := d.Resolve(entry)
+		st, ok := reader.ToStream(o)
+		if !ok {
+			continue
+		}
+		switch sub, _ := reader.ToName(st.Dict["Subtype"]); sub {
+		case "Image":
+			if writtenAsBits(d, st.Dict) {
+				out[string(name)] = true
+			}
+		case "Form":
+			inner, _ := d.Resolve(st.Dict["Resources"])
+			rawBitsIn(d, inner, out, seen, depth+1)
+		}
+	}
+}
+
+// writtenAsBits reports whether the judge will write this picture's samples
+// instead of its colour.
+func writtenAsBits(d *reader.Document, dict reader.Dict) bool {
+	bpc, _ := d.Resolve(dict["BitsPerComponent"])
+	if n, ok := reader.ToInt(bpc); !ok || n != 1 {
+		return false
+	}
+	if m, _ := d.Resolve(dict["ImageMask"]); m != nil {
+		if v, ok := reader.ToBool(m); ok && bool(v) {
+			// A stencil carries no colour of its own: both sides return its
+			// shape, and the bits ARE the shape.
+			return false
+		}
+	}
+	cs, _ := d.Resolve(dict["ColorSpace"])
+	arr, ok := reader.ToArray(cs)
+	if !ok || len(arr) == 0 {
+		return false
+	}
+	fam, _ := reader.ToName(arr[0])
+	switch fam {
+	case "Indexed", "Separation", "DeviceN", "Lab":
+		return true
+	}
+	return false
 }
 
 // calibratedNames is the resource names on one page whose picture declares a
@@ -1096,6 +1192,11 @@ type Counts struct {
 	// /Decode of [1 0] inverts every pixel, which reads as total disagreement
 	// and is none.
 	Remapped int
+	// RawBits is how many the judge wrote as samples rather than as colour,
+	// which is every one-bit picture whose space is an index or a tint. They
+	// are counted here for the same reason as Remapped: the two sides were
+	// not asked the same question. 1070 pictures in 17 of the 2598 forms.
+	RawBits int
 	// Direct is the pictures whose colour space needed no conversion, which
 	// are the ones the agreement figure is computed over.
 	Direct Bucket
@@ -1126,6 +1227,8 @@ func Tally(rs []Result) map[string]*Counts {
 		}
 		c.Pictures++
 		switch {
+		case r.RawBits:
+			c.RawBits++
 		case r.Decoded:
 			c.Remapped++
 		case r.Share < 0:
@@ -1261,6 +1364,9 @@ type FilterCounts struct {
 	// Unmatched and Remapped are the pictures no comparison was made of.
 	Unmatched int `json:"unmatched"`
 	Remapped  int `json:"remapped"`
+	// RawBits is the pictures the judge wrote as samples rather than as
+	// colour, which is a third way of not being asked the same question.
+	RawBits int `json:"rawBits,omitempty"`
 	// Direct and Converted are the two buckets, absent when empty. The
 	// agreement figure is Direct's and never the two added together.
 	Direct    *BucketCounts `json:"direct,omitempty"`
@@ -1324,7 +1430,8 @@ func Summarize(population string, documents int, rs []Result) Summary {
 		c := by[key]
 		s.Filters = append(s.Filters, FilterCounts{Filter: key,
 			Pictures: c.Pictures, Unmatched: c.Unmatched, Remapped: c.Remapped,
-			Direct: bucketCounts(&c.Direct), Converted: bucketCounts(&c.Converted)})
+			RawBits: c.RawBits,
+			Direct:  bucketCounts(&c.Direct), Converted: bucketCounts(&c.Converted)})
 	}
 	return s
 }

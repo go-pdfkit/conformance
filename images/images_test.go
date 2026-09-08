@@ -1657,3 +1657,211 @@ func TestAPictureWithNoMaskRecordsNoMaskName(t *testing.T) {
 		t.Errorf("a colour-key mask was recorded as an object: %v", got)
 	}
 }
+
+// TestWhichPicturesTheJudgeWritesAsBits is poppler's rule, transcribed.
+//
+// ImageOutputDev.cc:642 takes PNGWriter::MONOCHROME whenever the colour map has
+// one component and one bit, and the monochrome path writes
+// `str->getChar() ^ invert_bits` -- the samples, with the colour space never
+// consulted.
+//
+// cerfa_10074.pdf is the file that found it: an Indexed palette of 808080 and
+// ffffff, which we draw as the mid grey it says and the judge writes as a bit.
+// 124 of that population's 129 disagreements were this and nothing else, and
+// the worst peak in the bucket fell from 241 to 9 when they stopped being
+// counted as disagreements.
+func TestWhichPicturesTheJudgeWritesAsBits(t *testing.T) {
+	indexed := reader.Array{reader.Name("Indexed"), reader.Name("DeviceRGB"),
+		reader.Integer(1), reader.String([]byte{0x80, 0x80, 0x80, 0xff, 0xff, 0xff})}
+	for _, tc := range []struct {
+		name string
+		dict reader.Dict
+		want bool
+	}{
+		{"one bit over a palette", reader.Dict{
+			"BitsPerComponent": reader.Integer(1), "ColorSpace": indexed}, true},
+		{"one bit of a spot colour", reader.Dict{
+			"BitsPerComponent": reader.Integer(1), "ColorSpace": reader.Array{
+				reader.Name("Separation"), reader.Name("Spot"), reader.Name("DeviceGray")}}, true},
+		{"one bit of several inks", reader.Dict{
+			"BitsPerComponent": reader.Integer(1), "ColorSpace": reader.Array{
+				reader.Name("DeviceN"), reader.Array{reader.Name("A")}, reader.Name("DeviceGray")}}, true},
+		{"one bit in Lab", reader.Dict{
+			"BitsPerComponent": reader.Integer(1), "ColorSpace": reader.Array{
+				reader.Name("Lab"), reader.Dict{}}}, true},
+		// The sample IS the level for a grey space, so the bits the judge
+		// writes are the colour and the comparison stands.
+		{"one bit of grey", reader.Dict{
+			"BitsPerComponent": reader.Integer(1),
+			"ColorSpace":       reader.Name("DeviceGray")}, false},
+		{"one bit of calibrated grey", reader.Dict{
+			"BitsPerComponent": reader.Integer(1), "ColorSpace": reader.Array{
+				reader.Name("CalGray"), reader.Dict{}}}, false},
+		// A stencil carries no colour of its own: both sides return its shape.
+		{"a stencil", reader.Dict{
+			"BitsPerComponent": reader.Integer(1), "ImageMask": reader.Bool(true),
+			"ColorSpace": indexed}, false},
+		// Above one bit the judge writes colour, so the palette is applied on
+		// both sides and there is nothing to count apart.
+		{"eight bits over a palette", reader.Dict{
+			"BitsPerComponent": reader.Integer(8), "ColorSpace": indexed}, false},
+		{"no depth at all", reader.Dict{"ColorSpace": indexed}, false},
+		{"a space that is only a name", reader.Dict{
+			"BitsPerComponent": reader.Integer(1),
+			"ColorSpace":       reader.Name("DeviceRGB")}, false},
+		{"an empty space array", reader.Dict{
+			"BitsPerComponent": reader.Integer(1), "ColorSpace": reader.Array{}}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := pageWithResources(t, func(w *reader.Writer) reader.Dict {
+				return reader.Dict{"XObject": reader.Dict{"I": w.Add(&reader.Stream{
+					Dict: merged(tc.dict), Raw: []byte{0x00}})}}
+			})
+			got := rawBitNames(opened(t, path), 1)
+			if got["I"] != tc.want {
+				t.Errorf("got %v, want %v", got["I"], tc.want)
+			}
+		})
+	}
+}
+
+// merged adds the parts every image dictionary needs to the part under test.
+func merged(d reader.Dict) reader.Dict {
+	out := reader.Dict{
+		"Type": reader.Name("XObject"), "Subtype": reader.Name("Image"),
+		"Width": reader.Integer(2), "Height": reader.Integer(1),
+	}
+	for k, v := range d {
+		out[k] = v
+	}
+	return out
+}
+
+// TestAPictureWrittenAsBitsIsFoundThroughAForm: the walk has to reach as far as
+// the pictures do, or a form's contents would be judged under a rule they do
+// not follow.
+func TestAPictureWrittenAsBitsIsFoundThroughAForm(t *testing.T) {
+	path := pageWithResources(t, func(w *reader.Writer) reader.Dict {
+		inner := w.Add(&reader.Stream{Dict: reader.Dict{
+			"Type": reader.Name("XObject"), "Subtype": reader.Name("Form"),
+			"Resources": reader.Dict{"XObject": reader.Dict{"Deep": w.Add(&reader.Stream{
+				Dict: merged(reader.Dict{"BitsPerComponent": reader.Integer(1),
+					"ColorSpace": reader.Array{reader.Name("Indexed"), reader.Name("DeviceRGB"),
+						reader.Integer(1), reader.String([]byte{0x80, 0x80, 0x80, 0xff, 0xff, 0xff})}}),
+				Raw: []byte{0x00}})}},
+		}, Raw: []byte("")})
+		return reader.Dict{"XObject": reader.Dict{"F": inner}}
+	})
+	if got := rawBitNames(opened(t, path), 1); !got["Deep"] {
+		t.Errorf("a picture one form down was not found: %v", got)
+	}
+}
+
+// TestAPictureWrittenAsBitsIsCountedApart: it is neither an agreement nor a
+// disagreement, and putting it in either bucket would be a claim about a
+// comparison that was never made.
+func TestAPictureWrittenAsBitsIsCountedApart(t *testing.T) {
+	got := Tally([]Result{
+		{Name: "I", RawBits: true, Difference: Difference{Share: 1, Peak: 255}},
+		{Name: "J", Difference: Difference{Share: 0}},
+	})
+	c := got["(samples)"]
+	if c.RawBits != 1 || c.Pictures != 2 {
+		t.Fatalf("got %+v", c)
+	}
+	if c.Direct.Pictures != 1 || len(c.Direct.Diffs) != 0 {
+		t.Errorf("the bucket took it: %+v", c.Direct)
+	}
+}
+
+// TestTheRawBitWalkStopsWhereTheOthersDo holds the walk to the same bounds as
+// the two beside it: a page it cannot read, a dictionary that is not one, a
+// graph that comes back on itself, and a depth past which it gives up.
+func TestTheRawBitWalkStopsWhereTheOthersDo(t *testing.T) {
+	oneBitIndexed := func(w *reader.Writer) reader.Object {
+		return w.Add(&reader.Stream{Dict: merged(reader.Dict{
+			"BitsPerComponent": reader.Integer(1),
+			"ColorSpace": reader.Array{reader.Name("Indexed"), reader.Name("DeviceRGB"),
+				reader.Integer(1), reader.String([]byte{0x80, 0x80, 0x80, 0xff, 0xff, 0xff})},
+		}), Raw: []byte{0x00}})
+	}
+
+	t.Run("a page that is not there", func(t *testing.T) {
+		path := pageWithResources(t, func(w *reader.Writer) reader.Dict {
+			return reader.Dict{"XObject": reader.Dict{"I": oneBitIndexed(w)}}
+		})
+		if got := rawBitNames(opened(t, path), 99); len(got) != 0 {
+			t.Errorf("page 99 of a one-page document named %v", got)
+		}
+	})
+
+	t.Run("resources that are not a dictionary", func(t *testing.T) {
+		// A page's own /Resources is written by the builder, so the shape is
+		// reached through a FORM whose /Resources is a number. Files hold
+		// worse than this, and a walk that panicked on one would take the
+		// whole sweep with it.
+		path := pageWithResources(t, func(w *reader.Writer) reader.Dict {
+			return reader.Dict{"XObject": reader.Dict{"F": w.Add(&reader.Stream{Dict: reader.Dict{
+				"Type": reader.Name("XObject"), "Subtype": reader.Name("Form"),
+				"Resources": reader.Integer(7),
+			}, Raw: []byte("")})}}
+		})
+		if got := rawBitNames(opened(t, path), 1); len(got) != 0 {
+			t.Errorf("named %v", got)
+		}
+	})
+
+	t.Run("resources naming no XObject", func(t *testing.T) {
+		path := pageWithResources(t, func(w *reader.Writer) reader.Dict {
+			return reader.Dict{"Font": reader.Dict{}}
+		})
+		if got := rawBitNames(opened(t, path), 1); len(got) != 0 {
+			t.Errorf("named %v", got)
+		}
+	})
+
+	t.Run("an entry that is not a stream", func(t *testing.T) {
+		path := pageWithResources(t, func(w *reader.Writer) reader.Dict {
+			return reader.Dict{"XObject": reader.Dict{"N": reader.Integer(7)}}
+		})
+		if got := rawBitNames(opened(t, path), 1); len(got) != 0 {
+			t.Errorf("named %v", got)
+		}
+	})
+
+	t.Run("a form that holds itself", func(t *testing.T) {
+		path := pageWithResources(t, func(w *reader.Writer) reader.Dict {
+			ref := w.Reserve()
+			w.Put(ref, &reader.Stream{Dict: reader.Dict{
+				"Type": reader.Name("XObject"), "Subtype": reader.Name("Form"),
+				"Resources": reader.Dict{"XObject": reader.Dict{
+					"Loop": ref, "Pic": oneBitIndexed(w)}},
+			}, Raw: []byte("")})
+			return reader.Dict{"XObject": reader.Dict{"F": ref}}
+		})
+		// It terminates, and it still finds the picture inside.
+		if got := rawBitNames(opened(t, path), 1); !got["Pic"] {
+			t.Errorf("the picture inside the cycle was missed: %v", got)
+		}
+	})
+
+	t.Run("deeper than the walk goes", func(t *testing.T) {
+		path := pageWithResources(t, func(w *reader.Writer) reader.Dict {
+			var below reader.Object = oneBitIndexed(w)
+			var res reader.Dict
+			for i := 0; i <= maxFormDepth+1; i++ {
+				res = reader.Dict{"XObject": reader.Dict{"Next": below}}
+				below = w.Add(&reader.Stream{Dict: reader.Dict{
+					"Type": reader.Name("XObject"), "Subtype": reader.Name("Form"),
+					"Resources": res,
+				}, Raw: []byte("")})
+			}
+			return reader.Dict{"XObject": reader.Dict{"F": below}}
+		})
+		// The picture is past the bound, so it is not named -- and the walk
+		// comes back rather than running on.
+		if got := rawBitNames(opened(t, path), 1); got["Next"] {
+			t.Errorf("a picture past the depth limit was named: %v", got)
+		}
+	})
+}
