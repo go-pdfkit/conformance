@@ -693,11 +693,23 @@ func objectsIn(d *reader.Document, res reader.Object, out map[string]int,
 			if !isRef {
 				continue // an inline picture has no object number to pair on
 			}
-			if was, seenBefore := out[string(name)]; seenBefore && was != ref.Num {
-				ambiguous[string(name)] = true
-				continue
+			record(out, ambiguous, string(name), ref.Num)
+			// A mask is listed under the object of the picture that NAMES it,
+			// not under its own. pdfimages writes the parent's number on an
+			// smask row: cerfa_10074.pdf's object 119 is a 2x2 picture whose
+			// /SMask is object 120, and the smask row says 119.
+			//
+			// render names those entries for the key that reached them --
+			// Image213/SMask, Im0/Mask -- and nothing here recorded such a
+			// name, so every mask in the corpus fell back to being paired by
+			// SIZE. On a page drawing 211 same-size pictures under masks that
+			// carry the glyph shapes, that is a lottery.
+			for _, key := range []string{"SMask", "Mask"} {
+				m, _ := d.Resolve(st.Dict[reader.Name(key)])
+				if _, ok := reader.ToStream(m); ok {
+					record(out, ambiguous, string(name)+"/"+key, ref.Num)
+				}
 			}
-			out[string(name)] = ref.Num
 		case "Form":
 			if isRef {
 				if seen[ref] {
@@ -709,6 +721,16 @@ func objectsIn(d *reader.Document, res reader.Object, out map[string]int,
 			objectsIn(d, inner, out, ambiguous, seen, depth+1)
 		}
 	}
+}
+
+// record notes what object a name reached, and drops the name when two
+// different objects answer to it: a guess is worth less than an admission.
+func record(out map[string]int, ambiguous map[string]bool, name string, num int) {
+	if was, seenBefore := out[name]; seenBefore && was != num {
+		ambiguous[name] = true
+		return
+	}
+	out[name] = num
 }
 
 // calibratedNames is the resource names on one page whose picture declares a
