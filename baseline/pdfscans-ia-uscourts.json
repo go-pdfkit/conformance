@@ -1,6 +1,6 @@
 {
   "corpus": "/Users/Shared/pdfscans",
-  "taken": "2026-09-07T21:35:00Z",
+  "taken": "2026-09-08T20:14:51Z",
   "pages": 1,
   "gate": 2,
   "timeout": "2m0s",
@@ -16,7 +16,7 @@
     },
     {
       "path": "github.com/go-gfx/gfx",
-      "version": "v0.19.0"
+      "version": "v0.20.0"
     },
     {
       "path": "github.com/go-opentype/fonts",
@@ -36,7 +36,7 @@
     },
     {
       "path": "github.com/go-pdfkit/render",
-      "version": "v0.22.0"
+      "version": "v0.25.0"
     },
     {
       "path": "github.com/sergeymakinen/go-bmp",
@@ -106,20 +106,20 @@
             "calibrated": 1,
             "terms": {
               "share": {
-                "median": 0.1388580931263858,
-                "worst": 0.1388580931263858
+                "median": 0.00038802660753880266,
+                "worst": 0.00038802660753880266
               },
               "peak": {
-                "median": 105,
-                "worst": 105
+                "median": 3,
+                "worst": 3
               },
               "mse": {
-                "median": 95.06023651145603,
-                "worst": 95.06023651145603
+                "median": 0.09362527716186253,
+                "worst": 0.09362527716186253
               },
               "mean": {
-                "median": 0.9964523281596452,
-                "worst": 0.9964523281596452
+                "median": 0.06779379157427938,
+                "worst": 0.06779379157427938
               }
             }
           }
@@ -129,6 +129,7 @@
           "pictures": 44,
           "unmatched": 0,
           "remapped": 2,
+          "rawBits": 1,
           "direct": {
             "pictures": 30,
             "exact": 30,
@@ -137,28 +138,28 @@
             "differing": 0
           },
           "converted": {
-            "pictures": 12,
-            "exact": 9,
+            "pictures": 11,
+            "exact": 10,
             "identical": 9,
             "inverted": 0,
-            "differing": 3,
+            "differing": 1,
             "calibrated": 1,
             "terms": {
               "share": {
                 "median": 0.04390625,
-                "worst": 1
+                "worst": 0.04390625
               },
               "peak": {
-                "median": 97,
-                "worst": 101
+                "median": 9,
+                "worst": 9
               },
               "mse": {
-                "median": 25.18060606060606,
-                "worst": 1089.9151515151516
+                "median": 1.8173263888888889,
+                "worst": 1.8173263888888889
               },
               "mean": {
                 "median": 0.24600694444444443,
-                "worst": -28.91919191919192
+                "worst": 0.24600694444444443
               }
             }
           }

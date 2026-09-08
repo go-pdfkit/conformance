@@ -17,16 +17,17 @@ instrument.
 
 | | |
 |---|---|
-| taken | 2026-09-07T19:30:25Z .. 2026-09-07T21:35:00Z (UTC) |
+| taken | 2026-09-08T18:03:48Z .. 2026-09-08T20:14:51Z (UTC) |
 | judge | pdfimages version 26.04.0 |
 | **measure** | **per channel, gate `D` = 2, count budget `N` = 0** ([conformance#16](https://github.com/go-pdfkit/conformance/issues/16)) |
-| **pairing** | **by object number, falling back to size only when one side published none** ([conformance#30](https://github.com/go-pdfkit/conformance/pull/30)) |
+| **pairing** | **by object number, falling back to size only when one side published none** ([#30](https://github.com/go-pdfkit/conformance/pull/30)); a MASK by the object of the picture that names it ([#32](https://github.com/go-pdfkit/conformance/pull/32), [#34](https://github.com/go-pdfkit/conformance/pull/34)) |
+| **counted apart** | a `/Decode` array, and a picture the judge writes as SAMPLES rather than as colour ([#33](https://github.com/go-pdfkit/conformance/pull/33)) |
 | **walk** | **the page's CONTENT STREAM, not its /Resources** ([render#43](https://github.com/go-pdfkit/render/pull/43)) |
 | **bucketing** | the listing **and** the picture's own `/ColorSpace` ([conformance#20](https://github.com/go-pdfkit/conformance/issues/20)) |
 | **bound on the judge** | **2m0s per document, per tool** ([conformance#21](https://github.com/go-pdfkit/conformance/issues/21)) |
-| `go-pdfkit/render` | **v0.22.0** |
+| `go-pdfkit/render` | **v0.25.0** |
 | `go-pdfkit/reader` | v0.6.0 |
-| `go-gfx/gfx` | v0.19.0 |
+| `go-gfx/gfx` | **v0.20.0** |
 | `tannevaled/gobig2` | v0.1.0 |
 | `ajroetker/go-jpeg2000` | v0.0.2 |
 | pages per document | 1 (the first page of each document) |
@@ -35,63 +36,66 @@ instrument.
 **Every one of the 23 populations ran to completion, and every one is in the
 tables below.** All 23 exited 0.
 
-**Why this run exists.** The INSTRUMENT changed, and nothing else did. Twice
-over, and both changes are about the same mistake: **asking one question and
-measuring the answer to another.**
+**Why this run exists.** Six changes, in two halves, and the same sentence
+covers both: **a picture is not a colour, and a name is not an identity.**
 
-`render.Images` said it returned « the pictures the i'th page **draws**, in the
-order of the names it **draws** them by ». It walked the page's `/Resources`
-dictionary. A resource dictionary is a **catalogue of what a page may draw**, and
-PDF lets every page in a file share one — the French tax forms do.
-`2044_2044_4764.pdf` gives all ten of its pages the same dictionary, holding ten
-118×118 Data Matrix barcodes, one per page; page 1 draws exactly one of them and
-the walk returned all ten.
+Three are in `render`, and none is in a codec. A JPEG carries SAMPLES: for
+`DeviceRGB` and `DeviceGray` that costs nothing, but a `Separation`'s sample is
+an amount of INK, so a tint of nothing is paper and read as grey it is black —
+the largest disagreement in the corpus was a `DeviceN` barcode 255 levels from
+poppler on every pixel (v0.23.0). `DeviceCMYK` was drawn with the naive
+`(1-c)(1-k)` rather than the printing primaries (v0.24.0), and the CMYK JPEG path
+did not even see that fix (v0.25.0).
 
-The judge extracts what a page **draws**, so the nine extras had nothing to pair
-with — and one of them was matched to the drawn barcode's row, because all ten
-are the same size. Two unrelated barcodes were compared, came out **255 apart on
-every term**, and the barcode the page really draws was left unpaired and
-unmeasured. `render#43` walks the content stream instead; `conformance#30` stops
-the size fallback claiming a row when both sides published an object number and
-the two differ.
+Three are here. A mask is listed by `pdfimages` under the object of its PARENT,
+and nothing recorded such a name, so every mask in the corpus was paired by SIZE
+(#32). Publishing that number then made the object test decisive and it failed
+at once, because `isMask` knew two of the four types `ImageOutputDev.cc:138-147`
+prints (#34). And a one-bit picture over a palette or a tint is written by the
+judge as BITS, with the colour space never consulted, so comparing it to our
+colour is not a comparison (#33).
 
 Everything else was held, and checked before the run rather than asserted
 afterwards: the same judge (`pdfimages version 26.04.0`), the same other module
 versions listed above, the same one page per document, the same two-minute
-bound. **The instrument is the only thing that moved**, which is what this file
-demands of any figure it prints.
+bound.
 
 What that cost the run this replaces, over the same 23 populations, the same
 3280 documents and the same judge:
 
-| | v0.21.0 (19:30 earlier today) | v0.22.0 (this run) |
+| | v0.22.0 | v0.25.0 |
 |---|---:|---:|
-| pictures returned | 8190 | **8063** |
-| **with no counterpart at all** | **110** | **5** |
-| pictures compared | 7515 | 7513 |
-| exact | 6598 | **6657** |
-| reported inverted | 422 | 426 |
-| reported differing | 495 | **430** |
-| pages refused by our own budget | 4 | **1** |
-| **agreement** | **93.0%** | **93.9%** |
+| pictures returned | 8063 | 8063 |
+| carrying a `/Decode` array | 545 | 545 |
+| **written by the judge as bits** | **0** | **678** |
+| with no counterpart at all | 5 | 5 |
+| pictures compared | 7513 | **6835** |
+| exact | 6657 | 6156 |
+| reported inverted | 426 | 425 |
+| **reported differing** | **430** | **254** |
+| **agreement** | **93.9%** | **96.0%** |
 
-**Read the first two rows before the last one.** 127 fewer pictures came back,
-and 105 of them were pictures that had nothing on the judge's side to be
-compared with — because the page never drew them. The agreement did not rise
-because anything decodes better; it rose because 65 comparisons of two different
-pictures stopped being counted as disagreements.
+**The picture count did not move, and that is the point.** 678 pictures left the
+comparison because the judge writes their SAMPLES and not their colour, which is
+a different question rather than a disagreement; the 176 fewer differing are
+what is left when 131 of those and 22 mis-paired masks stop being counted as
+defects. Seven populations moved, sixteen are identical to the byte, and **not
+one moved backwards** on any term.
 
-Eight of the 23 populations moved and **not one moved backwards** on any term —
-not exact, not differing, not agreement. The other fifteen are identical to the
-byte, which is what says this reached only the pages the defect could reach. `gh-qpdf` moved most: 45 disagreements to 5, and
-28 exact to **58**, from **fewer** pictures than before. More right answers out
-of less material is what a pairing being fixed looks like.
+**Read `unmatched` beside them.** It stays at 5, and that number is the whole
+proof that #34 landed: with the mask paired by its parent's object but `isMask`
+still naming two types of four, it was **280**.
 
-**It is not uniformly "fewer inversions", and that matters.** `ia-uscourts`
-gained two — 37 to 39 — while its differing count fell by the same two: the
-right pairing found two genuine complements the wrong one had hidden inside a
-disagreement. A change that only ever removed inversions would be a change that
-only ever flattered.
+**The inversion count barely moved, and its MEANING did.** 426 becomes 425.
+Before, those were masks matched to the first unclaimed picture of the same
+size; now each is matched by the object number both sides publish, and still
+comes out an exact complement. The number is the same and the claim behind it is
+not — a count that holds while the pairing under it is rebuilt is worth more than
+one that improved.
+
+Its path was not quiet. Pairing a mask by its parent's object without #34 left
+**280** pictures unpaired and dropped the inversions to 150; the two changes have
+to be read together, which is why they are one run and not two.
 
 **What `exact` asserts here.** A picture agrees when **no channel of any pixel
 differs from poppler's by more than two levels of 255**. Two is the ISO/IEC
@@ -106,11 +110,9 @@ pages, cannot use this criterion and does not.
 on the machine throughout, so every duration measured here would be a
 measurement of that job as much as of this one. Counts and pixel comparisons
 are unaffected by load; wall-clock is not. The absence is a decision, not an
-oversight. **Peak memory was not captured for this run**, and the previous run's
-figures — `ia-americana` 5.9 GB, `ia-biodiversity` 3.6 GB, `ia-medical` 3.2 GB —
-are not carried over: this run decodes 127 fewer pictures and several very large
-ones fewer, so quoting them here would be quoting a measurement of something
-else.
+oversight. **Peak memory was not captured for this run** and no earlier figure is
+carried over: a number measured on a different build of the thing being measured
+is a number about something else.
 
 ## How to read the columns
 
@@ -130,10 +132,17 @@ rather than folded into a disagreement:
   nothing to compare against.
 - **remapped** — the picture carries a `/Decode` array, which a viewer applies
   and `pdfimages` does not. The two sides were not asked the same question.
+- **raw bits** — the judge wrote this picture's SAMPLES rather than its colour.
+  `ImageOutputDev.cc:642` takes `PNGWriter::MONOCHROME` whenever the colour map
+  has one component and one bit, and then writes the bytes with the colour space
+  never consulted. For a one-bit grey that loses nothing — the sample IS the
+  level — so only an index or a tint is counted here. 678 across the fleet, and
+  they are neither an agreement nor a disagreement.
 - **unmatched** — nothing of the judge's could be paired with this one: no row
   carried its object number, and none of the right size was free to fall back
-  to. Since the walk returns what a page **draws**, this is now rare — 5 across
-  the fleet, from 110 — and each one is a question rather than a fact of life.
+  to. Since the walk returns what a page **draws** and a mask is looked up under
+  its parent's object, this is rare — **5** across the fleet — and each one is a
+  question rather than a fact of life.
 - **converted** — the picture's colour space had to be converted to reach RGB.
   Per channel that arithmetic is large and is **not** a decoder disagreeing, so
   those pictures are tallied in their own bucket with their own agreement figure
@@ -178,17 +187,17 @@ Scanned pages — `/Users/Shared/pdfscans`:
 | `ia-biodiversity` | 250 | 0 | 1 | 0 | 0 | 752 | 703 | 53 | 650 | 650 | 157 | 100.0% | 0 | 0 |
 | `ia-americana` | 250 | 28 | 0 | 0 | 0 | 502 | 494 | 89 | 405 | 379 | 96 | 93.6% | 8 | 8 |
 | `ia-texts` | 12 | 7 | 0 | 0 | 0 | 14 | 14 | 3 | 11 | 11 | 2 | 100.0% | 0 | 0 |
-| `ia-uscourts` | 250 | 0 | 0 | 0 | 0 | 133 | 114 | 40 | 74 | 66 | 54 | 89.2% | 17 | 2 |
+| `ia-uscourts` | 250 | 0 | 0 | 0 | 0 | 133 | 114 | 40 | 74 | 66 | 54 | 89.2% | 16 | 2 |
 
 Government and library forms — `/Users/Shared/pdfforms`:
 
 | population | documents | unopenable | refused | declined | hung | pictures | direct | inverted | compared | exact | identical | agreement | converted | calibrated |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | `ca-cra` | 84 | 0 | 0 | 0 | 0 | 151 | 0 | 0 | 0 | 0 | 0 | n/a | 0 | 0 |
-| `fr-cerfa` | 450 | 0 | 0 | 0 | 0 | 4378 | 1338 | 15 | 1323 | 1189 | 1129 | 89.9% | 2978 | 1741 |
-| `fr-impots` | 50 | 0 | 0 | 0 | 0 | 109 | 20 | 0 | 20 | 19 | 6 | 95.0% | 25 | 3 |
+| `fr-cerfa` | 450 | 0 | 0 | 0 | 0 | 4378 | 1338 | 15 | 1323 | 1211 | 1151 | 91.5% | 2309 | 1741 |
+| `fr-impots` | 50 | 0 | 0 | 0 | 0 | 109 | 20 | 0 | 20 | 19 | 6 | 95.0% | 19 | 3 |
 | `gh-openpdf` | 56 | 14 | 0 | 0 | 0 | 49 | 26 | 0 | 26 | 21 | 6 | 80.8% | 2 | 1 |
-| `gh-pdfbox` | 157 | 8 | 0 | 0 | 0 | 41 | 29 | 1 | 28 | 26 | 23 | 92.9% | 11 | 1 |
+| `gh-pdfbox` | 157 | 8 | 0 | 0 | 0 | 41 | 29 | 1 | 28 | 26 | 23 | 92.9% | 9 | 1 |
 | `gh-pdfcpu` | 147 | 0 | 0 | 0 | 0 | 696 | 639 | 0 | 639 | 599 | 597 | 93.7% | 57 | 32 |
 | `gh-pypdf` | 34 | 1 | 0 | 0 | 0 | 15 | 8 | 0 | 8 | 6 | 6 | 75.0% | 6 | 3 |
 | `gh-qpdf` | 81 | 0 | 0 | 0 | 0 | 63 | 63 | 0 | 63 | 58 | 39 | 92.1% | 0 | 0 |
@@ -210,16 +219,16 @@ direct bucket's pictures minus its complements. It is printed beside `pictures`
 because the two are far apart and only one of them is the claim, and beside
 `identical`, because a rate is not a claim of bit equality.
 
-| filter | pictures | direct | inverted | **compared** | exact | identical | agreement | converted | conv. exact | conv. differing | calibrated | remapped | unmatched | differing | worst peak |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `(samples)` | 4280 | 904 | 0 | 904 | 902 | 902 | **99.8%** | 3085 | 2921 | 164 | 1761 | 286 | 5 | 2 | 255 |
-| `(samples) mask` | 1336 | 1269 | 154 | 1115 | 1093 | 1093 | **98.0%** | 0 | 0 | 0 | 0 | 67 | 0 | 22 | 255 |
-| `JPXDecode` | 1241 | 1231 | 0 | 1231 | 1231 | 7 | **100.0%** | 10 | 9 | 1 | 9 | 0 | 0 | 0 | 255 |
-| `JBIG2Decode mask` | 591 | 521 | 271 | 250 | 250 | 250 | **100.0%** | 0 | 0 | 0 | 0 | 70 | 0 | 0 | — |
-| `DCTDecode` | 590 | 425 | 0 | 425 | 208 | 4 | **48.9%** | 44 | 19 | 24 | 32 | 121 | 0 | 217 | 255 |
-| `DCTDecode mask` | 12 | 12 | 0 | 12 | 12 | 5 | **100.0%** | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — |
-| `JBIG2Decode` | 11 | 10 | 0 | 10 | 10 | 10 | **100.0%** | 0 | 0 | 0 | 0 | 1 | 0 | 0 | — |
-| `JPXDecode mask` | 2 | 2 | 0 | 2 | 2 | 2 | **100.0%** | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — |
+| filter | pictures | direct | inverted | **compared** | exact | identical | agreement | converted | conv. exact | conv. differing | calibrated | remapped | raw bits | unmatched | differing | worst peak |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `(samples)` | 4280 | 904 | 0 | 904 | 902 | 902 | **99.8%** | 2407 | 2396 | 11 | 1761 | 286 | 678 | 5 | 2 | 32 |
+| `(samples) mask` | 1336 | 1269 | 154 | 1115 | 1115 | 1115 | **100.0%** | 0 | 0 | 0 | 0 | 67 | 0 | 0 | 0 | — |
+| `JPXDecode` | 1241 | 1231 | 0 | 1231 | 1231 | 7 | **100.0%** | 10 | 9 | 1 | 9 | 0 | 0 | 0 | 0 | 255 |
+| `JBIG2Decode mask` | 591 | 521 | 271 | 250 | 250 | 250 | **100.0%** | 0 | 0 | 0 | 0 | 70 | 0 | 0 | 0 | — |
+| `DCTDecode` | 590 | 425 | 0 | 425 | 208 | 4 | **48.9%** | 44 | 21 | 23 | 32 | 121 | 0 | 0 | 217 | 110 |
+| `DCTDecode mask` | 12 | 12 | 0 | 12 | 12 | 5 | **100.0%** | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — |
+| `JBIG2Decode` | 11 | 10 | 0 | 10 | 10 | 10 | **100.0%** | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | — |
+| `JPXDecode mask` | 2 | 2 | 0 | 2 | 2 | 2 | **100.0%** | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — |
 
 Across the whole fleet: **3385 of 3957 direct comparable pictures agree, 85.5%**,
 and 1990 of them are bit-identical. At v0.20.0 it was 3347 of 3962, **84.5%**,
@@ -227,13 +236,17 @@ with the same 1990 identical.
 
 ## What this says
 
-**Ten findings, and they are about three runs.** §1 to §5 and §7 were written
-about the v0.20.0 → v0.21.0 comparison of 2026-08-31, and §8 about the pairing
-change of 2026-09-07; they are kept because their reasoning still holds, and
-where they quote a figure, that figure is the one their own run measured. **§6
-is disproved by THIS run** and is rewritten rather than left standing — three of
-the four refusals it called permanent are gone. §9 is updated, because the gap
-it names moved. §10 is new and belongs to this run.
+**Fourteen findings, and they are about four runs.** §1 to §8 and §10 were
+written about earlier ones — §1 to §5 and §7 about the v0.20.0 → v0.21.0
+comparison of 2026-08-31, §8 and §10 about the two runs of 2026-09-07 — and are
+kept because their reasoning still holds; where they quote a figure, that figure
+is the one their own run measured. §6 was rewritten when a later run disproved
+it. **§9 is rewritten again here**, because the gap it called "the work" turned
+out not to be a codec at all. §11 to §14 belong to this run.
+
+Read §11 to §13 together. They are three shapes of one mistake — **a picture is
+not a colour, and a name is not an identity** — and each was found by a number
+that could not be reconciled rather than by re-reading code.
 
 ### 1. The claimed "61.2% → 99.3%" is not what this instrument measures, and the correction is not a smaller improvement — it is a different quantity
 
@@ -529,29 +542,33 @@ ones a form corpus reported were mostly an artefact of how the two sides were
 lined up.** The first half was always true. The second was not visible until
 the instrument stopped guessing.
 
-### 9. `DCTDecode` is still the only real gap, and it is smaller than it looked
+### 9. `DCTDecode` was never the gap it looked like
 
-With both the pairing and the walk fixed, every lossless path is at or near the
-top: `JPXDecode` **100.0%**, `JBIG2Decode` 100.0%, `(samples)` **99.8%**, the
-mask filters **98.0%** and 100.0%. `DCTDecode` sits at **48.9%**.
+Every earlier run of this file named `DCTDecode` as the remaining work, and each
+time the number moved for a reason that was not a codec:
 
-It has now moved twice, and the two moves are different in kind:
+| | agreement | what moved it |
+|---|---:|---|
+| 2026-08-31, v0.20.0 | 43.2% | — |
+| pairing by object | 43.7% | the pairing was never its problem |
+| walking what is drawn | 48.9% | 61 unpaired pictures no page drew |
+| this run | **48.9%** | three colour defects, none in a decoder |
 
-| | agreement | differing | unmatched |
-|---|---:|---:|---:|
-| 2026-08-31, v0.20.0 | 43.2% | — | — |
-| pairing by object | **43.7%** | 240 | 61 |
-| walking what is drawn | **48.9%** | **217** | **0** |
+**And this time the agreement did not move at all** — 217 pictures differ, as
+before. What moved is the SIZE: the filter's worst peak falls from **255 to
+110**, and its converted bucket gains two exact. The colour defects were never
+in the many small disagreements; they were in the few enormous ones, and a count
+of differing pictures cannot see the difference between 255 apart and 3 apart.
 
-The first move was 0.5 points, because pairing by object was never `DCTDecode`'s
-problem. The second is 5.2 points and it took **all 61** of its unpaired
-pictures to zero — those were pictures no page drew. Twenty-three of its
-disagreements went with them.
+The drill from the aggregate down to one picture is §11. What it found was that
+the largest disagreements in the corpus were a `Separation` image drawn as its
+own negative, a `DeviceCMYK` drawn with algebra instead of ink, and a CMYK JPEG
+converted along a path that had never been corrected — and that the residual,
+once those were gone, is bounded and explained (§14).
 
-**217 remain, and they are the work.** They are paired by object number on both
-sides, they are the pictures the pages actually draw, and they disagree. That is
-now a question about a codec and nothing else, which is the first time in this
-file's history it has been only that.
+**Calling a filter "the gap" is a statement about where to look, and it was
+wrong three times running.** The filter was never the unit of the defect: the
+colour space was.
 
 ### 10. The instrument was wrong twice in one day, and both times it read as a defect somewhere else
 
@@ -587,6 +604,172 @@ fixture that agrees with nothing contradicts nothing.
 The three tests that now stand against this were each confirmed to **fail**
 without their change before being kept.
 
+### 11. Three colour defects, none of them in a decoder
+
+The `DCTDecode` gap §9 named as "the work" was not a codec at all. Drilling from
+the aggregate down to one picture found three defects in a row, each downstream
+of the JPEG being decoded correctly.
+
+**A JPEG carries samples, not colours.** `decodeJPEG` went from `image/jpeg`'s
+output straight to pixels, while the non-JPEG path went through the colour space
+the dictionary names. For `DeviceRGB`, `CalRGB`, `ICCBased` and `DeviceGray` the
+distinction costs nothing. For a space that **transforms** its samples it costs
+the whole picture: a `Separation`'s sample is an amount of **ink**, so a tint of
+nothing is paper, and read as a level of grey it is black.
+
+| picture | before | after |
+|---|---|---|
+| `uk-govuk` `DeviceN "Black"` over DeviceCMYK, 549×91 | peak **255**, mse 65 025, mean **−255.00** | within the gate |
+| `fr-impots` `Separation "PANTONE 293 U"`, 166×84 | peak **255**, mse 22 819 | peak 44, mse 380.8 |
+
+The first was the largest disagreement in the corpus: every pixel 255 levels
+from poppler, mean exactly −255 — solid black against solid white. This is what
+poppler does and not an interpretation of it: `DCTStream` hands
+`GfxImageColorMap` the component samples and the colour map turns them into
+colour. `render` v0.23.0.
+
+**`DeviceCMYK` was algebra, not ink.** `cmykToRGBA` called gfx's naive
+`(1-c)(1-k)`, which that file documents as *"not for print colour management"*.
+It is now the U.S. Web Coated (SWOP) primaries — cyan (0,173,239), magenta
+(236,0,140), yellow (255,242,0), key (35,31,32) — interpolated over the sixteen
+corners of the cube.
+
+That is not fitting the judge. Over a 625-point grid:
+
+| | max | mean |
+|---|---:|---:|
+| naive vs poppler | 115 | **27.1** |
+| pdf.js vs poppler | 61 | **10.8** |
+| naive vs pdf.js | 107 | **27.8** |
+
+poppler and pdf.js approximate the same SWOP table independently and agree with
+each other 2.5× more closely than either agrees with the naive formula. The
+rewrite was proved against poppler's unrolled matrix verbatim: they agree to
+`2.2e-16` over 20 625 points, one ULP. `gfx` v0.20.0, `render` v0.24.0.
+
+**And the CMYK JPEG path never saw that fix.** It went through
+`raster.FromImage`, which uses the standard library's naive formula — two paths,
+two answers, for one set of numbers. Eight DVLA forms carry a YCCK scan of a
+whole page and differed from poppler on 99% of their pixels for that reason
+alone:
+
+```
+v112   peak 38 mse  76.1  ->  peak 16 mse  3.9
+v888   peak 86 mse  79.4  ->  peak 50 mse  5.7
+v317   peak 84 mse 192.1  ->  peak 46 mse 26.0
+```
+
+`render` v0.25.0. Note what that change did **not** do: the corpus counters did
+not move. A picture at peak 64 was differing before and after, and those eight
+scans carry a `/Decode` array, which this file counts apart on purpose. The
+whole of it is in the SIZE of the disagreements, which is why sizes are quoted
+and not a count.
+
+### 12. Masks were never paired by object, and the fix exposed an older defect
+
+`pdfimages` lists a mask under the object of its **parent**: `cerfa_10074.pdf`'s
+object 119 is a 2×2 picture whose `/SMask` is object 120, and the smask row says
+119. Nothing here recorded such a name, so **every mask in the corpus fell back
+to being paired by size** — on a page drawing 211 same-size pictures under masks
+carrying the glyph shapes, a lottery.
+
+| `fr-cerfa`, `(samples) mask` | before | after |
+|---|---:|---:|
+| exact | 711 | **733** |
+| **differing** | **22** | **0** |
+| **peak worst** | **255** | **0** |
+
+All 22 disagreements were pairs of different masks. **They do not shrink, they
+disappear** — which is how a wrong pairing ends, where a decoding defect would
+merely diminish.
+
+Publishing that number then made the object test decisive, and it failed
+immediately: `isMask` recognised `smask` and `stencil`, while
+`ImageOutputDev.cc:138-147` prints **four** types — `image`, `stencil`, `mask`,
+`smask` — three of which are masks. Its comment even said *"one of the two
+kinds"*. A `/Mask` row matched nothing at all and **unmatched went 5 → 280**,
+193 of them in `ia-medical`. That 280 is a state this file never shipped: it was
+measured, diagnosed and closed before the run above, which is why the table at
+the top of this document reads 5 both sides. The two changes are one run because
+either alone is worse than neither.
+
+The test could not have caught it: it listed three of the four types and passed.
+**A truth table with a row left out cannot say the row is wrong**, and the row
+was missing from the test for the same reason it was missing from the code. All
+four are now written out in the order the source declares them.
+
+### 13. The judge can be the lossy one
+
+`ImageOutputDev.cc:642` takes `PNGWriter::MONOCHROME` whenever the colour map has
+one component and one bit, and then writes `str->getChar() ^ invert_bits` — the
+samples, with the colour space never consulted.
+
+For a one-bit `DeviceGray` that loses nothing: the sample **is** the level. For
+an index or a tint it loses everything. `cerfa_10074.pdf` carries an `Indexed`
+palette of `808080` and `ffffff`, which we draw as the mid grey it says and the
+judge writes as a bit.
+
+| `(samples) converted` | before | after |
+|---|---:|---:|
+| pictures | 3072 | 2395 *(677 counted apart)* |
+| **differing** | **140** | **9** |
+| **peak worst** | **255** | **23** |
+
+**131 of the 140 disagreements were this**, and `render` was right in every one.
+They are counted apart beside `/Decode`, under the rule this file already
+carries: the two sides were not asked the same question.
+
+What found it was a number that belonged to neither expected answer. Ours read
+**128** where the two candidate palettes offered 0 and 255 — and a value absent
+from both vocabularies cannot be a rounding. The palette really was `808080`.
+
+### 14. What remains, and what is deliberately not done
+
+`DCTDecode`'s residual is bounded and its two parts are measured separately.
+
+**The colour conversion contributes at most one level.** Over all 16 777 216
+colours, Go's `YCbCrToRGB` and libjpeg's differ by 0 (60.15%) or 1 (39.85%),
+never more — the fixed-point constants are the SAME (91881, 22554, 46802,
+116130) and only the rounding differs, Go adding `y×257` where libjpeg adds a
+fixed half.
+
+**The rest is the IDCT.** Go has its own, libjpeg uses `jpeg_idct_islow`, and two
+conforming IDCTs are permitted to differ. Closing that gap means forking
+`image/jpeg` for three levels on a few hundredths of a percent of pixels.
+Measured, bounded, written down; not undertaken.
+
+**A four-component JPEG 2000 is drawn wrong**, and not fixably here.
+`go-jpeg2000`'s `convertToRGBA` has branches for one, two and "three or more"
+components (`color.go:280`), and the last takes the first three as red, green
+and blue: a `JPXDecode` picture in `DeviceCMYK` loses its black plate.
+`gh-pdfbox/JPXTestCMYK.pdf` is 1377×443 of that, 255 from poppler at a mean of
+−170. Unlike `decodeJPEG`, this decoder's public API hands back an `image.RGBA`
+and nothing else, so the fourth component is gone before `render` sees it. One
+picture of the 2598 forms and none of the 682 scans — verified, not assumed:
+across the scans, JPEG 2000 pictures are `DeviceRGB` (718), `DeviceGray` (513),
+`ICCBased` (5) and one naming no space at all, with **no `DeviceCMYK`**.
+
+**The pairing still guesses when a name is ambiguous.** `render.Images` names a
+picture by its resource name, and this package rebuilds the object number by
+walking the document again. Where a name reaches two objects — forms without
+`/Resources` of their own — the ambiguity rule correctly refuses an identity and
+the size fallback draws from a hat.
+`gh-qpdf/qpdf_qtest_qpdf_form-xobjects-no-resources-out.pdf` draws four 15×15
+grey pictures (objects 9–12) and `Im1` means two of them.
+
+`render` already holds the answer: `imagesDrawn` has the `reader.Ref` of the
+stream it just decoded (`images.go:275`), and hands back only the name. An
+`Image.Object` field would retire `objectsByName`, the ambiguity rule and the
+mask-to-parent mapping together.
+
+One trap for whoever writes it: a mask's entry must carry its **parent's**
+number, not its own. `render` builds that entry from the parent's dictionary and
+names it `name+"/"+key` (`images.go:218`), so both numbers are in scope at that
+point and the wrong one is the easier to reach — `pdfimages` publishes the
+parent's, which is the whole reason the mapping exists.
+
+Two pictures of measured gain, so it is named here rather than done in a hurry.
+
 ## Every differing bucket in the run
 
 | population | filter | bucket | differing | share med | share worst | peak med | peak worst | mse med | mse worst | mean med | mean worst |
@@ -601,28 +784,23 @@ without their change before being kept.
 | `fr-cerfa` | `DCTDecode` | direct | 112 | 0.000160 | 0.001926 | 3 | 4 | 0.1308 | 0.6541 | +0.0355 | -0.5794 |
 | `ia-uscourts` | `DCTDecode` | direct | 8 | 0.000177 | 0.000359 | 3 | 4 | 0.0654 | 0.1885 | -0.0070 | -0.0783 |
 | `gh-pdfcpu` | `DCTDecode` | converted | 1 | 0.000195 | 0.000195 | 3 | 3 | 0.2439 | 0.2439 | -0.0339 | -0.0339 |
+| `uk-govuk` | `DCTDecode` | converted | 1 | 0.000225 | 0.000225 | 3 | 3 | 0.1181 | 0.1181 | +0.0260 | +0.0260 |
 | `gh-qpdf` | `DCTDecode` | direct | 3 | 0.000319 | 0.000319 | 3 | 3 | 0.3483 | 0.3822 | +0.2801 | +0.3099 |
 | `gh-pdfcpu` | `DCTDecode` | direct | 40 | 0.000349 | 0.000923 | 3 | 4 | 0.2554 | 0.3582 | +0.0015 | -0.2789 |
-| `fr-cerfa` | `DCTDecode` | converted | 11 | 0.000498 | 0.742372 | 4 | 43 | 0.3225 | 118.4345 | +0.1899 | +3.1964 |
+| `fr-cerfa` | `DCTDecode` | converted | 11 | 0.000357 | 0.331692 | 3 | 11 | 0.1875 | 5.7358 | +0.1127 | +0.9337 |
+| `ia-uscourts` | `DCTDecode` | converted | 2 | 0.000388 | 0.000388 | 3 | 3 | 0.0936 | 0.0936 | +0.0678 | +0.0678 |
 | `gh-pdfbox` | `DCTDecode` | direct | 2 | 0.000508 | 0.000508 | 4 | 4 | 0.2605 | 0.2605 | +0.0024 | -0.1511 |
 | `gh-pypdf` | `DCTDecode` | direct | 2 | 0.000517 | 0.000517 | 3 | 3 | 0.2581 | 0.2581 | -0.0561 | -0.0989 |
 | `gh-safedocs` | `DCTDecode` | direct | 1 | 0.000595 | 0.000595 | 4 | 4 | 0.2810 | 0.2810 | -0.1230 | -0.1230 |
 | `us-dol` | `DCTDecode` | direct | 15 | 0.001119 | 0.001339 | 3 | 4 | 0.3029 | 0.3190 | -0.2787 | -0.2882 |
-| `ia-uscourts` | `(samples)` | converted | 3 | 0.043906 | 1.000000 | 97 | 101 | 25.1806 | 1089.9152 | +0.2460 | -28.9192 |
-| `fr-cerfa` | `(samples) mask` | direct | 22 | 0.072224 | 0.217945 | 255 | 255 | 4696.3384 | 14171.9016 | -0.0843 | -50.0687 |
+| `ia-uscourts` | `(samples)` | converted | 1 | 0.043906 | 0.043906 | 9 | 9 | 1.8173 | 1.8173 | +0.2460 | +0.2460 |
+| `fr-impots` | `(samples)` | converted | 3 | 0.054095 | 0.054095 | 23 | 23 | 13.2724 | 13.2724 | -0.7743 | -0.7743 |
 | `us-opm` | `(samples)` | converted | 1 | 0.100000 | 0.100000 | 9 | 9 | 4.6706 | 4.6706 | +0.6183 | +0.6183 |
-| `ia-uscourts` | `DCTDecode` | converted | 2 | 0.138858 | 0.138858 | 105 | 105 | 95.0602 | 95.0602 | +0.9965 | +0.9965 |
+| `fr-cerfa` | `(samples)` | converted | 5 | 0.160354 | 0.480214 | 9 | 9 | 5.9697 | 5.9697 | +0.4773 | +1.0355 |
 | `gh-qpdf` | `(samples)` | direct | 2 | 0.222222 | 0.222222 | 32 | 32 | 227.5556 | 227.5556 | +0.0000 | +0.0000 |
-| `uk-govuk` | `(samples)` | converted | 1 | 0.273188 | 0.273188 | 35 | 35 | 292.3110 | 292.3110 | -8.9241 | -8.9241 |
-| `us-uscis` | `(samples)` | converted | 1 | 0.466357 | 0.466357 | 35 | 35 | 365.4217 | 365.4217 | -12.2960 | -12.2960 |
-| `fr-impots` | `(samples)` | converted | 10 | 0.489155 | 0.499713 | 164 | 170 | 5784.5370 | 6193.2730 | +42.5565 | +44.5049 |
+| `gh-openpdf` | `DCTDecode` | converted | 2 | 0.576389 | 0.576389 | 110 | 110 | 909.3403 | 909.3403 | +9.2931 | +9.2931 |
 | `ia-medical` | `(samples)` | converted | 1 | 0.628462 | 0.628462 | 19 | 19 | 121.8514 | 121.8514 | -8.3359 | -8.3359 |
-| `gh-openpdf` | `DCTDecode` | converted | 2 | 0.939036 | 0.939036 | 110 | 110 | 909.3403 | 909.3403 | +9.2931 | +9.2931 |
-| `gh-pypdf` | `(samples)` | converted | 1 | 0.985783 | 0.985783 | 27 | 27 | 121.3016 | 121.3016 | -4.2622 | -4.2622 |
-| `uk-govuk` | `DCTDecode` | converted | 1 | 0.994621 | 0.994621 | 61 | 61 | 115.5974 | 115.5974 | -2.1431 | -2.1431 |
-| `fr-cerfa` | `(samples)` | converted | 145 | 1.000000 | 1.000000 | 63 | 241 | 3969.0000 | 42752.3333 | -63.0000 | -205.6667 |
-| `fr-impots` | `DCTDecode` | converted | 3 | 1.000000 | 1.000000 | 255 | 255 | 22819.4133 | 22891.5689 | -115.6788 | -115.6788 |
-| `gh-pdfbox` | `(samples)` | converted | 1 | 1.000000 | 1.000000 | 255 | 255 | 20952.5000 | 20952.5000 | +25.5000 | +25.5000 |
+| `fr-impots` | `DCTDecode` | converted | 2 | 0.712278 | 0.712278 | 11 | 11 | 34.9926 | 34.9926 | -3.9243 | -3.9243 |
 | `gh-pdfbox` | `JPXDecode` | converted | 1 | 1.000000 | 1.000000 | 255 | 255 | 42179.8812 | 42179.8812 | -170.0170 | -170.0170 |
 
 ## What is not measured, and why
