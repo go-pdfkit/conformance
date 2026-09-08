@@ -1,6 +1,6 @@
 {
   "corpus": "/Users/Shared/pdfforms",
-  "taken": "2026-09-07T19:31:14Z",
+  "taken": "2026-09-08T18:04:51Z",
   "pages": 1,
   "gate": 2,
   "timeout": "2m0s",
@@ -16,7 +16,7 @@
     },
     {
       "path": "github.com/go-gfx/gfx",
-      "version": "v0.19.0"
+      "version": "v0.20.0"
     },
     {
       "path": "github.com/go-opentype/fonts",
@@ -36,7 +36,7 @@
     },
     {
       "path": "github.com/go-pdfkit/render",
-      "version": "v0.22.0"
+      "version": "v0.25.0"
     },
     {
       "path": "github.com/sergeymakinen/go-bmp",
@@ -99,26 +99,26 @@
           },
           "converted": {
             "pictures": 3,
-            "exact": 0,
+            "exact": 1,
             "identical": 0,
             "inverted": 0,
-            "differing": 3,
+            "differing": 2,
             "terms": {
               "share": {
-                "median": 1,
-                "worst": 1
+                "median": 0.7122776821572002,
+                "worst": 0.7122776821572002
               },
               "peak": {
-                "median": 255,
-                "worst": 255
+                "median": 11,
+                "worst": 11
               },
               "mse": {
-                "median": 22819.413296041308,
-                "worst": 22891.568870720977
+                "median": 34.99256550009562,
+                "worst": 34.99256550009562
               },
               "mean": {
-                "median": -115.67878657487091,
-                "worst": -115.67878657487091
+                "median": -3.9243402180149167,
+                "worst": -3.9243402180149167
               }
             }
           }
@@ -128,6 +128,7 @@
           "pictures": 64,
           "unmatched": 0,
           "remapped": 40,
+          "rawBits": 6,
           "direct": {
             "pictures": 2,
             "exact": 2,
@@ -136,28 +137,28 @@
             "differing": 0
           },
           "converted": {
-            "pictures": 22,
-            "exact": 12,
-            "identical": 12,
+            "pictures": 16,
+            "exact": 13,
+            "identical": 13,
             "inverted": 0,
-            "differing": 10,
+            "differing": 3,
             "calibrated": 3,
             "terms": {
               "share": {
-                "median": 0.4891554151106004,
-                "worst": 0.49971272622809537
+                "median": 0.054094827586206894,
+                "worst": 0.054094827586206894
               },
               "peak": {
-                "median": 164,
-                "worst": 170
+                "median": 23,
+                "worst": 23
               },
               "mse": {
-                "median": 5784.537010437613,
-                "worst": 6193.272957962271
+                "median": 13.272392241379311,
+                "worst": 13.272392241379311
               },
               "mean": {
-                "median": 42.556521114622235,
-                "worst": 44.50493153308436
+                "median": -0.7742887931034482,
+                "worst": -0.7742887931034482
               }
             }
           }

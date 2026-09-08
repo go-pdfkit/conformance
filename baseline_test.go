@@ -105,20 +105,24 @@ func TestTheBaselineReadmeDescribesTheRecordsBesideIt(t *testing.T) {
 }
 
 // row returns the README line that names a module, matching any suffix of its
-// path in backticks -- `github.com/go-pdfkit/render`, `go-pdfkit/render` or
-// `render`, whichever the file happens to use.
+// path in backticks that still carries a slash -- `github.com/go-pdfkit/render`
+// or `go-pdfkit/render`, whichever the file happens to use.
+//
+// It stops before the bare last segment on purpose. Reducing golang.org/x/image
+// to `image` matched a sentence listing poppler's four listing types -- "image",
+// "stencil", "mask", "smask" -- and then demanded a version number on it. A
+// module written in prose carries at least its organisation; a bare word does
+// not name a module, and treating it as one turns any vocabulary word into a
+// false failure.
 func row(text, path string) (string, bool) {
-	for {
+	for strings.Contains(path, "/") {
 		want := "`" + path + "`"
 		for _, line := range strings.Split(text, "\n") {
 			if strings.Contains(line, want) {
 				return line, true
 			}
 		}
-		i := strings.IndexByte(path, '/')
-		if i < 0 {
-			return "", false
-		}
-		path = path[i+1:]
+		path = path[strings.IndexByte(path, '/')+1:]
 	}
+	return "", false
 }
