@@ -524,9 +524,22 @@ func match(theirs []shot, claimed []bool, ours *raster.Image, object int, mask b
 	return -1, ""
 }
 
-// isMask says whether a listing row is one of the two kinds that stand for a
-// mask rather than for a picture.
-func isMask(kind string) bool { return kind == "smask" || kind == "stencil" }
+// isMask says whether a listing row stands for a mask rather than for a
+// picture.
+//
+// pdfimages prints FOUR types, and ImageOutputDev.cc:138-147 is the whole list:
+// "image", "stencil", "mask", "smask". Three of them are masks. This named two,
+// and the comment above it said "one of the two kinds" -- a sentence that was
+// wrong against the source it describes.
+//
+// It went unseen while mask names had no object number to pair on: they fell
+// back to size and found their row anyway. Publishing the number (conformance
+// #32) made the object test decisive, and a /Mask row -- type "mask" -- then
+// failed it and matched nothing at all. 280 pictures across the corpus came
+// back unpaired, 193 of them in ia-medical alone.
+func isMask(kind string) bool {
+	return kind == "smask" || kind == "stencil" || kind == "mask"
+}
 
 // How a picture was paired with the judge's.
 const (

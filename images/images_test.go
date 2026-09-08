@@ -1403,12 +1403,26 @@ func TestAnObjectTheJudgeDidNotListIsNotGivenSomebodyElsesRow(t *testing.T) {
 	}
 }
 
+// TestWhichListingRowsStandForMasks holds the whole of poppler's list, which is
+// the only way this can be right.
+//
+// ImageOutputDev.cc:138-147 prints four types and no others: "image",
+// "stencil", "mask", "smask". This test used to name three of them and pass,
+// because "mask" was missing from the test for the same reason it was missing
+// from the code -- and a truth table with a row left out cannot say the row is
+// wrong. 280 pictures came back unpaired when the object test became decisive.
+//
+// The four are written out here in the order the source declares them, so the
+// next reader can check the list rather than trust it.
 func TestWhichListingRowsStandForMasks(t *testing.T) {
 	for kind, want := range map[string]bool{
-		"image": false, "smask": true, "stencil": true, "": false,
+		// ImageOutputDev.cc, in order:
+		"image": false, "stencil": true, "mask": true, "smask": true,
+		// and anything else, which is a row we could not read:
+		"": false, "picture": false,
 	} {
 		if got := isMask(kind); got != want {
-			t.Errorf("isMask(%q) = %v", kind, got)
+			t.Errorf("isMask(%q) = %v, want %v", kind, got, want)
 		}
 	}
 }
