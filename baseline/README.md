@@ -236,13 +236,14 @@ with the same 1990 identical.
 
 ## What this says
 
-**Fourteen findings, and they are about four runs.** §1 to §8 and §10 were
+**Fifteen findings, and they are about four runs.** §1 to §8 and §10 were
 written about earlier ones — §1 to §5 and §7 about the v0.20.0 → v0.21.0
 comparison of 2026-08-31, §8 and §10 about the two runs of 2026-09-07 — and are
 kept because their reasoning still holds; where they quote a figure, that figure
 is the one their own run measured. §6 was rewritten when a later run disproved
 it. **§9 is rewritten again here**, because the gap it called "the work" turned
-out not to be a codec at all. §11 to §14 belong to this run.
+out not to be a codec at all. §11 to §15 belong to this run, and §14 corrects a claim §14 itself made
+before the pictures were split.
 
 Read §11 to §13 together. They are three shapes of one mistake — **a picture is
 not a colour, and a name is not an identity** — and each was found by a number
@@ -723,20 +724,64 @@ What found it was a number that belonged to neither expected answer. Ours read
 **128** where the two candidate palettes offered 0 and 255 — and a value absent
 from both vocabularies cannot be a rounding. The palette really was `808080`.
 
-### 14. What remains, and what is deliberately not done
+### 14. What remains, measured by splitting the pictures rather than by inference
 
-`DCTDecode`'s residual is bounded and its two parts are measured separately.
+The previous section of this file said "the rest is the IDCT". **That was an
+inference and it is wrong.** Splitting `DCTDecode`'s pictures by the shape of
+their own frame header settles it:
 
-**The colour conversion contributes at most one level.** Over all 16 777 216
-colours, Go's `YCbCrToRGB` and libjpeg's differ by 0 (60.15%) or 1 (39.85%),
-never more — the fixed-point constants are the SAME (91881, 22554, 46802,
-116130) and only the rounding differs, Go adding `y×257` where libjpeg adds a
+| shape and bucket | pictures | differ | **worst peak** |
+|---|---:|---:|---:|
+| 1 component, 1×1, direct | 36 | **0** | **1** |
+| 3 components, 1×1, direct | 68 | 26 | **4** |
+| 3 components, 2×1, direct | 1 | 1 | 3 |
+| 3 components, 2×2, direct | 209 | 154 | **4** |
+| 1 component, 1×1, converted | 6 | 2 | 11 |
+| 3 components, 1×1, converted | 2 | 2 | 3 |
+| **3 components, 2×2, converted** | 24 | 10 | **110** |
+| 4 components, 2×2, converted | 1 | 1 | **33** |
+
+**How the split was taken**, since the records do not carry it: the shape comes
+out of each drawn JPEG's own frame header — the component count is the tenth byte
+of the `SOF` segment and the first component's sampling factors are the twelfth,
+one nibble each — walked over the page's content stream so the picture is the one
+the page draws. Twenty lines against `images.Judge`, and the same numbers come
+back. If this becomes a standing question rather than a one-off, the shape
+belongs in the records instead.
+
+Three readings, and each is a measurement rather than a deduction.
+
+**A one-component JPEG exercises the IDCT and nothing else** — no chroma to
+upsample, no colour to convert — and **not one of the 36 exceeds the gate**, at a
+worst peak of 1. Whatever the residual is, the IDCT is not it.
+
+**Chroma upsampling adds nothing measurable.** Unsubsampled colour peaks at 4 and
+2×2-subsampled colour peaks at 4 as well. That is what a faithful port looks like
+from the outside, and `chroma.go`'s `h2v2Row` is faithful term for term to
+`jdsample.c:405-423`: the same `near*3 + far` column sum, the same asymmetric
+`+8` / `+7` rounding on the even and odd output columns, the same `*4` edge
+replication.
+
+**Every large peak is in the CONVERTED bucket.** 110 and 33 are colour-space
+arithmetic — an ICC or Lab or Separation space poppler had to convert — which
+this file counts apart by construction and says is "not a decoder disagreeing".
+The direct buckets, all of them, stop at 4.
+
+So `DCTDecode`'s 217 differing pictures are **all within 4 levels**, and what
+makes them differ is the gate rather than a defect. Three IDCTs at ±1 and a
+YCbCr-to-RGB conversion at ±1 compound to exactly that: the conversion was
+measured over all 16 777 216 colours and differs from libjpeg by 0 (60.15%) or 1
+(39.85%) and never more, the constants being identical (91881, 22554, 46802,
+116130) and only the rounding differing — Go adds `y×257` where libjpeg adds a
 fixed half.
 
-**The rest is the IDCT.** Go has its own, libjpeg uses `jpeg_idct_islow`, and two
-conforming IDCTs are permitted to differ. Closing that gap means forking
-`image/jpeg` for three levels on a few hundredths of a percent of pixels.
-Measured, bounded, written down; not undertaken.
+**That is a question about the gate, and this file does not answer it.** `D` = 2
+is derived from the ISO/IEC 10918-2 allowance for ONE IDCT, and it is applied
+here to a composition of three plus a colour conversion. The derivation does not
+cover the thing it is being used on. Changing it would move every figure in this
+document, so it is stated and left: see §15.
+
+### 15. What is bounded and deliberately not done
 
 **A four-component JPEG 2000 is drawn wrong**, and not fixably here.
 `go-jpeg2000`'s `convertToRGBA` has branches for one, two and "three or more"
