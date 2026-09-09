@@ -255,6 +255,54 @@ different operation would repeat exactly the mistake the withdrawn 1% was — a
 number carried onto an instrument that did not produce it. They are recorded so
 that a bound can be chosen from evidence later.
 
+#### A bound measured for extracted pictures, at last
+
+The invitation above is answered by the run recorded in
+[`baseline/`](baseline/README.md), and the answer is a **derivation** rather than
+a borrowed constant.
+
+Every direct bucket that differs across the 23 populations is `DCTDecode`, save
+one, and each sits inside a narrow band:
+
+| | peak | `mse` | `mean` |
+|---|---:|---:|---:|
+| the 13 differing `DCTDecode` direct buckets | 3 to **4** | 0.065 to **0.654** | −0.58 to +0.38 |
+| `gh-qpdf/(samples)`, 2 pictures | **32** | **227.6** | **exactly 0.0000** |
+
+**The outlier is not a decoder.** A `mean` of exactly nought beside a peak of 32
+is what comparing two DIFFERENT pictures looks like, and those two are the known
+mis-pairing: `qpdf_qtest_qpdf_form-xobjects-no-resources-out.pdf` draws four
+15×15 grey pictures and the name `Im1` reaches two of them, so the ambiguity rule
+refuses an identity and the size fallback draws from a hat. It is a pairing
+question, recorded in the baseline's §15, and not a bound to be set around.
+
+**And the ISO bound does not transfer, but its arithmetic does.** FFmpeg's
+`dct.c:259` fails an IDCT when `err_inf > 1 || omse > 0.02 || fabs(ome) > 0.0015`,
+all measured per output sample against a FLOAT reference. Two implementations
+each within `omse` 0.02 of that reference differ from each other by at most
+(√0.02 + √0.02)² = **0.08**. Our `DCTDecode` band reaches **0.654**, eight times
+that — and the excess is not non-conformance. It is composition: a three-
+component picture puts three IDCTs and a YCbCr-to-RGB mix between the
+coefficients and the pixels, and the mix has coefficients up to 1.772. The
+baseline's §14 measures the same thing from the other side: a ONE-component
+JPEG, which is one IDCT and nothing else, has **not one picture of 36 outside the
+gate**, at a worst peak of 1.
+
+So the honest bound for this instrument, on extracted pictures, is **`mse` at
+most 0.66 and `|mean|` at most 0.58 for a composed colour picture, and ffmpeg's
+0.02 for a single grey IDCT** — and the two differ by the composition rather than
+by anybody's conformance. Neither is made a pass criterion here: `peak` remains
+the criterion, and these are now recorded WITH a measurement behind them instead
+of as an open question.
+
+The same reading is why `D` = 2 cannot be defended for a colour picture on the
+standard's authority. It is derived from `err_inf > 1` — each implementation
+within one level of the reference, so two of them within two of each other — and
+that is a statement about ONE IDCT. Applied to three plus a colour mix it is
+tighter than its own derivation supports, which is why 217 pictures differ at a
+peak of 3 or 4 and none at more. **Changing it would move every figure in the
+baseline, so it is stated here and not acted on.**
+
 Beside `exact`, every bucket also counts **`identical`**: how many of the
 agreeing pictures differed by *nothing at all*. A gate is a loosening, and a
 reader who cannot tell bit equality from agreement the gate carried has an
