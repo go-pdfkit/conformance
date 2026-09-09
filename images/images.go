@@ -449,7 +449,6 @@ func judgePage(d *reader.Document, path string, p int) []Result {
 	// page alone. Over the eight documents that do this, pairing by object
 	// takes agreement from 2906 to 3414 of 3449, complements from 173 to 29,
 	// and other differences from 370 to 6. See conformance#13.
-	objects := objectsByName(d, p)
 	claimed := make([]bool, len(theirs))
 	out := make([]Result, 0, len(ours))
 	for _, im := range ours {
@@ -457,7 +456,7 @@ func judgePage(d *reader.Document, path string, p int) []Result {
 			Stencil: im.Stencil, Decoded: im.Decoded, Calibrated: own[im.Name],
 			RawBits: bits[im.Name],
 			W:       im.Pic.W, H: im.Pic.H, Difference: unjudged()}
-		j, how := match(theirs, claimed, im.Pic, objects[im.Name], im.Stencil)
+		j, how := match(theirs, claimed, im.Pic, im.Object, im.Stencil)
 		if j < 0 {
 			r.Note = "they took out nothing this size"
 			out = append(out, r)
@@ -659,104 +658,6 @@ var cieSpaces = map[reader.Name]bool{
 // spaces stops. It is render's own bound (maxImageDepth), so that this reaches
 // the pictures render.Images returns and no others.
 const maxFormDepth = 8
-
-// objectsByName maps each picture resource name a page reaches to the object
-// number of the picture it names.
-//
-// It is the other half of pairing by identity. pdfimages publishes an object
-// number for every row it lists; render.Images hands back a resource NAME.
-// This walks the same resource graph calibratedIn does and joins the two.
-//
-// A name that reaches two different objects is dropped rather than guessed at.
-// A name is unique within one resource dictionary and not across the several a
-// page reaches through its forms, so a page whose two forms each name their own
-// Im1 has one ambiguous name and everything else still paired by identity --
-// the conservative direction, since a wrong identity is worse than none.
-func objectsByName(d *reader.Document, page int) map[string]int {
-	out, ambiguous := map[string]int{}, map[string]bool{}
-	pg, err := d.Page(page)
-	if err != nil {
-		return out
-	}
-	res, _ := d.Resolve(pg["Resources"])
-	objectsIn(d, res, out, ambiguous, map[reader.Ref]bool{}, 0)
-	for name := range ambiguous {
-		delete(out, name)
-	}
-	return out
-}
-
-// objectsIn adds one resource dictionary's picture names, and follows the
-// forms it reaches.
-//
-// The visited set is on FORMS only, unlike calibratedIn's: a picture drawn
-// under two names has to be recorded under both, and skipping the second would
-// leave it paired by size.
-func objectsIn(d *reader.Document, res reader.Object, out map[string]int,
-	ambiguous map[string]bool, seen map[reader.Ref]bool, depth int) {
-	if depth > maxFormDepth {
-		return
-	}
-	rd, ok := reader.ToDict(res)
-	if !ok {
-		return
-	}
-	xo, _ := d.Resolve(rd["XObject"])
-	xd, ok := reader.ToDict(xo)
-	if !ok {
-		return
-	}
-	for name, entry := range xd {
-		ref, isRef := entry.(reader.Ref)
-		o, _ := d.Resolve(entry)
-		st, ok := reader.ToStream(o)
-		if !ok {
-			continue
-		}
-		switch sub, _ := reader.ToName(st.Dict["Subtype"]); sub {
-		case "Image":
-			if !isRef {
-				continue // an inline picture has no object number to pair on
-			}
-			record(out, ambiguous, string(name), ref.Num)
-			// A mask is listed under the object of the picture that NAMES it,
-			// not under its own. pdfimages writes the parent's number on an
-			// smask row: cerfa_10074.pdf's object 119 is a 2x2 picture whose
-			// /SMask is object 120, and the smask row says 119.
-			//
-			// render names those entries for the key that reached them --
-			// Image213/SMask, Im0/Mask -- and nothing here recorded such a
-			// name, so every mask in the corpus fell back to being paired by
-			// SIZE. On a page drawing 211 same-size pictures under masks that
-			// carry the glyph shapes, that is a lottery.
-			for _, key := range []string{"SMask", "Mask"} {
-				m, _ := d.Resolve(st.Dict[reader.Name(key)])
-				if _, ok := reader.ToStream(m); ok {
-					record(out, ambiguous, string(name)+"/"+key, ref.Num)
-				}
-			}
-		case "Form":
-			if isRef {
-				if seen[ref] {
-					continue
-				}
-				seen[ref] = true
-			}
-			inner, _ := d.Resolve(st.Dict["Resources"])
-			objectsIn(d, inner, out, ambiguous, seen, depth+1)
-		}
-	}
-}
-
-// record notes what object a name reached, and drops the name when two
-// different objects answer to it: a guess is worth less than an admission.
-func record(out map[string]int, ambiguous map[string]bool, name string, num int) {
-	if was, seenBefore := out[name]; seenBefore && was != num {
-		ambiguous[name] = true
-		return
-	}
-	out[name] = num
-}
 
 // rawBitNames is the resource names on one page whose picture pdfimages writes
 // as samples rather than as colour.
