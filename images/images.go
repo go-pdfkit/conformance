@@ -433,8 +433,8 @@ func judgePage(d *reader.Document, path string, p int) []Result {
 	// What poppler says about a picture's colour space is not enough on its
 	// own; see the package comment and conformance#20. This is the other
 	// half, read out of the document rather than out of the listing.
-	own := calibratedNames(d, p)
-	bits := rawBitNames(d, p)
+	own := calibratedObjects(d, p)
+	bits := rawBitObjects(d, p)
 	// A picture is paired by OBJECT NUMBER, which both sides publish: theirs
 	// in the object column of pdfimages -list, ours by resolving the resource
 	// name render.Images hands back. Where that cannot be done the old rule
@@ -453,8 +453,8 @@ func judgePage(d *reader.Document, path string, p int) []Result {
 	out := make([]Result, 0, len(ours))
 	for _, im := range ours {
 		r := Result{Path: path, Page: p, Name: im.Name, Filter: im.Filter,
-			Stencil: im.Stencil, Decoded: im.Decoded, Calibrated: own[im.Name],
-			RawBits: bits[im.Name],
+			Stencil: im.Stencil, Decoded: im.Decoded, Calibrated: own[im.Object],
+			RawBits: bits[im.Object],
 			W:       im.Pic.W, H: im.Pic.H, Difference: unjudged()}
 		j, how := match(theirs, claimed, im.Pic, im.Object, im.Stencil)
 		if j < 0 {
@@ -659,16 +659,16 @@ var cieSpaces = map[reader.Name]bool{
 // the pictures render.Images returns and no others.
 const maxFormDepth = 8
 
-// rawBitNames is the resource names on one page whose picture pdfimages writes
-// as samples rather than as colour.
+// rawBitObjects is the objects on one page whose picture pdfimages writes as
+// samples rather than as colour.
 //
 // The rule is poppler's, not a reading of it: ImageOutputDev.cc:642 takes
 // PNGWriter::MONOCHROME when the colour map has one component and one bit, and
 // the monochrome path writes the bytes straight out. A one-bit DeviceGray or
 // CalGray loses nothing that way -- the sample is the level -- so only the
 // spaces whose sample is an INDEX or a TINT are named here.
-func rawBitNames(d *reader.Document, page int) map[string]bool {
-	out := map[string]bool{}
+func rawBitObjects(d *reader.Document, page int) map[int]bool {
+	out := map[int]bool{}
 	pg, err := d.Page(page)
 	if err != nil {
 		return out
@@ -678,7 +678,7 @@ func rawBitNames(d *reader.Document, page int) map[string]bool {
 	return out
 }
 
-func rawBitsIn(d *reader.Document, res reader.Object, out map[string]bool,
+func rawBitsIn(d *reader.Document, res reader.Object, out map[int]bool,
 	seen map[reader.Ref]bool, depth int) {
 	if depth > maxFormDepth {
 		return
@@ -692,8 +692,9 @@ func rawBitsIn(d *reader.Document, res reader.Object, out map[string]bool,
 	if !ok {
 		return
 	}
-	for name, entry := range xd {
-		if ref, isRef := entry.(reader.Ref); isRef {
+	for _, entry := range xd {
+		ref, isRef := entry.(reader.Ref)
+		if isRef {
 			if seen[ref] {
 				continue
 			}
@@ -706,8 +707,8 @@ func rawBitsIn(d *reader.Document, res reader.Object, out map[string]bool,
 		}
 		switch sub, _ := reader.ToName(st.Dict["Subtype"]); sub {
 		case "Image":
-			if writtenAsBits(d, st.Dict) {
-				out[string(name)] = true
+			if isRef && writtenAsBits(d, st.Dict) {
+				out[ref.Num] = true
 			}
 		case "Form":
 			inner, _ := d.Resolve(st.Dict["Resources"])
@@ -737,10 +738,64 @@ func writtenAsBits(d *reader.Document, dict reader.Dict) bool {
 	}
 	fam, _ := reader.ToName(arr[0])
 	switch fam {
-	case "Indexed", "Separation", "DeviceN", "Lab":
+	case "Separation", "DeviceN", "Lab":
 		return true
+	case "Indexed":
+		// An INDEXED picture only loses something if its palette is not the
+		// one the judge assumes. pdfimages writes bit 0 as black and bit 1 as
+		// white; a palette that says exactly that loses nothing, and marking it
+		// would throw away a comparison that is perfectly good.
+		//
+		// This matters: keying these by object rather than by name (render
+		// v0.26.0) doubled the population fr-cerfa marks, from 669 to 1336 --
+		// and 667 of the newcomers had been compared and come out EXACT, which
+		// is what a palette of 000000/ffffff produces. The rule was written for
+		// cerfa_10074.pdf's 808080/ffffff, and that is the shape it should
+		// name.
+		return !blackAndWhite(d, arr)
 	}
 	return false
+}
+
+// blackAndWhite reports whether a one-bit indexed palette maps bit 0 to black
+// and bit 1 to white, which is what pdfimages writes when it discards the
+// palette. Anything else -- a different pair, a shorter table, a base this
+// cannot read -- is not that, and the picture is counted apart.
+func blackAndWhite(d *reader.Document, arr reader.Array) bool {
+	if len(arr) < 4 {
+		return false
+	}
+	var table []byte
+	o, _ := d.Resolve(arr[3])
+	if b, ok := reader.ToString(o); ok {
+		table = b
+	} else if st, ok := reader.ToStream(o); ok {
+		table = d.DecodeStreamRecovering(st).Data
+	} else {
+		return false
+	}
+	// How wide one entry is, taken from the base space rather than assumed.
+	base, _ := d.Resolve(arr[1])
+	n := 0
+	switch bn, _ := reader.ToName(base); bn {
+	case "DeviceGray", "CalGray":
+		n = 1
+	case "DeviceRGB", "CalRGB":
+		n = 3
+	case "DeviceCMYK":
+		n = 4
+	default:
+		return false
+	}
+	if len(table) < 2*n {
+		return false
+	}
+	for i := 0; i < n; i++ {
+		if table[i] != 0x00 || table[n+i] != 0xff {
+			return false
+		}
+	}
+	return true
 }
 
 // calibratedNames is the resource names on one page whose picture declares a
@@ -748,19 +803,22 @@ func writtenAsBits(d *reader.Document, dict reader.Dict) bool {
 //
 // Two things about it are deliberate, and both are the conservative direction.
 //
-// A name is keyed rather than an object, because that is all render.Images
-// hands back to pair with. A name is unique within one resource dictionary and
-// NOT across the several a page reaches through its forms, so a page where two
-// forms each name their own Im1 and only one of them is CalRGB marks both.
-// That over-counts the converted bucket by at most those pictures, and the
-// alternative under-counts it — which is the direction that credits a colour
-// conversion to a codec, the very thing conformance#20 is about.
+// It is keyed by OBJECT. It was keyed by name until render v0.26.0, "because
+// that is all render.Images hands back to pair with", and that cost an
+// over-count the old comment recorded: a page where two forms each name their
+// own Im1 and only one of them is CalRGB marked BOTH. render hands back the
+// object now, and a page like that is not hypothetical — gh-qpdf's
+// form-xobjects-no-resources-out.pdf is one.
+//
+// A picture with no object number is not marked. A PDF stream must be an
+// indirect object, so such a picture is a malformed file; across the 5917 the
+// forms corpus draws, there are none.
 //
 // A page whose structure cannot be read yields nothing rather than an error.
 // The listing still classifies every picture, so the worst this can do is
 // leave the bucketing exactly where it was before conformance#20.
-func calibratedNames(d *reader.Document, page int) map[string]bool {
-	out := map[string]bool{}
+func calibratedObjects(d *reader.Document, page int) map[int]bool {
+	out := map[int]bool{}
 	pg, err := d.Page(page)
 	if err != nil {
 		return out
@@ -776,7 +834,7 @@ func calibratedNames(d *reader.Document, page int) map[string]bool {
 // The visited set is on the REFERENCE and not on the name, because a page's
 // resources are a graph: a form reached through two others would otherwise be
 // walked twice, and a cycle would not terminate at all.
-func calibratedIn(d *reader.Document, res reader.Object, out map[string]bool,
+func calibratedIn(d *reader.Document, res reader.Object, out map[int]bool,
 	seen map[reader.Ref]bool, depth int) {
 	if depth > maxFormDepth {
 		return
@@ -790,8 +848,9 @@ func calibratedIn(d *reader.Document, res reader.Object, out map[string]bool,
 	if !ok {
 		return
 	}
-	for name, entry := range xd {
-		if ref, isRef := entry.(reader.Ref); isRef {
+	for _, entry := range xd {
+		ref, isRef := entry.(reader.Ref)
+		if isRef {
 			if seen[ref] {
 				continue
 			}
@@ -804,8 +863,8 @@ func calibratedIn(d *reader.Document, res reader.Object, out map[string]bool,
 		}
 		switch sub, _ := reader.ToName(st.Dict["Subtype"]); sub {
 		case "Image":
-			if calibratedSpace(d, st.Dict["ColorSpace"], rd) {
-				out[string(name)] = true
+			if isRef && calibratedSpace(d, st.Dict["ColorSpace"], rd) {
+				out[ref.Num] = true
 			}
 		case "Form":
 			inner, _ := d.Resolve(st.Dict["Resources"])
