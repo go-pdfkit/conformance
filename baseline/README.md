@@ -25,9 +25,9 @@ instrument.
 | **walk** | **the page's CONTENT STREAM, not its /Resources** ([render#43](https://github.com/go-pdfkit/render/pull/43)) |
 | **bucketing** | the listing **and** the picture's own `/ColorSpace` ([conformance#20](https://github.com/go-pdfkit/conformance/issues/20)) |
 | **bound on the judge** | **2m0s per document, per tool** ([conformance#21](https://github.com/go-pdfkit/conformance/issues/21)) |
-| `go-pdfkit/render` | **v0.25.0** |
+| `go-pdfkit/render` | **v0.28.0** |
 | `go-pdfkit/reader` | v0.6.0 |
-| `go-gfx/gfx` | **v0.20.0** |
+| `go-gfx/gfx` | **v0.23.0** |
 | `tannevaled/gobig2` | v0.1.0 |
 | `ajroetker/go-jpeg2000` | v0.0.2 |
 | pages per document | 1 (the first page of each document) |
@@ -63,24 +63,45 @@ bound.
 What that cost the run this replaces, over the same 23 populations, the same
 3280 documents and the same judge:
 
-| | v0.22.0 | v0.25.0 |
-|---|---:|---:|
-| pictures returned | 8063 | 8063 |
-| carrying a `/Decode` array | 545 | 545 |
-| **written by the judge as bits** | **0** | **678** |
-| with no counterpart at all | 5 | 5 |
-| pictures compared | 7513 | **6835** |
-| exact | 6657 | 6156 |
-| reported inverted | 426 | 425 |
-| **reported differing** | **430** | **254** |
-| **agreement** | **93.9%** | **96.0%** |
+| | v0.22.0 | v0.25.0 | **v0.28.0** |
+|---|---:|---:|---:|
+| pictures returned | 8063 | 8063 | 8063 |
+| carrying a `/Decode` array | 545 | 545 | 545 |
+| **written by the judge as bits** | **0** | **678** | **261** |
+| with no counterpart at all | 5 | 5 | 5 |
+| pictures compared | 7513 | **6835** | **7252** |
+| exact | 6657 | 6156 | **6582** |
+| reported inverted | 426 | 425 | 425 |
+| **reported differing** | **430** | **254** | **245** |
+| **agreement** | **93.9%** | **96.0%** | **96.4%** |
 
 **The picture count did not move, and that is the point.** 678 pictures left the
-comparison because the judge writes their SAMPLES and not their colour, which is
-a different question rather than a disagreement; the 176 fewer differing are
-what is left when 131 of those and 22 mis-paired masks stop being counted as
-defects. Seven populations moved, sixteen are identical to the byte, and **not
-one moved backwards** on any term.
+comparison at v0.25.0 because the judge writes their SAMPLES and not their
+colour, which is a different question rather than a disagreement; the 176 fewer
+differing are what is left when 131 of those and 22 mis-paired masks stop being
+counted as defects. Seven populations moved, sixteen are identical to the byte,
+and **not one moved backwards** on any term.
+
+**The third column is the more interesting one, because it moves the opposite
+way.** 417 pictures came BACK into the comparison — the bits rule had been keyed
+by name and was reaching pictures it did not mean (§15) — and the differing
+count still fell, from 254 to 245. More pictures judged and fewer of them
+differing is the only combination that cannot be had by moving the goalposts.
+
+Three changes lie between the two columns, and they do different things. The
+object-keyed walk is the 417 (`render` v0.26.0). Reading `CalGray` and `CalRGB`
+instead of their device namesakes is the 9 fewer differing, and it is also where
+the magnitudes went: `DCTDecode converted` peaks at **33** where it peaked at
+110, its worst `mse` falling from 909.34 to 34.99 (v0.27.0, §16). Drawing a
+`Lab` colour rather than a grey of its lightness moved no counter in this
+corpus, which has 12 documents mentioning `/Lab` and none of them on a first
+page (v0.28.0).
+
+**Nothing moved backwards here either**, and it was checked rather than hoped:
+across the two columns, 7 of the 23 populations changed and 16 are identical to
+the byte, and **not one bucket row anywhere gained a differing picture, a bigger
+peak or a bigger `mse`**. Of the changed populations, four are the calibrated
+step alone — `fr-cerfa`, `gh-openpdf`, `us-opm` and `ia-uscourts`.
 
 **Read `unmatched` beside them.** It stays at 5, and that number is the whole
 proof that #34 landed: with the mask paired by its parent's object but `isMask`
@@ -187,24 +208,24 @@ Scanned pages — `/Users/Shared/pdfscans`:
 | `ia-biodiversity` | 250 | 0 | 1 | 0 | 0 | 752 | 703 | 53 | 650 | 650 | 157 | 100.0% | 0 | 0 |
 | `ia-americana` | 250 | 28 | 0 | 0 | 0 | 502 | 494 | 89 | 405 | 379 | 96 | 93.6% | 8 | 8 |
 | `ia-texts` | 12 | 7 | 0 | 0 | 0 | 14 | 14 | 3 | 11 | 11 | 2 | 100.0% | 0 | 0 |
-| `ia-uscourts` | 250 | 0 | 0 | 0 | 0 | 133 | 114 | 40 | 74 | 66 | 54 | 89.2% | 16 | 2 |
+| `ia-uscourts` | 250 | 0 | 0 | 0 | 0 | 133 | 113 | 40 | 73 | 65 | 53 | 89.0% | 17 | 3 |
 
 Government and library forms — `/Users/Shared/pdfforms`:
 
 | population | documents | unopenable | refused | declined | hung | pictures | direct | inverted | compared | exact | identical | agreement | converted | calibrated |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | `ca-cra` | 84 | 0 | 0 | 0 | 0 | 151 | 0 | 0 | 0 | 0 | 0 | n/a | 0 | 0 |
-| `fr-cerfa` | 450 | 0 | 0 | 0 | 0 | 4378 | 1338 | 15 | 1323 | 1211 | 1151 | 91.5% | 2309 | 1741 |
+| `fr-cerfa` | 450 | 0 | 0 | 0 | 0 | 4378 | 1206 | 15 | 1191 | 1079 | 1020 | 90.6% | 2858 | 1747 |
 | `fr-impots` | 50 | 0 | 0 | 0 | 0 | 109 | 20 | 0 | 20 | 19 | 6 | 95.0% | 19 | 3 |
 | `gh-openpdf` | 56 | 14 | 0 | 0 | 0 | 49 | 26 | 0 | 26 | 21 | 6 | 80.8% | 2 | 1 |
 | `gh-pdfbox` | 157 | 8 | 0 | 0 | 0 | 41 | 29 | 1 | 28 | 26 | 23 | 92.9% | 9 | 1 |
 | `gh-pdfcpu` | 147 | 0 | 0 | 0 | 0 | 696 | 639 | 0 | 639 | 599 | 597 | 93.7% | 57 | 32 |
-| `gh-pypdf` | 34 | 1 | 0 | 0 | 0 | 15 | 8 | 0 | 8 | 6 | 6 | 75.0% | 6 | 3 |
-| `gh-qpdf` | 81 | 0 | 0 | 0 | 0 | 63 | 63 | 0 | 63 | 58 | 39 | 92.1% | 0 | 0 |
+| `gh-pypdf` | 34 | 1 | 0 | 0 | 0 | 15 | 7 | 0 | 7 | 5 | 5 | 71.4% | 7 | 5 |
+| `gh-qpdf` | 81 | 0 | 0 | 0 | 0 | 63 | 63 | 0 | 63 | 60 | 41 | 95.2% | 0 | 0 |
 | `gh-safedocs` | 26 | 5 | 0 | 0 | 0 | 2 | 2 | 0 | 2 | 1 | 1 | 50.0% | 0 | 0 |
 | `gh-verapdf` | 134 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | n/a | 0 | 0 |
 | `int-wipo` | 116 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | n/a | 0 | 0 |
-| `uk-govuk` | 302 | 0 | 0 | 0 | 0 | 225 | 143 | 1 | 142 | 142 | 111 | 100.0% | 31 | 10 |
+| `uk-govuk` | 302 | 0 | 0 | 0 | 0 | 225 | 135 | 1 | 134 | 134 | 103 | 100.0% | 39 | 18 |
 | `us-dol` | 140 | 0 | 0 | 0 | 0 | 46 | 25 | 0 | 25 | 10 | 10 | 40.0% | 0 | 0 |
 | `us-irs` | 69 | 0 | 0 | 0 | 0 | 8 | 1 | 0 | 1 | 0 | 0 | 0.0% | 0 | 0 |
 | `us-opm` | 66 | 0 | 0 | 0 | 0 | 37 | 31 | 28 | 3 | 3 | 3 | 100.0% | 2 | 0 |
@@ -221,12 +242,12 @@ because the two are far apart and only one of them is the claim, and beside
 
 | filter | pictures | direct | inverted | **compared** | exact | identical | agreement | converted | conv. exact | conv. differing | calibrated | remapped | raw bits | unmatched | differing | worst peak |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `(samples)` | 4280 | 904 | 0 | 904 | 902 | 902 | **99.8%** | 2407 | 2396 | 11 | 1761 | 286 | 678 | 5 | 2 | 32 |
-| `(samples) mask` | 1336 | 1269 | 154 | 1115 | 1115 | 1115 | **100.0%** | 0 | 0 | 0 | 0 | 67 | 0 | 0 | 0 | — |
+| `(samples)` | 4280 | 904 | 0 | 904 | 904 | 904 | **100.0%** | 2950 | 2946 | 4 | 1762 | 286 | 135 | 5 | 0 | 23 |
+| `(samples) mask` | 1336 | 1128 | 154 | 974 | 974 | 974 | **100.0%** | 15 | 15 | 0 | 15 | 67 | 126 | 0 | 0 | — |
 | `JPXDecode` | 1241 | 1231 | 0 | 1231 | 1231 | 7 | **100.0%** | 10 | 9 | 1 | 9 | 0 | 0 | 0 | 0 | 255 |
 | `JBIG2Decode mask` | 591 | 521 | 271 | 250 | 250 | 250 | **100.0%** | 0 | 0 | 0 | 0 | 70 | 0 | 0 | 0 | — |
-| `DCTDecode` | 590 | 425 | 0 | 425 | 208 | 4 | **48.9%** | 44 | 21 | 23 | 32 | 121 | 0 | 0 | 217 | 110 |
-| `DCTDecode mask` | 12 | 12 | 0 | 12 | 12 | 5 | **100.0%** | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — |
+| `DCTDecode` | 590 | 425 | 0 | 425 | 208 | 4 | **48.9%** | 44 | 21 | 23 | 32 | 121 | 0 | 0 | 217 | 33 |
+| `DCTDecode mask` | 12 | 11 | 0 | 11 | 11 | 5 | **100.0%** | 1 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | — |
 | `JBIG2Decode` | 11 | 10 | 0 | 10 | 10 | 10 | **100.0%** | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | — |
 | `JPXDecode mask` | 2 | 2 | 0 | 2 | 2 | 2 | **100.0%** | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — |
 
@@ -242,8 +263,13 @@ comparison of 2026-08-31, §8 and §10 about the two runs of 2026-09-07 — and 
 kept because their reasoning still holds; where they quote a figure, that figure
 is the one their own run measured. §6 was rewritten when a later run disproved
 it. **§9 is rewritten again here**, because the gap it called "the work" turned
-out not to be a codec at all. §11 to §15 belong to this run, and §14 corrects a claim §14 itself made
-before the pictures were split.
+out not to be a codec at all. §11 to §17 belong to this run.
+
+Three of them correct this file rather than the library. §14 corrects a claim
+§14 itself made before the pictures were split; §16 corrects §11, which named
+`CalRGB` among the spaces where reading a JPEG's samples as colour costs
+nothing, and it cost 110 levels; and §15 records that the work its own last
+paragraph proposed has been done.
 
 Read §11 to §13 together. They are three shapes of one mistake — **a picture is
 not a colour, and a name is not an identity** — and each was found by a number
@@ -611,9 +637,13 @@ The `DCTDecode` gap §9 named as "the work" was not a codec at all. Drilling fro
 the aggregate down to one picture found three defects in a row, each downstream
 of the JPEG being decoded correctly.
 
+> **This section named `CalRGB` among the spaces where the distinction costs
+> nothing. That was wrong and it cost 110 levels; see §16.** The sentence is
+> corrected below rather than left standing, and the error is left named.
+
 **A JPEG carries samples, not colours.** `decodeJPEG` went from `image/jpeg`'s
 output straight to pixels, while the non-JPEG path went through the colour space
-the dictionary names. For `DeviceRGB`, `CalRGB`, `ICCBased` and `DeviceGray` the
+the dictionary names. For `DeviceRGB`, `ICCBased` and `DeviceGray` the
 distinction costs nothing. For a space that **transforms** its samples it costs
 the whole picture: a `Separation`'s sample is an amount of **ink**, so a tint of
 nothing is paper, and read as a level of grey it is black.
@@ -710,15 +740,23 @@ an index or a tint it loses everything. `cerfa_10074.pdf` carries an `Indexed`
 palette of `808080` and `ffffff`, which we draw as the mid grey it says and the
 judge writes as a bit.
 
-| `(samples) converted` | before | after |
-|---|---:|---:|
-| pictures | 3072 | 2395 *(677 counted apart)* |
-| **differing** | **140** | **9** |
-| **peak worst** | **255** | **23** |
+| `(samples) converted` | before the rule | after it | **this run** |
+|---|---:|---:|---:|
+| pictures | 3072 | 2395 *(677 counted apart)* | **2950** *(135 counted apart)* |
+| **differing** | **140** | **9** | **4** |
+| **peak worst** | **255** | **23** | **23** |
 
 **131 of the 140 disagreements were this**, and `render` was right in every one.
 They are counted apart beside `/Decode`, under the rule this file already
 carries: the two sides were not asked the same question.
+
+The third column moved in two steps and the middle one is not in this table.
+The rule was keyed by NAME and reached pictures it did not mean; keyed by object
+it sets aside 135 rather than 677, so 543 pictures came back into the comparison
+and the differing count read **11** — more pictures compared, more of them
+differing (§15). Then `CalGray` and `CalRGB` stopped being read as their device
+namesakes and **7 of those 11 became exact**, not merely within the gate, which
+is how 11 became 4 (§16).
 
 What found it was a number that belonged to neither expected answer. Ours read
 **128** where the two candidate palettes offered 0 and 255 — and a value absent
@@ -728,7 +766,9 @@ from both vocabularies cannot be a rounding. The palette really was `808080`.
 
 The previous section of this file said "the rest is the IDCT". **That was an
 inference and it is wrong.** Splitting `DCTDecode`'s pictures by the shape of
-their own frame header settles it:
+their own frame header settles it. The split was taken at `render` **v0.25.0**
+and is left at those figures, because it is the reading that found the defect;
+what the same pictures do now is in §16:
 
 | shape and bucket | pictures | differ | **worst peak** |
 |---|---:|---:|---:|
@@ -738,7 +778,7 @@ their own frame header settles it:
 | 3 components, 2×2, direct | 209 | 154 | **4** |
 | 1 component, 1×1, converted | 6 | 2 | 11 |
 | 3 components, 1×1, converted | 2 | 2 | 3 |
-| **3 components, 2×2, converted** | 24 | 10 | **110** |
+| **3 components, 2×2, converted** | 24 | 10 | **110** *(33 at v0.28.0)* |
 | 4 components, 2×2, converted | 1 | 1 | **33** |
 
 **How the split was taken**, since the records do not carry it: the shape comes
@@ -762,10 +802,16 @@ from the outside, and `chroma.go`'s `h2v2Row` is faithful term for term to
 `+8` / `+7` rounding on the even and odd output columns, the same `*4` edge
 replication.
 
-**Every large peak is in the CONVERTED bucket.** 110 and 33 are colour-space
-arithmetic — an ICC or Lab or Separation space poppler had to convert — which
-this file counts apart by construction and says is "not a decoder disagreeing".
-The direct buckets, all of them, stop at 4.
+**Every large peak is in the CONVERTED bucket.** The direct buckets, all of
+them, stop at 4.
+
+> **What this section then said about those peaks was an inference, and it was
+> wrong.** It read: *"110 and 33 are colour-space arithmetic — an ICC or Lab or
+> Separation space poppler had to convert — which this file counts apart by
+> construction and says is 'not a decoder disagreeing'."* The 110 was neither
+> ICC nor Lab nor Separation: it was a `CalRGB` this renderer was reading as
+> `DeviceRGB`, and it was ours. §16 measures it and §17 says what the 20 that
+> remains is. The 33 is the four-component CMYK JPEG and is unchanged.
 
 So `DCTDecode`'s 217 differing pictures are **all within 4 levels**, and what
 makes them differ is the gate rather than a defect. Three IDCTs at ±1 and a
@@ -779,9 +825,11 @@ fixed half.
 is derived from the ISO/IEC 10918-2 allowance for ONE IDCT, and it is applied
 here to a composition of three plus a colour conversion. The derivation does not
 cover the thing it is being used on. Changing it would move every figure in this
-document, so it is stated and left: see §15.
+document, so it is stated and left. §17 makes it worse and measures how: through
+a calibrated space the SAME input error arrives multiplied, so one number cannot
+serve both buckets.
 
-### 15. What is bounded and deliberately not done
+### 15. What is bounded, and what stopped being
 
 **A four-component JPEG 2000 is drawn wrong**, and not fixably here.
 `go-jpeg2000`'s `convertToRGBA` has branches for one, two and "three or more"
@@ -794,26 +842,166 @@ picture of the 2598 forms and none of the 682 scans — verified, not assumed:
 across the scans, JPEG 2000 pictures are `DeviceRGB` (718), `DeviceGray` (513),
 `ICCBased` (5) and one naming no space at all, with **no `DeviceCMYK`**.
 
-**The pairing still guesses when a name is ambiguous.** `render.Images` names a
-picture by its resource name, and this package rebuilds the object number by
-walking the document again. Where a name reaches two objects — forms without
-`/Resources` of their own — the ambiguity rule correctly refuses an identity and
-the size fallback draws from a hat.
+**The pairing no longer guesses, and this is what it was worth.** This section
+used to end by proposing the work. `render.Images` named a picture by its
+resource name and this package rebuilt the object number by walking the
+document again; where a name reached two objects — forms without `/Resources`
+of their own — the ambiguity rule correctly refused an identity and the size
+fallback drew from a hat.
 `gh-qpdf/qpdf_qtest_qpdf_form-xobjects-no-resources-out.pdf` draws four 15×15
 grey pictures (objects 9–12) and `Im1` means two of them.
 
-`render` already holds the answer: `imagesDrawn` has the `reader.Ref` of the
-stream it just decoded (`images.go:275`), and hands back only the name. An
-`Image.Object` field would retire `objectsByName`, the ambiguity rule and the
-mask-to-parent mapping together.
+`render` v0.26.0 carries `Image.Object`, and `objectsByName`, the ambiguity rule
+and the mask-to-parent mapping are gone with it. The trap named here was real
+and is honoured: a mask's entry carries its **parent's** number, because that is
+what `pdfimages` publishes.
 
-One trap for whoever writes it: a mask's entry must carry its **parent's**
-number, not its own. `render` builds that entry from the parent's dictionary and
-names it `name+"/"+key` (`images.go:218`), so both numbers are in scope at that
-point and the wrong one is the easier to reach — `pdfimages` publishes the
-parent's, which is the whole reason the mapping exists.
+| `gh-qpdf` | before | after |
+|---|---:|---:|
+| `(samples)` direct, exact / differing | 39 / **2** | **41 / 0** |
+| worst peak in that bucket | **32** | **0** |
+| population agreement | 92.1% | **95.2%** |
 
-Two pictures of measured gain, so it is named here rather than done in a hurry.
+Two pictures, as forecast — and the worst of them was the one comparison in the
+whole corpus whose `mean` was exactly nought beside a peak of 32, which is what
+comparing two DIFFERENT pictures looks like. The repository README's bound
+section was built around that outlier; it no longer exists.
+
+**And it moved 543 pictures out of "counted apart" and into the comparison,
+which IS a gain — it is 543 pictures this file had stopped scoring.** The
+raw-bits rule sets aside a one-bit picture whose palette the judge cannot
+write; keyed by name it was reaching pictures it did not mean. Keyed by
+object it reaches the right ones, and the movement balances to the entry:
+
+| `(samples)` | counted apart | direct | converted |
+|---|---:|---:|---:|
+| v0.25.0 | 678 | 904 | 2407 |
+| v0.26.0 | **135** | 904 | **2950** |
+
+126 masks went the other way, for the same reason and as correctly:
+`(samples) mask` set aside 0 and now sets aside 126, its direct and converted
+counts falling by exactly that. Net, 417 more pictures are judged than before,
+and none of them was drawn differently — this is the instrument seeing what it
+already had.
+
+### 16. The judge converts colour two ways, and only one of them can be answered
+
+This file has been counting a `converted` bucket and saying a difference in it
+is "colour arithmetic rather than a decoder disagreeing". That is half right,
+and the half it gets wrong is the half that was actionable.
+
+`libpoppler.159` links `liblcms2` and calls it: `cmsOpenProfileFromMem`,
+`cmsCreateTransform`, `cmsDoTransform`, eleven entry points in the Homebrew
+binary. **But it does not use it for every converted space.**
+
+| space | what `pdfimages` actually runs |
+|---|---|
+| **ICCBased** | `GfxICCBasedColorSpace::buildTransforms` (`GfxState.cc:1823`) falls back to `GfxState::sRGBProfile` when no display profile is set, so the transform is built **unconditionally** and the DOCUMENT's profile is applied, at relative-colorimetric intent. |
+| **CalRGB, CalGray, Lab** | their transform comes from `state->getXYZ2DisplayTransform()`, and `GfxState`'s constructor builds it from a null profile (`:6489`). `pdfimages` never sets one. The little-cms branch is **never armed**, and a pure arithmetic path runs: gamma, matrix, Bradford to D65, sRGB primaries, sRGB encoding. |
+
+So the bucket holds two different kinds of disagreement:
+
+- against **ICCBased**, poppler consults a colour profile we do not read, and no
+  amount of work on a decoder closes that. It is a different pipeline, not a
+  defect.
+- against **a calibrated space**, poppler does arithmetic that is written down
+  and reproducible. Reproducing it exactly — including the colour map's
+  quantisation of the sample to 1/65536 before the gamma — gives **0 differing
+  channels out of 15 552** on the picture below. Any disagreement there is
+  ours.
+
+**We had been treating the second as if it were the first**, and §11 said so in
+as many words: *"For `DeviceRGB`, `CalRGB`, `ICCBased` and `DeviceGray` the
+distinction costs nothing."* For `CalRGB` it cost 110 levels.
+
+**What found it.** `openpdf-core/pdf-2-0_PDF_2.0_image_with_BPC.pdf` draws the
+**same 1466-byte JPEG stream twice** — once through a `CalRGB` (Adobe RGB
+matrix, D50 white point, gamma 2.2) and once through `DeviceRGB` — and its own
+page text says *"It should appear red and the black darker than on the right"*.
+The two extracted PNGs are the document's own controlled experiment, and
+subtracting them measures poppler's CalRGB transform and nothing else: peak
+**110** over **47.8%** of channels.
+
+Reading the space cost two changes, because the second hid the first.
+`colourSpaceArray` mapped `CalRGB` onto `deviceRGB` and `CalGray` onto
+`deviceGray`; and `jpegThroughSpace` asked the colour space only for a
+**one-component** picture in one of four named families, so a three-component
+JPEG never reached a space at all. The rule is now that a space which is not
+one of the four device singletons has something to say about the samples,
+whatever their count.
+
+| the CalRGB picture | before | after |
+|---|---:|---:|
+| peak | **110** | **20** |
+| share of pixels differing | 0.5764 | **0.0098** |
+| mse | 909.34 | **0.30** |
+
+`gfx` v0.22.0, `render` v0.27.0. Three other properties of the judge came out
+of the same reading and are recorded here because they bound what this
+instrument can say — and the third is a correction:
+
+- **A 16-bit sample is truncated to its high byte.** `ImageStream::getLine`
+  does `imgLine[i] = *p++; p++;` and `GfxImageColorMap` forces
+  `maxPixel = 255`; both halves carry the comment *"this is a hack"*. A decoder
+  that reduces 16 bits to 8 by **rounding** — the correct thing — will differ
+  from the judge by ±1 on every such picture, and be right.
+- **A `Separation` named `Black` over `DeviceGray` short-circuits its tint
+  transform** to `1 − tint` — but never for an image. `GfxImageColorMap`
+  pre-computes the tint into `lookup2` and calls the alternate space directly,
+  so the shortcut is reachable only from a fill. Testing a fill and concluding
+  about an image would be wrong.
+- **`Lab` looked like a third disagreement and was not one.**
+  `GfxLabColorSpace::getXYZ` returns the f-inverse values where ISO 32000-2
+  8.6.5.4 says `X = Xw·g(M)`, and reading that function alone says poppler
+  departs from the format. **It does not** — `::getRGB` multiplies immediately
+  after calling it. What settled it was a witness rather than a closer reading:
+  a hand-built four-pixel `Lab` document run through `pdfimages` matches the
+  specification's formula on 4 of 4 pixels within one level and departs from
+  the no-white-point formula by 13 levels on a neutral mid tone.
+
+  So there was no obstacle, and `labSpace` — which drew a grey of the right
+  lightness and said so in its own comment — was simply a defect of ours.
+  `render` v0.28.0 draws the colour, reads `/Range`, and gives `Lab` the one
+  default `/Decode` in the format that is not `[0 1]` per component
+  (`[0 100 amin amax bmin bmax]`, without which a lightness of 50 was read as
+  0.5 and the picture came out black). poppler draws `Lab(50, 20, −30)` in a
+  space with no white point as (131, 109, 171); we draw (131, 108, 170). For
+  scale: 12 of 2268 form documents mention `/Lab`, none of the 1013 scans.
+
+### 17. A calibrated space amplifies a decoder disagreement
+
+The `CalRGB` picture above still differs by 20 after the fix, and the reason
+matters more than the number.
+
+| question | answer |
+|---|---:|
+| our conversion applied to **poppler's own decoded samples** | **1 level** |
+| a sample error of **±3** carried through that same space | **35 levels** |
+
+±3 is not hypothetical: it is what the `direct` bucket measures for this very
+stream. So the residual 20 is the JPEG disagreement magnified, not a colour
+defect — and the magnification is a property of the space, not of the picture.
+A gamma of 2.2 linearises the sample, the matrix mixes the channels, and the
+sRGB encoding re-compresses with a slope of 12.92 in the toe, so one level in
+can be twelve levels out; an out-of-gamut colour is then clipped, which moves
+it again.
+
+**The corollary is what nearly fooled the test written for this.** A NEUTRAL
+mid tone barely moves — 129 against 128 — because the gamma and the sRGB
+encoding very nearly cancel and the white-point adaptation keeps a grey grey. A
+check written on a mid grey passes whether the space is consulted or not. The
+saturated colours are where a calibrated space and its device namesake part
+company, and the test now uses one.
+
+**What this does to the gate.** §14 already recorded that `D` = 2 is derived
+from the ISO/IEC 10918-2 allowance for one IDCT and applied here to a
+composition of three plus a colour conversion. This is worse than that: through
+a calibrated space the SAME input error arrives at the output multiplied by a
+factor that depends on the gamma, the matrix and the position in the gamut.
+Comparing the `direct` and `converted` buckets against one number compares two
+different quantities, and this file should stop implying otherwise. It is
+stated and not acted on, for the reason §14 gives: changing `D` would move
+every figure in this document.
 
 ## Every differing bucket in the run
 
@@ -838,12 +1026,11 @@ Two pictures of measured gain, so it is named here rather than done in a hurry.
 | `gh-pypdf` | `DCTDecode` | direct | 2 | 0.000517 | 0.000517 | 3 | 3 | 0.2581 | 0.2581 | -0.0561 | -0.0989 |
 | `gh-safedocs` | `DCTDecode` | direct | 1 | 0.000595 | 0.000595 | 4 | 4 | 0.2810 | 0.2810 | -0.1230 | -0.1230 |
 | `us-dol` | `DCTDecode` | direct | 15 | 0.001119 | 0.001339 | 3 | 4 | 0.3029 | 0.3190 | -0.2787 | -0.2882 |
-| `ia-uscourts` | `(samples)` | converted | 1 | 0.043906 | 0.043906 | 9 | 9 | 1.8173 | 1.8173 | +0.2460 | +0.2460 |
+| `ia-uscourts` | `DCTDecode` | converted | 2 | 0.000388 | 0.000388 | 3 | 3 | 0.0936 | 0.0936 | +0.0678 | +0.0678 |
 | `fr-impots` | `(samples)` | converted | 3 | 0.054095 | 0.054095 | 23 | 23 | 13.2724 | 13.2724 | -0.7743 | -0.7743 |
-| `us-opm` | `(samples)` | converted | 1 | 0.100000 | 0.100000 | 9 | 9 | 4.6706 | 4.6706 | +0.6183 | +0.6183 |
-| `fr-cerfa` | `(samples)` | converted | 5 | 0.160354 | 0.480214 | 9 | 9 | 5.9697 | 5.9697 | +0.4773 | +1.0355 |
-| `gh-qpdf` | `(samples)` | direct | 2 | 0.222222 | 0.222222 | 32 | 32 | 227.5556 | 227.5556 | +0.0000 | +0.0000 |
-| `gh-openpdf` | `DCTDecode` | converted | 2 | 0.576389 | 0.576389 | 110 | 110 | 909.3403 | 909.3403 | +9.2931 | +9.2931 |
+| `fr-cerfa` | `DCTDecode` | converted | 11 | 0.000259 | 0.001846 | 3 | 4 | 0.1429 | 0.3225 | +0.0225 | +0.3024 |
+| `gh-qpdf` | `DCTDecode` | direct | 3 | 0.000319 | 0.000319 | 3 | 3 | 0.3483 | 0.3822 | +0.2801 | +0.3099 |
+| `gh-openpdf` | `DCTDecode` | converted | 2 | 0.110570 | 0.110570 | 33 | 33 | 4.3791 | 4.3791 | +0.2261 | +0.2261 |
 | `ia-medical` | `(samples)` | converted | 1 | 0.628462 | 0.628462 | 19 | 19 | 121.8514 | 121.8514 | -8.3359 | -8.3359 |
 | `fr-impots` | `DCTDecode` | converted | 2 | 0.712278 | 0.712278 | 11 | 11 | 34.9926 | 34.9926 | -3.9243 | -3.9243 |
 | `gh-pdfbox` | `JPXDecode` | converted | 1 | 1.000000 | 1.000000 | 255 | 255 | 42179.8812 | 42179.8812 | -170.0170 | -170.0170 |
