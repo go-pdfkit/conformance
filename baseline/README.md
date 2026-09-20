@@ -273,7 +273,7 @@ comparison of 2026-08-31, §8 and §10 about the two runs of 2026-09-07 — and 
 kept because their reasoning still holds; where they quote a figure, that figure
 is the one their own run measured. §6 was rewritten when a later run disproved
 it. **§9 is rewritten again here**, because the gap it called "the work" turned
-out not to be a codec at all. §11 to §17 belong to this run.
+out not to be a codec at all. §11 to §18 belong to this run.
 
 Three of them correct this file rather than the library. §14 corrects a claim
 §14 itself made before the pictures were split; §16 corrects §11, which named
@@ -496,6 +496,12 @@ check   0 compared     1 not
 So the bound is **unexercised by `images` on this corpus**, and its value is that
 the next document does not stop a sweep dead at document 900 of 2268 with nothing
 to distinguish the stall from a long job.
+
+That value stopped being hypothetical on 2026-09-20. A throwaway census over
+both corpora — `pdfimages -list` on every document, with no bound because it
+was a one-off — stalled, and it stalled on this file. Twelve minutes on one
+2496-byte document, with nothing on the terminal to say so. The sweep that
+carries the bound reads the same corpus in minutes.
 
 ### 6. Three of the four refusals were the walk, not the budget
 
@@ -789,7 +795,7 @@ what the same pictures do now is in §16:
 | 1 component, 1×1, converted | 6 | 2 | 11 |
 | 3 components, 1×1, converted | 2 | 2 | 3 |
 | **3 components, 2×2, converted** | 24 | 10 | **110** *(33 at v0.28.0)* |
-| 4 components, 2×2, converted | 1 | 1 | **33** |
+| 4 components, 2×2, converted | 1 | 1 | **33** *(§18)* |
 
 **How the split was taken**, since the records do not carry it: the shape comes
 out of each drawn JPEG's own frame header — the component count is the tenth byte
@@ -821,7 +827,8 @@ them, stop at 4.
 > construction and says is 'not a decoder disagreeing'."* The 110 was neither
 > ICC nor Lab nor Separation: it was a `CalRGB` this renderer was reading as
 > `DeviceRGB`, and it was ours. §16 measures it and §17 says what the 20 that
-> remains is. The 33 is the four-component CMYK JPEG and is unchanged.
+> remains is. The 33 is the four-component CMYK JPEG, unchanged by any of
+> this, and §18 says what IT is.
 
 So `DCTDecode`'s 217 differing pictures are **all within 4 levels**, and what
 makes them differ is the gate rather than a defect. Three IDCTs at ±1 and a
@@ -1012,6 +1019,63 @@ Comparing the `direct` and `converted` buckets against one number compares two
 different quantities, and this file should stop implying otherwise. It is
 stated and not acted on, for the reason §14 gives: changing `D` would move
 every figure in this document.
+
+### 18. The four-component JPEG loses its chroma before `render` can see it
+
+§14 left two large peaks in the `converted` bucket. §16 answered the 110. This
+is the 33, and it is the last one in this corpus that is ours.
+
+The picture is `gh-openpdf/objectXref.pdf`'s 258×258 `DeviceCMYK` JPEG, and its
+frame header says what it is: an Adobe APP14 transform of 2 — **YCCK** — with
+the luma and the black plate at 2×2 and the two chroma planes at 1×1, so the
+chroma is subsampled by two in each direction.
+
+**Separating the decode from the conversion.** `pdfimages -tiff` writes a
+`DeviceCMYK` picture as a four-sample separated TIFF, which is poppler's own
+CMYK **before** any colour conversion. Against the samples `render` produces
+for the same stream — Go's `image/jpeg` output with the `255 − v` that
+`uninvertAdobeCMYK` applies — 91.2% agree within one level, and the worst per
+plane is:
+
+| plane | C | M | Y | **K** |
+|---|---:|---:|---:|---:|
+| worst difference | 36 | 18 | 21 | **1** |
+
+**K is the control and it is the whole argument.** It is carried at full
+resolution and is never upsampled, and it is right. Sorting every pixel by how
+fast the chroma changes across neighbouring blocks sorts the error with it:
+
+| chroma gradient across neighbouring blocks | C plane | K plane |
+|---|---:|---:|
+| flat (≤ 2) | 5 | 0 |
+| gentle (3–15) | 19 | 1 |
+| strong (16–40) | **36** | 1 |
+| steep (> 40) | 35 | 1 |
+
+A decode that were simply different would move K too. This one does not.
+
+**Why.** `render`'s `chroma.go` replicates libjpeg's fancy upsampling term for
+term, and §14 measured the result: three-component pictures peak at 4 whether
+their chroma is subsampled or not. It never runs here. Go's `image/jpeg`
+`applyBlack` (`reader.go:675`) merges the four planes itself, through
+`imageutil.DrawYCbCr`, which samples chroma by **replication** — and hands back
+an `*image.CMYK`. The planes are gone before `render` is given anything.
+
+**Could `render` put it back? Partly, and the bound is measured rather than
+guessed.** Inverting the conversion recovers the per-block chroma exactly where
+nothing clipped: over 14 244 blocks with no clipped channel, 14 215 show a
+spread of **0.0** within the block and the worst is 0.5, which is the rounding
+of Go's integer conversion and nothing else. But 7.8% of blocks have every
+pixel clipped on some channel, and there the chroma is genuinely gone.
+Re-upsampling what can be recovered, with libjpeg's own filter, takes the worst
+CMY error from **36 to 26** — and the 26 that remains sits entirely in the
+blocks that cannot be recovered.
+
+So a reconstruction is around a hundred lines for a partial improvement on
+**one** picture in this corpus, bounded by information another library
+discarded. It is named here rather than done, for the same reason as the JPEG
+2000 defect in §15, and the honest fix is the same shape: a four-component
+decode that hands back its planes.
 
 ## Every differing bucket in the run
 
