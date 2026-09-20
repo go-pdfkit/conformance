@@ -1,6 +1,6 @@
 {
   "corpus": "/Users/Shared/pdfscans",
-  "taken": "2026-09-08T20:14:51Z",
+  "taken": "2026-09-10T22:21:23Z",
   "pages": 1,
   "gate": 2,
   "timeout": "2m0s",
@@ -16,7 +16,7 @@
     },
     {
       "path": "github.com/go-gfx/gfx",
-      "version": "v0.20.0"
+      "version": "v0.23.0"
     },
     {
       "path": "github.com/go-opentype/fonts",
@@ -36,7 +36,7 @@
     },
     {
       "path": "github.com/go-pdfkit/render",
-      "version": "v0.25.0"
+      "version": "v0.28.0"
     },
     {
       "path": "github.com/sergeymakinen/go-bmp",
@@ -52,11 +52,11 @@
     },
     {
       "path": "golang.org/x/image",
-      "version": "v0.45.0"
+      "version": "v0.46.0"
     },
     {
       "path": "golang.org/x/sys",
-      "version": "v0.47.0"
+      "version": "v0.48.0"
     }
   ],
   "populations": [
@@ -139,29 +139,11 @@
           },
           "converted": {
             "pictures": 11,
-            "exact": 10,
+            "exact": 11,
             "identical": 9,
             "inverted": 0,
-            "differing": 1,
-            "calibrated": 1,
-            "terms": {
-              "share": {
-                "median": 0.04390625,
-                "worst": 0.04390625
-              },
-              "peak": {
-                "median": 9,
-                "worst": 9
-              },
-              "mse": {
-                "median": 1.8173263888888889,
-                "worst": 1.8173263888888889
-              },
-              "mean": {
-                "median": 0.24600694444444443,
-                "worst": 0.24600694444444443
-              }
-            }
+            "differing": 0,
+            "calibrated": 1
           }
         },
         {
@@ -170,11 +152,19 @@
           "unmatched": 0,
           "remapped": 0,
           "direct": {
-            "pictures": 50,
-            "exact": 13,
-            "identical": 13,
+            "pictures": 49,
+            "exact": 12,
+            "identical": 12,
             "inverted": 37,
             "differing": 0
+          },
+          "converted": {
+            "pictures": 1,
+            "exact": 1,
+            "identical": 1,
+            "inverted": 0,
+            "differing": 0,
+            "calibrated": 1
           }
         },
         {

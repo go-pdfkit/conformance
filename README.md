@@ -261,20 +261,26 @@ The invitation above is answered by the run recorded in
 [`baseline/`](baseline/README.md), and the answer is a **derivation** rather than
 a borrowed constant.
 
-Every direct bucket that differs across the 23 populations is `DCTDecode`, save
-one, and each sits inside a narrow band:
+**Every direct bucket that differs across the 23 populations is `DCTDecode`**,
+with no exception any more, and each sits inside a narrow band:
 
 | | peak | `mse` | `mean` |
 |---|---:|---:|---:|
-| the 13 differing `DCTDecode` direct buckets | 3 to **4** | 0.065 to **0.654** | −0.58 to +0.38 |
-| `gh-qpdf/(samples)`, 2 pictures | **32** | **227.6** | **exactly 0.0000** |
+| the 13 differing `DCTDecode` direct buckets | 3 to **4** | 0.111 to **0.654** | −0.58 to +0.38 |
 
-**The outlier is not a decoder.** A `mean` of exactly nought beside a peak of 32
-is what comparing two DIFFERENT pictures looks like, and those two are the known
-mis-pairing: `qpdf_qtest_qpdf_form-xobjects-no-resources-out.pdf` draws four
-15×15 grey pictures and the name `Im1` reaches two of them, so the ambiguity rule
-refuses an identity and the size fallback draws from a hat. It is a pairing
-question, recorded in the baseline's §15, and not a bound to be set around.
+**The exception this table used to carry is gone.** It read
+`gh-qpdf/(samples)`, 2 pictures, peak **32**, `mse` **227.6**, `mean` **exactly
+0.0000** — and a mean of exactly nought beside a peak of 32 is what comparing
+two DIFFERENT pictures looks like. It was the known mis-pairing:
+`qpdf_qtest_qpdf_form-xobjects-no-resources-out.pdf` draws four 15×15 grey
+pictures and the name `Im1` reaches two of them, so the ambiguity rule refused
+an identity and the size fallback drew from a hat.
+
+`render` v0.26.0 publishes each picture's object number, the ambiguity rule is
+retired, and those two pictures now pair correctly and come out **exact**:
+`gh-qpdf` reads 41 of 41 rather than 39 of 41, and its agreement 95.2% rather
+than 92.1%. The bound below is therefore over the DCTDecode band alone, which
+is what it was always trying to be.
 
 **And the ISO bound does not transfer, but its arithmetic does.** FFmpeg's
 `dct.c:259` fails an IDCT when `err_inf > 1 || omse > 0.02 || fabs(ome) > 0.0015`,
@@ -347,6 +353,17 @@ gamma, the matrix and the chromatic adaptation. So the `direct` bucket admitted
 pictures poppler **had** converted, and measured every pixel of them against a
 colour conversion we did not make. All four pictures that still differed by
 more than four levels after `render` v0.21.0's chroma fix were `/CalRGB`.
+
+> **We make that conversion now.** `render` v0.27.0 reads `CalGray` and
+> `CalRGB` rather than treating them as their device namesakes, so the phrase
+> *"a colour conversion we did not make"* describes the instrument's history
+> and not its present. The bucketing rule is unchanged and still right — the
+> two sides are still answering different questions for `ICCBased`, where
+> poppler consults a profile through little-cms and we do not. The baseline's
+> §16 separates the two cases and measures what reading the calibrated spaces
+> was worth: the worst `DCTDecode converted` peak falls from 110 to 33.
+
+
 
 **So the bucket is decided by both sides.** A picture is `converted` when
 `pdfimages` says so, **and also when its own `/ColorSpace` resolves to a
@@ -598,7 +615,9 @@ decoder figure of 69.7% over 915.
 ## What the landed record says under all this
 
 **Everything below is at `render` v0.21.0**, which put a JPEG's chroma back the
-way every other reader does. The figures the previous revision of this file
+way every other reader does. The landed baseline is now at v0.28.0; where this
+section says something about `/CalRGB` or about the pairing, read the baseline's
+§15 and §16 for what became of it. The figures the previous revision of this file
 carried were at v0.20.0 and are quoted here only as the previous run's.
 [`baseline/README.md`](baseline/README.md) is the whole of it; this is the part
 that changes what this document claims.
