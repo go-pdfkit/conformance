@@ -27,7 +27,7 @@ instrument.
 | **bound on the judge** | **2m0s per document, per tool** ([conformance#21](https://github.com/go-pdfkit/conformance/issues/21)) |
 | `go-pdfkit/render` | **v0.28.0** |
 | `go-pdfkit/reader` | v0.6.0 |
-| `go-gfx/gfx` | **v0.23.0** |
+| `go-gfx/gfx` | **v0.23.0** *(go.mod now reads v0.24.0; see below)* |
 | `tannevaled/gobig2` | v0.1.0 |
 | `ajroetker/go-jpeg2000` | v0.0.2 |
 | pages per document | 1 (the first page of each document) |
@@ -35,6 +35,16 @@ instrument.
 
 **Every one of the 23 populations ran to completion, and every one is in the
 tables below.** All 23 exited 0.
+
+**`go.mod` has since moved to `gfx` v0.24.0, and these records were taken at
+v0.23.0.** That is exactly the kind of drift the records exist to expose, so it
+was checked rather than waved through: v0.24.0 is one commit and it touches
+`svg/` alone — an ellipse that was not being drawn — which no path in `images`
+reaches. Rebuilding the tool against it and re-running the three populations
+that carry this run's colour content, `fr-cerfa` (450 documents), `gh-openpdf`
+(the witness) and `us-opm`, gives records **identical to these**. The figures
+below stand at either version; the table above names the one that measured
+them.
 
 **Why this run exists.** Six changes, in two halves, and the same sentence
 covers both: **a picture is not a colour, and a name is not an identity.**
