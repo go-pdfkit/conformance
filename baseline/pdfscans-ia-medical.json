@@ -1,6 +1,6 @@
 {
   "corpus": "/Users/Shared/pdfscans",
-  "taken": "2026-09-21T12:20:00Z",
+  "taken": "2026-09-21T20:58:10Z",
   "pages": 1,
   "gate": 2,
   "timeout": "2m0s",
@@ -12,7 +12,7 @@
     },
     {
       "path": "github.com/go-gfx/gfx",
-      "version": "v0.25.0"
+      "version": "v0.26.0"
     },
     {
       "path": "github.com/go-images/jpeg2000",
@@ -36,7 +36,7 @@
     },
     {
       "path": "github.com/go-pdfkit/render",
-      "version": "v0.29.0"
+      "version": "v0.30.0"
     },
     {
       "path": "github.com/sergeymakinen/go-bmp",
@@ -105,29 +105,11 @@
           "remapped": 0,
           "converted": {
             "pictures": 1,
-            "exact": 0,
+            "exact": 1,
             "identical": 0,
             "inverted": 0,
-            "differing": 1,
-            "calibrated": 1,
-            "terms": {
-              "share": {
-                "median": 0.6284615384615385,
-                "worst": 0.6284615384615385
-              },
-              "peak": {
-                "median": 19,
-                "worst": 19
-              },
-              "mse": {
-                "median": 121.85135897435897,
-                "worst": 121.85135897435897
-              },
-              "mean": {
-                "median": -8.335923076923077,
-                "worst": -8.335923076923077
-              }
-            }
+            "differing": 0,
+            "calibrated": 1
           }
         },
         {

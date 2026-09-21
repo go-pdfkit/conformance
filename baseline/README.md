@@ -25,9 +25,9 @@ instrument.
 | **walk** | **the page's CONTENT STREAM, not its /Resources** ([render#43](https://github.com/go-pdfkit/render/pull/43)) |
 | **bucketing** | the listing **and** the picture's own `/ColorSpace` ([conformance#20](https://github.com/go-pdfkit/conformance/issues/20)) |
 | **bound on the judge** | **2m0s per document, per tool** ([conformance#21](https://github.com/go-pdfkit/conformance/issues/21)) |
-| `go-pdfkit/render` | **v0.29.0** |
+| `go-pdfkit/render` | **v0.30.0** |
 | `go-pdfkit/reader` | v0.6.0 |
-| `go-gfx/gfx` | **v0.25.0** |
+| `go-gfx/gfx` | **v0.26.0** |
 | `tannevaled/gobig2` | v0.1.0 |
 | `go-images/jpeg2000` | **v0.1.0** *(was `ajroetker/go-jpeg2000` v0.0.2; see §15)* |
 | pages per document | 1 (the first page of each document) |
@@ -68,17 +68,17 @@ bound.
 What that cost the run this replaces, over the same 23 populations, the same
 3280 documents and the same judge:
 
-| | v0.22.0 | v0.25.0 | **v0.28.0** |
-|---|---:|---:|---:|
-| pictures returned | 8063 | 8063 | 8063 |
-| carrying a `/Decode` array | 545 | 545 | 545 |
-| **written by the judge as bits** | **0** | **678** | **261** |
-| with no counterpart at all | 5 | 5 | 5 |
-| pictures compared | 7513 | **6835** | **7252** |
-| exact | 6657 | 6156 | **6582** |
-| reported inverted | 426 | 425 | 425 |
-| **reported differing** | **430** | **254** | **245** |
-| **agreement** | **93.9%** | **96.0%** | **96.4%** |
+| | v0.22.0 | v0.25.0 | v0.28.0 | **v0.30.0** |
+|---|---:|---:|---:|---:|
+| pictures returned | 8063 | 8063 | 8063 | 8063 |
+| carrying a `/Decode` array | 545 | 545 | 545 | 545 |
+| **written by the judge as bits** | **0** | **678** | **261** | **261** |
+| with no counterpart at all | 5 | 5 | 5 | 5 |
+| pictures compared | 7513 | **6835** | **7252** | **7252** |
+| exact | 6657 | 6156 | 6582 | **6586** |
+| reported inverted | 426 | 425 | 425 | 425 |
+| **reported differing** | **430** | **254** | 245 | **241** |
+| **agreement** | **93.9%** | **96.0%** | 96.4% | **96.5%** |
 
 **The picture count did not move, and that is the point.** 678 pictures left the
 comparison at v0.25.0 because the judge writes their SAMPLES and not their
@@ -100,10 +100,11 @@ the magnitudes went: `DCTDecode converted` peaks at **33** where it peaked at
 110, its worst `mse` falling from 909.34 to 34.99 (v0.27.0, §16). Drawing a
 `Lab` colour rather than a grey of its lightness moved no counter in this
 corpus, which has 12 documents mentioning `/Lab` and none of them on a first
-page (v0.28.0).
+page (v0.28.0). A fifth follows in the last column: reading an `ICCBased`
+profile (v0.30.0, §16).
 
-The fourth moves no counter either and is the largest single magnitude in this
-file's history: a four-component JPEG 2000 is read as ink rather than as red,
+The fourth moves no counter and is the largest single magnitude in this file's
+history: a four-component JPEG 2000 is read as ink rather than as red,
 green and blue taken from its first three components, so
 `gh-pdfbox/JPXTestCMYK.pdf` goes from **255** levels out on every pixel to a
 peak of **3** and an `mse` of 42 179.88 to 0.21 (v0.29.0, §15). It counted as
@@ -111,11 +112,20 @@ differing before and counts as differing now; the picture is simply no longer
 wrong.
 
 **Nothing moved backwards here either**, and it was checked rather than hoped:
-across the two columns, 7 of the 23 populations changed and 16 are identical to
-the byte, and **not one bucket row anywhere gained a differing picture, a bigger
-peak or a bigger `mse`**. Of the changed populations, four are the calibrated
-step alone — `fr-cerfa`, `gh-openpdf`, `us-opm` and `ia-uscourts` — and exactly
-one bucket row separates v0.28.0 from v0.29.0.
+across the first three columns, 7 of the 23 populations changed and 16 are
+identical to the byte, and **not one bucket row anywhere gained a differing
+picture, a bigger peak or a bigger `mse`**. Of the changed populations, four are
+the calibrated step alone — `fr-cerfa`, `gh-openpdf`, `us-opm` and
+`ia-uscourts` — and exactly one bucket row separates v0.28.0 from v0.29.0.
+
+**The fourth column is the first in this file where a colour change moves a
+COUNTER.** Reading an `ICCBased` profile where it is arithmetic (v0.30.0, §16)
+took four pictures from differing to **exact** — not to within the gate, to
+exact — so `differing` falls from 245 to 241 and agreement reads 96.5%. Two
+bucket rows separate the columns and both go to nought: `ia-medical`
+`(samples) converted`, 1 differing at peak 19 and `mse` 121.85, and `fr-impots`
+`(samples) converted`, 3 of 16 at peak 23. They were the two largest
+unexplained magnitudes the corpus still held.
 
 **Read `unmatched` beside them.** It stays at 5, and that number is the whole
 proof that #34 landed: with the mask paired by its parent's object but `isMask`
@@ -256,7 +266,7 @@ because the two are far apart and only one of them is the claim, and beside
 
 | filter | pictures | direct | inverted | **compared** | exact | identical | agreement | converted | conv. exact | conv. differing | calibrated | remapped | raw bits | unmatched | differing | worst peak |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `(samples)` | 4280 | 904 | 0 | 904 | 904 | 904 | **100.0%** | 2950 | 2946 | 4 | 1762 | 286 | 135 | 5 | 0 | 23 |
+| `(samples)` | 4280 | 904 | 0 | 904 | 904 | 904 | **100.0%** | 2950 | 2950 | 0 | 1762 | 286 | 135 | 5 | 0 | — |
 | `(samples) mask` | 1336 | 1128 | 154 | 974 | 974 | 974 | **100.0%** | 15 | 15 | 0 | 15 | 67 | 126 | 0 | 0 | — |
 | `JPXDecode` | 1241 | 1231 | 0 | 1231 | 1231 | 7 | **100.0%** | 10 | 9 | 1 | 9 | 0 | 0 | 0 | 0 | 3 |
 | `JBIG2Decode mask` | 591 | 521 | 271 | 250 | 250 | 250 | **100.0%** | 0 | 0 | 0 | 0 | 70 | 0 | 0 | 0 | — |
@@ -939,7 +949,7 @@ counts falling by exactly that. Net, 417 more pictures are judged than before,
 and none of them was drawn differently — this is the instrument seeing what it
 already had.
 
-### 16. The judge converts colour two ways, and only one of them can be answered
+### 16. The judge converts colour two ways, and the line between them is not where this section first drew it
 
 This file has been counting a `converted` bucket and saying a difference in it
 is "colour arithmetic rather than a decoder disagreeing". That is half right,
@@ -956,14 +966,15 @@ binary. **But it does not use it for every converted space.**
 
 So the bucket holds two different kinds of disagreement:
 
-- against **ICCBased**, poppler consults a colour profile we do not read, and no
-  amount of work on a decoder closes that. It is a different pipeline, not a
-  defect.
 - against **a calibrated space**, poppler does arithmetic that is written down
   and reproducible. Reproducing it exactly — including the colour map's
   quantisation of the sample to 1/65536 before the gamma — gives **0 differing
   channels out of 15 552** on the picture below. Any disagreement there is
   ours.
+- against **ICCBased**, poppler consults the document's profile through
+  little-cms. Whether that is answerable depends on what the profile IS, and
+  this section first said it was not answerable at all. See below: the sentence
+  it used is struck through, because it was wrong for the common case.
 
 **We had been treating the second as if it were the first**, and §11 said so in
 as many words: *"For `DeviceRGB`, `CalRGB`, `ICCBased` and `DeviceGray` the
@@ -1022,6 +1033,59 @@ instrument can say — and the third is a correction:
   0.5 and the picture came out black). poppler draws `Lab(50, 20, −30)` in a
   space with no white point as (131, 109, 171); we draw (131, 108, 170). For
   scale: 12 of 2268 form documents mention `/Lab`, none of the 1013 scans.
+
+**A correction, and the second time this section has had to make one.** It
+said: *"against ICCBased, poppler consults a colour profile we do not read, and
+no amount of work on a decoder closes that. It is a different pipeline, not a
+defect."* The first sentence was true and the second does not follow from it.
+
+**Most profiles are not an engine. They are a tone curve per channel and a
+matrix to the connection space** — which is the same shape `CalRGB` and
+`CalGray` have, and which this repository had already learnt to compute. The
+picture that measures it is
+`pdfscans/ia-medical/2011001RegenerativeEndodonticsPart2.pdf`: 104×125 in an
+`ICCBased` space whose profile is 540 bytes — gamma 1.8008 on each channel, and
+three colorants that sum to (0.96422, 1.0, 0.82489), which is D50, as the
+connection space requires.
+
+| that picture, 39 000 channels | before | after |
+|---|---:|---:|
+| worst channel difference | **19** | **1** |
+| channels within one level | 35.75% | **100.00%** |
+| its bucket here | 1 differing, peak 19, `mse` 121.85 | **exact** |
+
+| `fr-impots` `(samples) converted` | before | after |
+|---|---:|---:|
+| differing | **3** of 16 | **0** of 16 |
+| peak / `mse` | 23 / 13.27 | — |
+
+Those were the two largest unexplained magnitudes left in this corpus, and they
+were the same thing. `gfx` v0.26.0 reads such a profile; `render` v0.30.0
+converts through it.
+
+**What is genuinely not answerable is narrower than the sentence claimed.** A
+profile whose transform is a multi-dimensional lookup table — an `A2B0` tag,
+which is how CMYK and most scanner profiles are written — needs an engine, and
+`ReadICC` returns `ErrICCNotArithmetic` rather than approximating it. A caller
+that meets one falls back on the component count exactly as before **and knows
+that it did**, which is the difference between a limit and a silent wrong
+answer.
+
+**And a part of this that this instrument cannot see.** A colour space is read
+the same way for a FILL as for a picture, so reading the profile changes every
+`ICCBased` fill on every page as well — and `images` extracts pictures, so not
+one of those is in any figure above. The direction is right for the same reason
+the pictures are: poppler puts a fill through the same little-cms transform.
+But "right for the same reason" is an argument, and this file prefers
+measurements, so it is recorded as unmeasured rather than claimed. `compare`,
+which draws whole pages, is where it would show.
+
+**The shape of the error is worth more than the fix.** Three times in this file
+a limit turned out to be a boundary of the thing in front of me rather than of
+the problem: §11 said the distinction cost nothing for `CalRGB`, §15 said a
+four-component JPEG 2000 was not fixable here, and §16 said a profile could not
+be read. Each was true of one module, one function or one library, and each was
+stated as though it were true of the question.
 
 ### 17. A calibrated space amplifies a decoder disagreement
 
@@ -1156,9 +1220,7 @@ decode that hands back its planes.
 | `gh-pypdf` | `DCTDecode` | direct | 2 | 0.000517 | 0.000517 | 3 | 3 | 0.2581 | 0.2581 | -0.0561 | -0.0989 |
 | `gh-safedocs` | `DCTDecode` | direct | 1 | 0.000595 | 0.000595 | 4 | 4 | 0.2810 | 0.2810 | -0.1230 | -0.1230 |
 | `us-dol` | `DCTDecode` | direct | 15 | 0.001119 | 0.001339 | 3 | 4 | 0.3029 | 0.3190 | -0.2787 | -0.2882 |
-| `fr-impots` | `(samples)` | converted | 3 | 0.054095 | 0.054095 | 23 | 23 | 13.2724 | 13.2724 | -0.7743 | -0.7743 |
 | `gh-openpdf` | `DCTDecode` | converted | 2 | 0.110570 | 0.110570 | 33 | 33 | 4.3791 | 4.3791 | +0.2261 | +0.2261 |
-| `ia-medical` | `(samples)` | converted | 1 | 0.628462 | 0.628462 | 19 | 19 | 121.8514 | 121.8514 | -8.3359 | -8.3359 |
 | `fr-impots` | `DCTDecode` | converted | 2 | 0.712278 | 0.712278 | 11 | 11 | 34.9926 | 34.9926 | -3.9243 | -3.9243 |
 
 ## What is not measured, and why
