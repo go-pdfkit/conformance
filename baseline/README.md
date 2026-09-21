@@ -25,26 +25,21 @@ instrument.
 | **walk** | **the page's CONTENT STREAM, not its /Resources** ([render#43](https://github.com/go-pdfkit/render/pull/43)) |
 | **bucketing** | the listing **and** the picture's own `/ColorSpace` ([conformance#20](https://github.com/go-pdfkit/conformance/issues/20)) |
 | **bound on the judge** | **2m0s per document, per tool** ([conformance#21](https://github.com/go-pdfkit/conformance/issues/21)) |
-| `go-pdfkit/render` | **v0.28.0** |
+| `go-pdfkit/render` | **v0.29.0** |
 | `go-pdfkit/reader` | v0.6.0 |
-| `go-gfx/gfx` | **v0.23.0** *(go.mod now reads v0.24.0; see below)* |
+| `go-gfx/gfx` | **v0.25.0** |
 | `tannevaled/gobig2` | v0.1.0 |
-| `ajroetker/go-jpeg2000` | v0.0.2 |
+| `go-images/jpeg2000` | **v0.1.0** *(was `ajroetker/go-jpeg2000` v0.0.2; see §15)* |
 | pages per document | 1 (the first page of each document) |
 | corpora | `/Users/Shared/pdfscans` (MANIFEST.tsv), `/Users/Shared/pdfforms` (MANIFEST.tsv) |
 
 **Every one of the 23 populations ran to completion, and every one is in the
 tables below.** All 23 exited 0.
 
-**`go.mod` has since moved to `gfx` v0.24.0, and these records were taken at
-v0.23.0.** That is exactly the kind of drift the records exist to expose, so it
-was checked rather than waved through: v0.24.0 is one commit and it touches
-`svg/` alone — an ellipse that was not being drawn — which no path in `images`
-reaches. Rebuilding the tool against it and re-running the three populations
-that carry this run's colour content, `fr-cerfa` (450 documents), `gh-openpdf`
-(the witness) and `us-opm`, gives records **identical to these**. The figures
-below stand at either version; the table above names the one that measured
-them.
+**The JPEG 2000 decoder changed identity between runs**, from
+`ajroetker/go-jpeg2000` v0.0.2 to `go-images/jpeg2000` v0.1.0 — a fork of it
+under the same Apache-2.0 licence, carrying one fix and stating it in its
+`NOTICE`. §15 says what the fix was worth and what it left alone.
 
 **Why this run exists.** Six changes, in two halves, and the same sentence
 covers both: **a picture is not a colour, and a name is not an identity.**
@@ -98,7 +93,7 @@ by name and was reaching pictures it did not mean (§15) — and the differing
 count still fell, from 254 to 245. More pictures judged and fewer of them
 differing is the only combination that cannot be had by moving the goalposts.
 
-Three changes lie between the two columns, and they do different things. The
+Four changes lie between the two columns, and they do different things. The
 object-keyed walk is the 417 (`render` v0.26.0). Reading `CalGray` and `CalRGB`
 instead of their device namesakes is the 9 fewer differing, and it is also where
 the magnitudes went: `DCTDecode converted` peaks at **33** where it peaked at
@@ -107,11 +102,20 @@ the magnitudes went: `DCTDecode converted` peaks at **33** where it peaked at
 corpus, which has 12 documents mentioning `/Lab` and none of them on a first
 page (v0.28.0).
 
+The fourth moves no counter either and is the largest single magnitude in this
+file's history: a four-component JPEG 2000 is read as ink rather than as red,
+green and blue taken from its first three components, so
+`gh-pdfbox/JPXTestCMYK.pdf` goes from **255** levels out on every pixel to a
+peak of **3** and an `mse` of 42 179.88 to 0.21 (v0.29.0, §15). It counted as
+differing before and counts as differing now; the picture is simply no longer
+wrong.
+
 **Nothing moved backwards here either**, and it was checked rather than hoped:
 across the two columns, 7 of the 23 populations changed and 16 are identical to
 the byte, and **not one bucket row anywhere gained a differing picture, a bigger
 peak or a bigger `mse`**. Of the changed populations, four are the calibrated
-step alone — `fr-cerfa`, `gh-openpdf`, `us-opm` and `ia-uscourts`.
+step alone — `fr-cerfa`, `gh-openpdf`, `us-opm` and `ia-uscourts` — and exactly
+one bucket row separates v0.28.0 from v0.29.0.
 
 **Read `unmatched` beside them.** It stays at 5, and that number is the whole
 proof that #34 landed: with the mask paired by its parent's object but `isMask`
@@ -254,7 +258,7 @@ because the two are far apart and only one of them is the claim, and beside
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | `(samples)` | 4280 | 904 | 0 | 904 | 904 | 904 | **100.0%** | 2950 | 2946 | 4 | 1762 | 286 | 135 | 5 | 0 | 23 |
 | `(samples) mask` | 1336 | 1128 | 154 | 974 | 974 | 974 | **100.0%** | 15 | 15 | 0 | 15 | 67 | 126 | 0 | 0 | — |
-| `JPXDecode` | 1241 | 1231 | 0 | 1231 | 1231 | 7 | **100.0%** | 10 | 9 | 1 | 9 | 0 | 0 | 0 | 0 | 255 |
+| `JPXDecode` | 1241 | 1231 | 0 | 1231 | 1231 | 7 | **100.0%** | 10 | 9 | 1 | 9 | 0 | 0 | 0 | 0 | 3 |
 | `JBIG2Decode mask` | 591 | 521 | 271 | 250 | 250 | 250 | **100.0%** | 0 | 0 | 0 | 0 | 70 | 0 | 0 | 0 | — |
 | `DCTDecode` | 590 | 425 | 0 | 425 | 208 | 4 | **48.9%** | 44 | 21 | 23 | 32 | 121 | 0 | 0 | 217 | 33 |
 | `DCTDecode mask` | 12 | 11 | 0 | 11 | 11 | 5 | **100.0%** | 1 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | — |
@@ -848,16 +852,50 @@ serve both buckets.
 
 ### 15. What is bounded, and what stopped being
 
-**A four-component JPEG 2000 is drawn wrong**, and not fixably here.
-`go-jpeg2000`'s `convertToRGBA` has branches for one, two and "three or more"
-components (`color.go:280`), and the last takes the first three as red, green
-and blue: a `JPXDecode` picture in `DeviceCMYK` loses its black plate.
-`gh-pdfbox/JPXTestCMYK.pdf` is 1377×443 of that, 255 from poppler at a mean of
-−170. Unlike `decodeJPEG`, this decoder's public API hands back an `image.RGBA`
-and nothing else, so the fourth component is gone before `render` sees it. One
-picture of the 2598 forms and none of the 682 scans — verified, not assumed:
+**A four-component JPEG 2000 was drawn wrong, and this section said it was not
+fixable here. That was true of the module and false as a conclusion.**
+
+The claim was: `go-jpeg2000`'s `convertToRGBA` has branches for one, two and
+"three or more" components, and the last takes the first three as red, green
+and blue, so a `JPXDecode` picture in `DeviceCMYK` loses its black plate —
+`gh-pdfbox/JPXTestCMYK.pdf` was 1377×443 of that, 255 from poppler at a mean of
+−170. And that the decoder's public API hands back an `image.RGBA` and nothing
+else, so the fourth component was gone before `render` saw it, which left only
+"components out of a third-party module, or decoding JPEG 2000 here".
+
+**There was a third option, and it is the one that was taken: fork the
+module.** `github.com/go-images/jpeg2000` v0.1.0 is that fork, under the same
+Apache-2.0 licence, with its one change stated in a `NOTICE` as section 4(b)
+requires and also offered upstream. A picture whose own JP2 header declares the
+enumerated colour space CMYK — EnumCS 12 of ITU-T T.800 Table I.1, which the
+file says and the decoder was reading and then ignoring — now comes back as an
+`image.CMYK`. `render` v0.29.0 then takes it through the printing primaries
+rather than `raster.FromImage`'s `(1-c)(1-k)`, which is the second half of the
+lesson §11 records for the CMYK JPEG path.
+
+| `gh-pdfbox/JPXTestCMYK.pdf` | before | after |
+|---|---:|---:|
+| share of pixels differing | **1.0000** | **0.000033** |
+| peak | **255** | **3** |
+| `mse` | **42 179.88** | **0.21** |
+| `mean` | **−170.02** | **−0.002** |
+
+The largest disagreement in the corpus is now no further from poppler than an
+ordinary JPEG.
+
+**What did NOT move is worth as much as what did.** The fleet's agreement is
+unchanged at 96.4% and the differing count is still 245: this picture counted
+as differing before and counts as differing now, at a peak of 3 against a gate
+of 2. The whole gain is in the magnitude — the same shape §11 records for the
+CMYK JPEG path, and the reason this file quotes sizes rather than a count.
+
+**And the change touched nothing else, which was checked rather than assumed.**
+Exactly one bucket row in the 23 populations differs between the two runs, the
+one above; the fleet's 1233 direct `JPXDecode` pictures are 1233 exact before
+and after. That matches what this section already verified about the corpus:
 across the scans, JPEG 2000 pictures are `DeviceRGB` (718), `DeviceGray` (513),
-`ICCBased` (5) and one naming no space at all, with **no `DeviceCMYK`**.
+`ICCBased` (5) and one naming no space at all, with **no `DeviceCMYK`** — so
+there was nothing there for the fix to change, and it changed nothing.
 
 **The pairing no longer guesses, and this is what it was worth.** This section
 used to end by proposing the work. `render.Images` named a picture by its
@@ -1079,8 +1117,26 @@ decode that hands back its planes.
 
 ## Every differing bucket in the run
 
+> **The previous revision of this table carried three rows its own records did
+> not produce**, and they are removed here. `fr-cerfa DCTDecode converted` at a
+> worst peak of 11, `ia-uscourts DCTDecode converted`, and `gh-qpdf DCTDecode
+> direct` were the figures of an EARLIER run, left standing beside the current
+> ones.
+>
+> The cause was the tool that installs these tables, not the one that computes
+> them. It matched a generated row to the row it replaced by the table and the
+> first cell — the population — and this table has **three rows for
+> `gh-pdfbox`, three for `fr-impots` and two for several others**, so the key
+> collided and the rows it did not match were left behind. `tables.py` was
+> right throughout; the check around it was the half that was wrong, because it
+> asked only whether every generated row appears in the file and never whether
+> every row in the file is generated. **A check in one direction cannot see
+> something extra.** It now asks both ways, and a third time for duplicates,
+> and the four tables are replaced whole rather than row by row.
+
 | population | filter | bucket | differing | share med | share worst | peak med | peak worst | mse med | mse worst | mean med | mean worst |
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `gh-pdfbox` | `JPXDecode` | converted | 1 | 0.000033 | 0.000033 | 3 | 3 | 0.2057 | 0.2057 | -0.0020 | -0.0020 |
 | `fr-impots` | `DCTDecode` | direct | 1 | 0.000100 | 0.000100 | 3 | 3 | 0.3344 | 0.3344 | -0.2371 | -0.2371 |
 | `ia-medical` | `DCTDecode` | direct | 1 | 0.000112 | 0.000112 | 4 | 4 | 0.1112 | 0.1112 | +0.0282 | +0.0282 |
 | `ia-americana` | `DCTDecode` | converted | 3 | 0.000113 | 0.000396 | 4 | 4 | 0.1974 | 0.3278 | +0.1403 | +0.2795 |
@@ -1092,22 +1148,18 @@ decode that hands back its planes.
 | `ia-uscourts` | `DCTDecode` | direct | 8 | 0.000177 | 0.000359 | 3 | 4 | 0.0654 | 0.1885 | -0.0070 | -0.0783 |
 | `gh-pdfcpu` | `DCTDecode` | converted | 1 | 0.000195 | 0.000195 | 3 | 3 | 0.2439 | 0.2439 | -0.0339 | -0.0339 |
 | `uk-govuk` | `DCTDecode` | converted | 1 | 0.000225 | 0.000225 | 3 | 3 | 0.1181 | 0.1181 | +0.0260 | +0.0260 |
+| `fr-cerfa` | `DCTDecode` | converted | 11 | 0.000259 | 0.001846 | 3 | 4 | 0.1429 | 0.3225 | +0.0225 | +0.3024 |
 | `gh-qpdf` | `DCTDecode` | direct | 3 | 0.000319 | 0.000319 | 3 | 3 | 0.3483 | 0.3822 | +0.2801 | +0.3099 |
 | `gh-pdfcpu` | `DCTDecode` | direct | 40 | 0.000349 | 0.000923 | 3 | 4 | 0.2554 | 0.3582 | +0.0015 | -0.2789 |
-| `fr-cerfa` | `DCTDecode` | converted | 11 | 0.000357 | 0.331692 | 3 | 11 | 0.1875 | 5.7358 | +0.1127 | +0.9337 |
 | `ia-uscourts` | `DCTDecode` | converted | 2 | 0.000388 | 0.000388 | 3 | 3 | 0.0936 | 0.0936 | +0.0678 | +0.0678 |
 | `gh-pdfbox` | `DCTDecode` | direct | 2 | 0.000508 | 0.000508 | 4 | 4 | 0.2605 | 0.2605 | +0.0024 | -0.1511 |
 | `gh-pypdf` | `DCTDecode` | direct | 2 | 0.000517 | 0.000517 | 3 | 3 | 0.2581 | 0.2581 | -0.0561 | -0.0989 |
 | `gh-safedocs` | `DCTDecode` | direct | 1 | 0.000595 | 0.000595 | 4 | 4 | 0.2810 | 0.2810 | -0.1230 | -0.1230 |
 | `us-dol` | `DCTDecode` | direct | 15 | 0.001119 | 0.001339 | 3 | 4 | 0.3029 | 0.3190 | -0.2787 | -0.2882 |
-| `ia-uscourts` | `DCTDecode` | converted | 2 | 0.000388 | 0.000388 | 3 | 3 | 0.0936 | 0.0936 | +0.0678 | +0.0678 |
 | `fr-impots` | `(samples)` | converted | 3 | 0.054095 | 0.054095 | 23 | 23 | 13.2724 | 13.2724 | -0.7743 | -0.7743 |
-| `fr-cerfa` | `DCTDecode` | converted | 11 | 0.000259 | 0.001846 | 3 | 4 | 0.1429 | 0.3225 | +0.0225 | +0.3024 |
-| `gh-qpdf` | `DCTDecode` | direct | 3 | 0.000319 | 0.000319 | 3 | 3 | 0.3483 | 0.3822 | +0.2801 | +0.3099 |
 | `gh-openpdf` | `DCTDecode` | converted | 2 | 0.110570 | 0.110570 | 33 | 33 | 4.3791 | 4.3791 | +0.2261 | +0.2261 |
 | `ia-medical` | `(samples)` | converted | 1 | 0.628462 | 0.628462 | 19 | 19 | 121.8514 | 121.8514 | -8.3359 | -8.3359 |
 | `fr-impots` | `DCTDecode` | converted | 2 | 0.712278 | 0.712278 | 11 | 11 | 34.9926 | 34.9926 | -3.9243 | -3.9243 |
-| `gh-pdfbox` | `JPXDecode` | converted | 1 | 1.000000 | 1.000000 | 255 | 255 | 42179.8812 | 42179.8812 | -170.0170 | -170.0170 |
 
 ## What is not measured, and why
 
