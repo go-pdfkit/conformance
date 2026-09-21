@@ -1,6 +1,6 @@
 {
   "corpus": "/Users/Shared/pdfforms",
-  "taken": "2026-09-21T10:57:44Z",
+  "taken": "2026-09-21T19:15:02Z",
   "pages": 1,
   "gate": 2,
   "timeout": "2m0s",
@@ -12,7 +12,7 @@
     },
     {
       "path": "github.com/go-gfx/gfx",
-      "version": "v0.25.0"
+      "version": "v0.26.0"
     },
     {
       "path": "github.com/go-images/jpeg2000",
@@ -36,7 +36,7 @@
     },
     {
       "path": "github.com/go-pdfkit/render",
-      "version": "v0.29.0"
+      "version": "v0.30.0"
     },
     {
       "path": "github.com/sergeymakinen/go-bmp",
@@ -138,29 +138,11 @@
           },
           "converted": {
             "pictures": 16,
-            "exact": 13,
-            "identical": 13,
+            "exact": 16,
+            "identical": 16,
             "inverted": 0,
-            "differing": 3,
-            "calibrated": 3,
-            "terms": {
-              "share": {
-                "median": 0.054094827586206894,
-                "worst": 0.054094827586206894
-              },
-              "peak": {
-                "median": 23,
-                "worst": 23
-              },
-              "mse": {
-                "median": 13.272392241379311,
-                "worst": 13.272392241379311
-              },
-              "mean": {
-                "median": -0.7742887931034482,
-                "worst": -0.7742887931034482
-              }
-            }
+            "differing": 0,
+            "calibrated": 3
           }
         },
         {

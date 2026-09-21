@@ -1,7 +1,7 @@
 github.com/ajroetker/go-highway v0.0.4 h1:RDQo+9OhTXI6BFctLo+5gYpHNbb92VYJ0ObnR4l6xAQ=
 github.com/ajroetker/go-highway v0.0.4/go.mod h1:C/zYPNSSpOaraejY89FUTZTyQNEhi5+rEbU0LjlqJeU=
-github.com/go-gfx/gfx v0.25.0 h1:AYOe/UNNhJuahWNEXeMx/fI5dJNa8qBX8x43uoH02A8=
-github.com/go-gfx/gfx v0.25.0/go.mod h1:AySK9I+Z6L2kKVhCg7jmsWsGM2lDRmdAJV2gagvKgH8=
+github.com/go-gfx/gfx v0.26.0 h1:/o44PtlRTNhcIJzOPrQZ9yanEfLl49VsYe1fW8q+SQY=
+github.com/go-gfx/gfx v0.26.0/go.mod h1:AySK9I+Z6L2kKVhCg7jmsWsGM2lDRmdAJV2gagvKgH8=
 github.com/go-images/jpeg2000 v0.1.0 h1:SiFAZ6NGvGLU+VmxKji74RiSQDeK6TyjUZr1wjlxRzY=
 github.com/go-images/jpeg2000 v0.1.0/go.mod h1:MwSmrbiP6RK7eLphoNyzY60BAXWOD+8LVdBYDPIBrN4=
 github.com/go-opentype/fonts v0.9.0 h1:slB6OB3riLyUPrOxqXe0s6/AzdenF1TDvCN8N87hhQk=
@@ -12,8 +12,8 @@ github.com/go-pdfkit/pdffont v0.3.1 h1:+K7opHGRERDZ5EMkA12s1GT48t8GpncArhnyzyc5b
 github.com/go-pdfkit/pdffont v0.3.1/go.mod h1:eFJ/7t9AvcX76KY5qNJMMKetz8hUUUdVM1qSWLi3S1g=
 github.com/go-pdfkit/reader v0.6.0 h1:KAabNOYUcTlZlNBTbG9bEhWP1NiZhjuhzUdavdTdfes=
 github.com/go-pdfkit/reader v0.6.0/go.mod h1:fQFOVfCMUui1AdvD4qhimdyvvNr9KvvJ1S7IuKZjyV8=
-github.com/go-pdfkit/render v0.29.0 h1:x+HczCyYMTgZ2xBzNYtlsQ5i95TOFhUEcG7hSCPax8s=
-github.com/go-pdfkit/render v0.29.0/go.mod h1:uwCu+7NMy9s5fXtQ47apyqm1s9k1VQzgpHPjQY7T+VQ=
+github.com/go-pdfkit/render v0.30.0 h1:yE2FagDJXQY47t1zajaUn7pDl8bqV8sH8Y2FkHKoba0=
+github.com/go-pdfkit/render v0.30.0/go.mod h1:jfVtDVXgve3+GOZcXjywkwjJa1ZtpMZxzr9taAsO2Lc=
 github.com/sergeymakinen/go-bmp v1.0.0 h1:SdGTzp9WvCV0A1V0mBeaS7kQAwNLdVJbmHlqNWq0R+M=
 github.com/sergeymakinen/go-bmp v1.0.0/go.mod h1:/mxlAQZRLxSvJFNIEGGLBE/m40f3ZnUifpgVDlcUIEY=
 github.com/sergeymakinen/go-ico v1.0.0 h1:uL3khgvKkY6WfAetA+RqsguClBuu7HpvBB/nq/Jvr80=
