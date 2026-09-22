@@ -1088,10 +1088,39 @@ numbers**, which is what a blind instrument reports.
 That is not a defect in `compare`; it is what it is for, and its own package
 comment says so. It means something narrower and more useful: **nothing in this
 repository measures colour on a PAGE.** `images` measures colour and never sees
-a fill; `compare` sees every fill and never sees colour. The gap is named here
-rather than filled in a hurry, because an instrument built to close it would
-have to answer first what "wrong colour" means over a page — and the gate
-argument of §14 and §17 says that is not a question with an easy number.
+a fill; `compare` sees every fill and never sees colour. **Closing that gap was tried, and the attempt is the finding.** Three
+discriminators were built and measured against two witnesses whose pictures are
+known to have changed — `ia-medical`'s, which went from differing at peak 19 to
+exact, and `fr-impots`' `2042_2042_4756.pdf`, from peak 23 to exact. All three
+were added beside `Share`, never in place of it.
+
+| what it kept | `ia-medical` | `fr-impots` | why it failed |
+|---|---|---|---|
+| every pixel, blurred | 5.826 → 5.790 | — | glyph edges reach **180 levels**; the signal is in the noise |
+| pixels where both pages agree on brightness | 0.027 → 0.027 | 0.113 → 0.113 | a grey profile moves TONE, so the pixels it changes are the ones this discards |
+| pixels in a flat area of both | **0.027 → 0.001** | 0.113 → 0.113 | inside a picture, a tone curve shows where the tone CHANGES, which is not flat |
+| worst 32-pixel square | 18.226 → 18.226 | 15.502 → 15.502 | the worst square on a page of text is text |
+
+The third works on one witness and not the other, and that is not a
+discriminator, it is a coincidence with two data points. The experiment is kept
+as a patch beside this corpus rather than landed.
+
+**What it establishes is the shape of the difficulty, which is worth more than
+a number that half works.** A page-level figure has to separate a disagreement
+about WHERE THE INK IS — which two rasterisers have on the edge of every glyph,
+at up to 180 levels — from a disagreement about WHAT COLOUR IT IS, which is
+smaller and covers an area. No local test does it: brightness agreement and
+local flatness each throw away the tonal half of the signal, and tiling is
+defeated because the worst tile of a document is always its densest text.
+
+And under that sits dilution: one 320×290 picture on a 595×842 page is 18% of
+it, so twenty levels inside the picture arrive as three levels of page average
+— less than the glyphs contribute. `images` does not have this problem because
+it compares a picture to a picture with no rasteriser in between, which is
+exactly what makes it unable to see a fill.
+
+So the gap stands, and it is now known to be a real one rather than an
+unattempted one.
 
 **The shape of the error is worth more than the fix.** Three times in this file
 a limit turned out to be a boundary of the thing in front of me rather than of
