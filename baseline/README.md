@@ -1071,14 +1071,27 @@ that meets one falls back on the component count exactly as before **and knows
 that it did**, which is the difference between a limit and a silent wrong
 answer.
 
-**And a part of this that this instrument cannot see.** A colour space is read
+**And a part of this that NEITHER instrument can see.** A colour space is read
 the same way for a FILL as for a picture, so reading the profile changes every
-`ICCBased` fill on every page as well — and `images` extracts pictures, so not
-one of those is in any figure above. The direction is right for the same reason
-the pictures are: poppler puts a fill through the same little-cms transform.
-But "right for the same reason" is an argument, and this file prefers
-measurements, so it is recorded as unmeasured rather than claimed. `compare`,
-which draws whole pages, is where it would show.
+`ICCBased` fill on every page as well. `images` extracts pictures, so not one
+of those is in any figure above.
+
+This section first said `compare` was where that would show. **It is not**, and
+the reason is worth more than the correction. `compare` reduces both pictures
+to grey, blurs them, and counts the pixels differing by more than 64 — a
+quarter of the range — because it is asking *"is this the same page to somebody
+looking at it"*. A nineteen-level colour shift is discarded at the first step
+and would not cross the third. Run before and after over 40 `fr-impots`
+documents and the whole `ia-medical` witness, it reports **exactly the same
+numbers**, which is what a blind instrument reports.
+
+That is not a defect in `compare`; it is what it is for, and its own package
+comment says so. It means something narrower and more useful: **nothing in this
+repository measures colour on a PAGE.** `images` measures colour and never sees
+a fill; `compare` sees every fill and never sees colour. The gap is named here
+rather than filled in a hurry, because an instrument built to close it would
+have to answer first what "wrong colour" means over a page — and the gate
+argument of §14 and §17 says that is not a question with an easy number.
 
 **The shape of the error is worth more than the fix.** Three times in this file
 a limit turned out to be a boundary of the thing in front of me rather than of
