@@ -3,9 +3,9 @@ module github.com/go-pdfkit/conformance
 go 1.26.4
 
 require (
-	github.com/go-gfx/gfx v0.26.0
+	github.com/go-gfx/gfx v0.27.0
 	github.com/go-pdfkit/reader v0.6.0
-	github.com/go-pdfkit/render v0.31.0
+	github.com/go-pdfkit/render v0.32.0
 )
 
 require (

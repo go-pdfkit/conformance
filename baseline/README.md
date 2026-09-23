@@ -17,7 +17,7 @@ instrument.
 
 | | |
 |---|---|
-| taken | 2026-09-08T18:03:48Z .. 2026-09-08T20:14:51Z (UTC) |
+| taken | 2026-09-23T09:49:29Z .. 2026-09-23T12:28:43Z (UTC) |
 | judge | pdfimages version 26.04.0 |
 | **measure** | **per channel, gate `D` = 2, count budget `N` = 0** ([conformance#16](https://github.com/go-pdfkit/conformance/issues/16)) |
 | **pairing** | **by object number, falling back to size only when one side published none** ([#30](https://github.com/go-pdfkit/conformance/pull/30)); a MASK by the object of the picture that names it ([#32](https://github.com/go-pdfkit/conformance/pull/32), [#34](https://github.com/go-pdfkit/conformance/pull/34)) |
@@ -25,9 +25,9 @@ instrument.
 | **walk** | **the page's CONTENT STREAM, not its /Resources** ([render#43](https://github.com/go-pdfkit/render/pull/43)) |
 | **bucketing** | the listing **and** the picture's own `/ColorSpace` ([conformance#20](https://github.com/go-pdfkit/conformance/issues/20)) |
 | **bound on the judge** | **2m0s per document, per tool** ([conformance#21](https://github.com/go-pdfkit/conformance/issues/21)) |
-| `go-pdfkit/render` | **v0.31.0** |
+| `go-pdfkit/render` | **v0.32.0** |
 | `go-pdfkit/reader` | v0.6.0 |
-| `go-gfx/gfx` | **v0.26.0** |
+| `go-gfx/gfx` | **v0.27.0** |
 | `tannevaled/gobig2` | v0.1.0 |
 | `go-images/jpeg2000` | **v0.1.0** *(was `ajroetker/go-jpeg2000` v0.0.2; see §15)* |
 | `go-images/jpeg` | **v0.1.0** *(was the standard library's `image/jpeg`; see §18)* |
@@ -44,11 +44,22 @@ standard library's `image/jpeg` to `go-images/jpeg` v0.1.0, under Go's own
 BSD-3 (§18). Each carries one change, each states it in a `NOTICE`, and the
 JPEG fork runs Go's own test suite unaltered.
 
-**And the records of this run span two days.** The machine slept overnight
-between `ia-biodiversity` and what followed, which is why that population's
-duration reads 63 192 seconds where the previous run took 1 842. No figure in
-this file is affected: what is compared is pixels, and pixels do not depend on
-when the comparison ran. It is the reason this file carries no timings at all.
+**This run was interrupted and resumed**, so its records span two hours and
+thirty-nine minutes of wall clock with about seventy idle minutes inside it:
+twenty populations were taken in one stretch, the remaining three afterwards,
+by the same binary. The previous run's records spanned two days for a similar
+reason — the machine slept between `ia-biodiversity` and what followed. No
+figure moves either way: what is compared is pixels, and pixels do not depend
+on when the comparison ran. It is the reason this file carries no timings.
+
+**And the binary matters more than the clock.** An earlier set of records for
+this same change was measured with a build made over local `replace`
+directives, so the module list each record carries said `render` v0.31.0 while
+the file said v0.32.0. The code was identical — every one of the 23
+populations is byte-identical between the two builds, bucket for bucket — but
+a record is not entitled to say what produced it unless it was produced that
+way. `TestTheBaselineReadmeDescribesTheRecordsBesideIt` refused the first set,
+and it was right to.
 
 **Why this run exists.** Six changes, in two halves, and the same sentence
 covers both: **a picture is not a colour, and a name is not an identity.**
@@ -77,17 +88,17 @@ bound.
 What that cost the run this replaces, over the same 23 populations, the same
 3280 documents and the same judge:
 
-| | v0.22.0 | v0.25.0 | v0.28.0 | **v0.30.0** |
-|---|---:|---:|---:|---:|
-| pictures returned | 8063 | 8063 | 8063 | 8063 |
-| carrying a `/Decode` array | 545 | 545 | 545 | 545 |
-| **written by the judge as bits** | **0** | **678** | **261** | **261** |
-| with no counterpart at all | 5 | 5 | 5 | 5 |
-| pictures compared | 7513 | **6835** | **7252** | **7252** |
-| exact | 6657 | 6156 | 6582 | **6586** |
-| reported inverted | 426 | 425 | 425 | 425 |
-| **reported differing** | **430** | **254** | 245 | **241** |
-| **agreement** | **93.9%** | **96.0%** | 96.4% | **96.5%** |
+| | v0.22.0 | v0.25.0 | v0.28.0 | v0.30.0 | **v0.32.0** |
+|---|---:|---:|---:|---:|---:|
+| pictures returned | 8063 | 8063 | 8063 | 8063 | 8063 |
+| carrying a `/Decode` array | 545 | 545 | 545 | 545 | 545 |
+| **written by the judge as bits** | **0** | **678** | **261** | **261** | 261 |
+| with no counterpart at all | 5 | 5 | 5 | 5 | 5 |
+| pictures compared | 7513 | **6835** | **7252** | **7252** | 7252 |
+| exact | 6657 | 6156 | 6582 | 6586 | **6588** |
+| reported inverted | 426 | 425 | 425 | 425 | 425 |
+| **reported differing** | **430** | **254** | 245 | 241 | **239** |
+| **agreement** | **93.9%** | **96.0%** | 96.4% | 96.5% | **96.5%** |
 
 **The picture count did not move, and that is the point.** 678 pictures left the
 comparison at v0.25.0 because the judge writes their SAMPLES and not their
@@ -112,9 +123,9 @@ corpus, which has 12 documents mentioning `/Lab` and none of them on a first
 page (v0.28.0). A fifth follows in the last column: reading an `ICCBased`
 profile (v0.30.0, §16).
 
-**A sixth moves no figure in the table above at all, and is the largest
-magnitude left.** Decoding a JPEG through a fork of Go's `image/jpeg` that
-keeps a four-component picture's chroma (v0.31.0, §18) took
+**A sixth moves no figure in the table above at all.** Decoding a JPEG through
+a fork of Go's `image/jpeg` that keeps a four-component picture's chroma
+(v0.31.0, §18) took
 `gh-openpdf DCTDecode converted` from a worst peak of **33 to 20** and its
 worst `mse` from 4.38 to **0.30** — the picture itself from 33 to **3**, which
 is what an ordinary JPEG reads. Not one counter moves: it differed at 33 and
@@ -122,9 +133,26 @@ differs at 3, both being outside a gate of 2. **The 20 that is now the bucket's
 worst belongs to the OTHER picture in it**, the `CalRGB` one, whose residual
 §17 accounts for as a decoder disagreement amplified by a calibrated space.
 
+> **This paragraph called that 20 "the largest magnitude left". It was the
+> largest PEAK.** The largest `mse` was elsewhere and was fifty times bigger:
+> `fr-impots DCTDecode converted` at **34.99**, a peak of 11 spread over 71% of
+> a picture's pixels. A peak and a mean squared error do not rank the same
+> buckets — one is the worst pixel, the other is every pixel — so a sentence
+> that says "largest" without saying largest BY WHAT has quietly picked one and
+> called it the answer. §19 is what that sentence should have pointed at.
+
+**The fifth column is the second time a colour change moves a counter, and it
+is the last magnitude in this file that was larger than a rounding.** Reading a
+press profile's own lookup table (v0.32.0, §19) takes that `fr-impots` picture
+from 34.99 to **exact** — not to within the gate, to exact — so `differing`
+falls from 241 to **239**. Agreement still reads 96.5%, because 96.47% and
+96.50% round the same way; the two pictures are the honest figure and the
+percentage is the one that cannot show them.
+
 That makes three fixes in this file — the CMYK JPEG path of §11, the JPEG 2000
 of §15 and this one — whose whole value is in the magnitude and none of it in
-the count. It is the reason this file quotes sizes.
+the count. It is the reason this file quotes sizes, and §19 is what happens
+when the prose reads only one of the sizes it quotes.
 
 The fourth moves no counter and is the largest single magnitude in this file's
 history: a four-component JPEG 2000 is read as ink rather than as red,
@@ -293,7 +321,7 @@ because the two are far apart and only one of them is the claim, and beside
 | `(samples) mask` | 1336 | 1128 | 154 | 974 | 974 | 974 | **100.0%** | 15 | 15 | 0 | 15 | 67 | 126 | 0 | 0 | — |
 | `JPXDecode` | 1241 | 1231 | 0 | 1231 | 1231 | 7 | **100.0%** | 10 | 9 | 1 | 9 | 0 | 0 | 0 | 0 | 3 |
 | `JBIG2Decode mask` | 591 | 521 | 271 | 250 | 250 | 250 | **100.0%** | 0 | 0 | 0 | 0 | 70 | 0 | 0 | 0 | — |
-| `DCTDecode` | 590 | 425 | 0 | 425 | 208 | 4 | **48.9%** | 44 | 21 | 23 | 32 | 121 | 0 | 0 | 217 | 20 |
+| `DCTDecode` | 590 | 425 | 0 | 425 | 208 | 4 | **48.9%** | 44 | 23 | 21 | 32 | 121 | 0 | 0 | 217 | 20 |
 | `DCTDecode mask` | 12 | 11 | 0 | 11 | 11 | 5 | **100.0%** | 1 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | — |
 | `JBIG2Decode` | 11 | 10 | 0 | 10 | 10 | 10 | **100.0%** | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | — |
 | `JPXDecode mask` | 2 | 2 | 0 | 2 | 2 | 2 | **100.0%** | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — |
@@ -706,6 +734,11 @@ nothing is paper, and read as a level of grey it is black.
 | `uk-govuk` `DeviceN "Black"` over DeviceCMYK, 549×91 | peak **255**, mse 65 025, mean **−255.00** | within the gate |
 | `fr-impots` `Separation "PANTONE 293 U"`, 166×84 | peak **255**, mse 22 819 | peak 44, mse 380.8 |
 
+**The second row is not where that picture ended.** Its "after" is this
+section's after, and three changes followed it: peak 44 → 11 at v0.27.0, and
+then **exact** at v0.32.0, when the `ICCBased` alternate its tint transform
+names stopped being read as American ink. §19.
+
 The first was the largest disagreement in the corpus: every pixel 255 levels
 from poppler, mean exactly −255 — solid black against solid white. This is what
 poppler does and not an interpretation of it: `DCTStream` hands
@@ -1094,6 +1127,14 @@ that meets one falls back on the component count exactly as before **and knows
 that it did**, which is the difference between a limit and a silent wrong
 answer.
 
+> **That paragraph is the fifth row of §16's own table, and it stood for two
+> versions.** "Needs an engine" was read as "needs an engine nobody here is
+> going to write". The engine is four arrays and an interpolation; it is
+> `gfx/color/icclut.go`, it is read at v0.27.0, and the picture it was costing
+> was the largest `mse` in the corpus. **§19.** What the paragraph got right is
+> the last clause: falling back knowingly is not the same as being wrong
+> silently, and it is why the picture could be found at all.
+
 **And a part of this that NEITHER instrument can see.** A colour space is read
 the same way for a FILL as for a picture, so reading the profile changes every
 `ICCBased` fill on every page as well. `images` extracts pictures, so not one
@@ -1145,7 +1186,7 @@ exactly what makes it unable to see a fill.
 So the gap stands, and it is now known to be a real one rather than an
 unattempted one.
 
-**The shape of the error is worth more than the fix.** FOUR times in this file
+**The shape of the error is worth more than the fix.** FIVE times in this file
 a limit turned out to be a boundary of the thing in front of me rather than of
 the problem:
 
@@ -1155,15 +1196,28 @@ the problem:
 | §15 | a four-component JPEG 2000 is not fixable here | a third party's module, which can be forked | peak **255 → 3** |
 | §16 | poppler consults a profile we cannot read | true of a lookup-table profile, false of the common one | peak **19 → 1** |
 | §18 | somebody would have to write a decode that hands back its planes | one call in Go's `image/jpeg`, and Go is BSD-3 | peak **33 → 3** |
+| §19 | a lookup-table profile needs a colour-management engine | four arrays and an interpolation; the engine is one file | `mse` **34.99 → 0** |
 
 Each was true of one module, one function or one library, and each was stated
 as though it were true of the question. The fourth is the plainest: the
 sentence named the fix it needed and then assigned it to nobody, when the
 obstacle was a single line importing an internal package.
 
-**The test that would have caught all four**: a sentence that cannot NAME the
+**The fifth was carved out by the third's own correction, and that is the part
+worth keeping.** Row three is §16 narrowing "poppler consults a profile we
+cannot read" to "true of a lookup-table profile, false of the common one". The
+narrowing was correct and the measurement behind it was real — and the smaller
+sentence left standing was wrong in exactly the same way as the larger one.
+**A correction that names a smaller limit is still naming a limit**, and it
+carries the whole burden of proof it has just discharged for the part it kept.
+Four rows of this table were written before that one was tested.
+
+**The test that would have caught all five**: a sentence that cannot NAME the
 artefact whose limit it describes is not describing an artefact. It is
-describing the problem, which is a far stronger claim than it looks.
+describing the problem, which is a far stronger claim than it looks. And the
+second test, which row five needed: when a limit is narrowed rather than
+removed, **the remainder has not been measured just because the part that went
+away was**.
 
 ### 17. A calibrated space amplifies a decoder disagreement
 
@@ -1296,6 +1350,120 @@ independently — peak 4 for three components, peak 3 for four. That is a
 duplication with a reason and a cross-check, which is not the same as a
 duplication.
 
+### 19. The largest error left was ranked out of sight by the statistic that found the others
+
+**This section exists because a sentence in §15 said "the largest magnitude
+left" and meant "the largest peak".** Ranked by peak, the worst thing in the
+corpus was `gh-openpdf DCTDecode converted` at 20, which §17 already accounted
+for. Ranked by mean squared error, the worst thing was somewhere else
+altogether and was **fifty times larger than anything below it**:
+
+| | worst peak | worst `mse` | share of pixels differing | mean |
+|---|---:|---:|---:|---:|
+| `gh-openpdf DCTDecode converted` | **20** | 0.30 | 0.0098 | +0.28 |
+| `fr-impots DCTDecode converted` | 11 | **34.99** | **0.7123** | **−3.92** |
+| everything else, 20 buckets | ≤ 4 | ≤ 0.65 | ≤ 0.0020 | — |
+
+Those two numbers describe **different shapes of error**. A peak of 20 over 1%
+of the pixels is a few pixels a long way out. A peak of 11 over 71% of them,
+with a mean of −3.92, is the whole picture shifted. The first is a decoder
+disagreement; the second is a colour that was never computed the right way at
+all. The file's tables carried both figures the whole time; the prose ranked by
+one of them and stopped looking.
+
+#### What it was
+
+`2042_2042_5180.pdf` and `2042_2042_5535.pdf` draw the same 166×84 JPEG — the
+one §11 pulled back from 255 levels out — through
+
+```
+[/Separation /PANTONE#20293#20U 35 0 R << /FunctionType 2 /N 1 /C0 [0 0 0 0]
+                                          /C1 [1 0.57 0 0.02] >>]
+```
+
+whose alternate space, object 35, is `[/ICCBased 95 0 R]` with **`/N 4`**. That
+stream is 654 352 bytes of **Coated FOGRA39 (ISO 12647-2:2004)**: device class
+`prtr`, space `CMYK`, connection space `Lab`, and its transform in an `A2B0`
+/`A2B1`/`A2B2` trio of `mft2` tags — four inputs, three outputs, eleven points
+per axis, 14 641 measured grid points.
+
+`gfx`'s `ReadICC` declined every profile of that shape, so `render` fell back
+on `DeviceCMYK`, which is this repository's interpolation of **U.S. Web Coated
+(SWOP)** (§11). European coated offset drawn as American web ink: a small,
+signed, everywhere error. Exactly a mean of −3.92 over 71% of a picture.
+
+#### The engine, and three things that had to match rather than merely be defensible
+
+poppler calls little-cms, so "correct" here means "what little-cms answers".
+Three details each cost more than the whole gate.
+
+**The interpolation is not the obvious one.** Weighing all 2ⁿ corners of a grid
+cell is the reading anyone would write first. little-cms cuts each cell into
+six tetrahedra and weighs the four corners of the one the point falls in; for
+four inputs it interpolates linearly between two sub-lattices read that way.
+The two agree at every grid point and differ between them:
+
+| Coated FOGRA39, 1041 colours, 600 of them random interior points | worst ΔE76 | mean |
+|---|---:|---:|
+| all corners weighted | 0.261 | 0.058 |
+| **as little-cms reads it** | **0.005** | **0.002** |
+
+**The CIELAB encoding changed at version 4.** In a version 2 profile's 16-bit
+table, `0xff00` and not `0xffff` stands for L\* = 100. This profile is version
+2.1.
+
+**Black point compensation is on, always.** poppler builds every transform with
+`cmsFLAGS_BLACKPOINTCOMPENSATION`. Its black point is a roundtrip through the
+profile — ask what ink it would lay for absolute black, then ask what that ink
+measures — and **the two legs use different tags**: in through the perceptual
+`B2A0`, back through the media-relative `A2B1`. Reading both legs perceptually
+is a plausible mistake and answers L\* = **0.5** for this press where the
+answer is **10.7**, which is a compensation that does nothing.
+
+#### The witness
+
+Each step was measured against poppler on the picture itself, and against
+little-cms configured the same way, so that "we match" is not the same claim as
+"we are close".
+
+| | worst level from poppler | mean |
+|---|---:|---:|
+| little-cms, no compensation | 3.15 | 1.239 |
+| **ours, the table alone** | **3.15** | 1.233 |
+| little-cms, with compensation | 0.97 | 0.448 |
+| **ours, compensated** | **0.97** | **0.448** |
+
+And the picture, through the instrument this file is written from:
+
+| `fr-impots` `DCTDecode converted` | share | peak | `mse` | mean |
+|---|---:|---:|---:|---:|
+| before | 0.7123 | 11 | 34.99 | −3.92 |
+| the table alone | 0.0085 | 4 | 1.66 | +0.88 |
+| **with the compensation** | — | — | — | **exact** |
+
+Not within the gate of 2. **Exact.**
+
+#### The control
+
+Every one of the 23 populations was re-measured, and the comparison was read in
+both directions rather than only the flattering one:
+
+- 83 buckets before, 83 after — none lost, none invented
+- **not one bucket anywhere gains a differing picture, a bigger peak or a
+  bigger `mse`**
+- exactly one bucket changes: `fr-impots DCTDecode converted`, 2 differing → 0
+- the corpus goes from 6586 to 6588 exact, `differing` from 241 to 239
+
+#### What is still declined
+
+The version 4 `mAB ` shape — a longer sandwich with a second set of curves and
+a matrix in the middle — is still refused, and `ErrICCNotArithmetic` still says
+so. No picture in this corpus carries one. That sentence is allowed to stand
+**because it can name the artefact it is a limit of**, which is the test §16's
+table sets out: a `lutAtoBType` tag, unread by `gfx/color/icclut.go`. Whether
+that sentence survives its own test is a question for whoever meets a profile
+that carries one — which is the point of writing it down this way.
+
 ## Every differing bucket in the run
 
 > **The previous revision of this table carried three rows its own records did
@@ -1338,7 +1506,6 @@ duplication.
 | `gh-safedocs` | `DCTDecode` | direct | 1 | 0.000595 | 0.000595 | 4 | 4 | 0.2810 | 0.2810 | -0.1230 | -0.1230 |
 | `us-dol` | `DCTDecode` | direct | 15 | 0.001119 | 0.001339 | 3 | 4 | 0.3029 | 0.3190 | -0.2787 | -0.2882 |
 | `gh-openpdf` | `DCTDecode` | converted | 2 | 0.009838 | 0.009838 | 20 | 20 | 0.3022 | 0.3022 | +0.2829 | +0.2829 |
-| `fr-impots` | `DCTDecode` | converted | 2 | 0.712278 | 0.712278 | 11 | 11 | 34.9926 | 34.9926 | -3.9243 | -3.9243 |
 
 ## What is not measured, and why
 
