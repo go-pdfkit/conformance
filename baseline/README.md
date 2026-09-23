@@ -25,21 +25,30 @@ instrument.
 | **walk** | **the page's CONTENT STREAM, not its /Resources** ([render#43](https://github.com/go-pdfkit/render/pull/43)) |
 | **bucketing** | the listing **and** the picture's own `/ColorSpace` ([conformance#20](https://github.com/go-pdfkit/conformance/issues/20)) |
 | **bound on the judge** | **2m0s per document, per tool** ([conformance#21](https://github.com/go-pdfkit/conformance/issues/21)) |
-| `go-pdfkit/render` | **v0.30.0** |
+| `go-pdfkit/render` | **v0.31.0** |
 | `go-pdfkit/reader` | v0.6.0 |
 | `go-gfx/gfx` | **v0.26.0** |
 | `tannevaled/gobig2` | v0.1.0 |
 | `go-images/jpeg2000` | **v0.1.0** *(was `ajroetker/go-jpeg2000` v0.0.2; see §15)* |
+| `go-images/jpeg` | **v0.1.0** *(was the standard library's `image/jpeg`; see §18)* |
 | pages per document | 1 (the first page of each document) |
 | corpora | `/Users/Shared/pdfscans` (MANIFEST.tsv), `/Users/Shared/pdfforms` (MANIFEST.tsv) |
 
 **Every one of the 23 populations ran to completion, and every one is in the
 tables below.** All 23 exited 0.
 
-**The JPEG 2000 decoder changed identity between runs**, from
-`ajroetker/go-jpeg2000` v0.0.2 to `go-images/jpeg2000` v0.1.0 — a fork of it
-under the same Apache-2.0 licence, carrying one fix and stating it in its
-`NOTICE`. §15 says what the fix was worth and what it left alone.
+**Two decoders changed identity between runs, and both are forks.** The JPEG
+2000 one went from `ajroetker/go-jpeg2000` v0.0.2 to `go-images/jpeg2000`
+v0.1.0, under the same Apache-2.0 licence (§15). The JPEG one went from the
+standard library's `image/jpeg` to `go-images/jpeg` v0.1.0, under Go's own
+BSD-3 (§18). Each carries one change, each states it in a `NOTICE`, and the
+JPEG fork runs Go's own test suite unaltered.
+
+**And the records of this run span two days.** The machine slept overnight
+between `ia-biodiversity` and what followed, which is why that population's
+duration reads 63 192 seconds where the previous run took 1 842. No figure in
+this file is affected: what is compared is pixels, and pixels do not depend on
+when the comparison ran. It is the reason this file carries no timings at all.
 
 **Why this run exists.** Six changes, in two halves, and the same sentence
 covers both: **a picture is not a colour, and a name is not an identity.**
@@ -102,6 +111,20 @@ the magnitudes went: `DCTDecode converted` peaks at **33** where it peaked at
 corpus, which has 12 documents mentioning `/Lab` and none of them on a first
 page (v0.28.0). A fifth follows in the last column: reading an `ICCBased`
 profile (v0.30.0, §16).
+
+**A sixth moves no figure in the table above at all, and is the largest
+magnitude left.** Decoding a JPEG through a fork of Go's `image/jpeg` that
+keeps a four-component picture's chroma (v0.31.0, §18) took
+`gh-openpdf DCTDecode converted` from a worst peak of **33 to 20** and its
+worst `mse` from 4.38 to **0.30** — the picture itself from 33 to **3**, which
+is what an ordinary JPEG reads. Not one counter moves: it differed at 33 and
+differs at 3, both being outside a gate of 2. **The 20 that is now the bucket's
+worst belongs to the OTHER picture in it**, the `CalRGB` one, whose residual
+§17 accounts for as a decoder disagreement amplified by a calibrated space.
+
+That makes three fixes in this file — the CMYK JPEG path of §11, the JPEG 2000
+of §15 and this one — whose whole value is in the magnitude and none of it in
+the count. It is the reason this file quotes sizes.
 
 The fourth moves no counter and is the largest single magnitude in this file's
 history: a four-component JPEG 2000 is read as ink rather than as red,
@@ -270,7 +293,7 @@ because the two are far apart and only one of them is the claim, and beside
 | `(samples) mask` | 1336 | 1128 | 154 | 974 | 974 | 974 | **100.0%** | 15 | 15 | 0 | 15 | 67 | 126 | 0 | 0 | — |
 | `JPXDecode` | 1241 | 1231 | 0 | 1231 | 1231 | 7 | **100.0%** | 10 | 9 | 1 | 9 | 0 | 0 | 0 | 0 | 3 |
 | `JBIG2Decode mask` | 591 | 521 | 271 | 250 | 250 | 250 | **100.0%** | 0 | 0 | 0 | 0 | 70 | 0 | 0 | 0 | — |
-| `DCTDecode` | 590 | 425 | 0 | 425 | 208 | 4 | **48.9%** | 44 | 21 | 23 | 32 | 121 | 0 | 0 | 217 | 33 |
+| `DCTDecode` | 590 | 425 | 0 | 425 | 208 | 4 | **48.9%** | 44 | 21 | 23 | 32 | 121 | 0 | 0 | 217 | 20 |
 | `DCTDecode mask` | 12 | 11 | 0 | 11 | 11 | 5 | **100.0%** | 1 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | — |
 | `JBIG2Decode` | 11 | 10 | 0 | 10 | 10 | 10 | **100.0%** | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | — |
 | `JPXDecode mask` | 2 | 2 | 0 | 2 | 2 | 2 | **100.0%** | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — |
@@ -1122,12 +1145,25 @@ exactly what makes it unable to see a fill.
 So the gap stands, and it is now known to be a real one rather than an
 unattempted one.
 
-**The shape of the error is worth more than the fix.** Three times in this file
+**The shape of the error is worth more than the fix.** FOUR times in this file
 a limit turned out to be a boundary of the thing in front of me rather than of
-the problem: §11 said the distinction cost nothing for `CalRGB`, §15 said a
-four-component JPEG 2000 was not fixable here, and §16 said a profile could not
-be read. Each was true of one module, one function or one library, and each was
-stated as though it were true of the question.
+the problem:
+
+| where | what it said | what the limit really was | what it cost |
+|---|---|---|---:|
+| §11 | the distinction costs nothing for `CalRGB` | our own code read it as `DeviceRGB` | peak **110** |
+| §15 | a four-component JPEG 2000 is not fixable here | a third party's module, which can be forked | peak **255 → 3** |
+| §16 | poppler consults a profile we cannot read | true of a lookup-table profile, false of the common one | peak **19 → 1** |
+| §18 | somebody would have to write a decode that hands back its planes | one call in Go's `image/jpeg`, and Go is BSD-3 | peak **33 → 3** |
+
+Each was true of one module, one function or one library, and each was stated
+as though it were true of the question. The fourth is the plainest: the
+sentence named the fix it needed and then assigned it to nobody, when the
+obstacle was a single line importing an internal package.
+
+**The test that would have caught all four**: a sentence that cannot NAME the
+artefact whose limit it describes is not describing an artefact. It is
+describing the problem, which is a far stronger claim than it looks.
 
 ### 17. A calibrated space amplifies a decoder disagreement
 
@@ -1164,7 +1200,7 @@ different quantities, and this file should stop implying otherwise. It is
 stated and not acted on, for the reason §14 gives: changing `D` would move
 every figure in this document.
 
-### 18. The four-component JPEG loses its chroma before `render` can see it
+### 18. The four-component JPEG lost its chroma before `render` could see it
 
 §14 left two large peaks in the `converted` bucket. §16 answered the 110. This
 is the 33, and it is the last one in this corpus that is ours.
@@ -1205,7 +1241,7 @@ their chroma is subsampled or not. It never runs here. Go's `image/jpeg`
 `imageutil.DrawYCbCr`, which samples chroma by **replication** — and hands back
 an `*image.CMYK`. The planes are gone before `render` is given anything.
 
-**Could `render` put it back? Partly, and the bound is measured rather than
+**Could `render` put it back? Partly, and the bound was measured rather than
 guessed.** Inverting the conversion recovers the per-block chroma exactly where
 nothing clipped: over 14 244 blocks with no clipped channel, 14 215 show a
 spread of **0.0** within the block and the worst is 0.5, which is the rounding
@@ -1215,11 +1251,50 @@ Re-upsampling what can be recovered, with libjpeg's own filter, takes the worst
 CMY error from **36 to 26** — and the 26 that remains sits entirely in the
 blocks that cannot be recovered.
 
-So a reconstruction is around a hundred lines for a partial improvement on
-**one** picture in this corpus, bounded by information another library
-discarded. It is named here rather than done, for the same reason as the JPEG
-2000 defect in §15, and the honest fix is the same shape: a four-component
-decode that hands back its planes.
+**This section then said that was the end of it, and named "a four-component
+decode that hands back its planes" as the honest fix somebody else would have
+to write. The fourth time this file made that shape of mistake.** The decoder
+is Go's, Go's licence is BSD-3, and a decoder can be forked.
+
+`github.com/go-images/jpeg` v0.1.0 is that fork: Go's `image/jpeg`, licence and
+copyright retained, every change stated in its `NOTICE`, and **Go's own test
+suite passing there unaltered**. What it changes is the single call this
+section names. The obstacle turned out to be one line, not a library:
+`imageutil` is imported once in the whole package, at the call site being
+replaced, so nothing else had to be carried or rewritten.
+
+| the 258×258 YCCK picture, 266 256 samples | C | M | Y | **K** | within one level |
+|---|---:|---:|---:|---:|---:|
+| `image/jpeg` | 36 | 18 | 21 | **1** | 91.16% |
+| the fork | **2** | **2** | **3** | **1** | **99.90%** |
+
+And end to end, through `render` v0.31.0, in the bucket above:
+
+| `gh-openpdf` `DCTDecode converted` | before | after |
+|---|---:|---:|
+| share of pixels differing | 0.1106 | **0.0003** |
+| peak | **33** | **3** |
+| `mse` | 4.3791 | **0.3022** |
+
+**Peak 3 is what an ordinary JPEG reads in the direct bucket**, so the last
+large peak this corpus held is no longer one. Reconstruction would have
+stopped at 26; the fork reaches 3 because the planes are never merged wrongly
+in the first place.
+
+**Nothing else moved, and the control is the one that matters.** `fr-cerfa`,
+`uk-govuk`, `gh-pdfcpu` and `us-dol` are byte-identical before and after.
+`uk-govuk` is the test: its DVLA scans are four-component too, at 1×1 chroma,
+which the change cannot reach — and does not.
+
+**One thing the fork leaves standing.** `render`'s `chroma.go` and the fork now
+each carry libjpeg's fancy upsampler, because they are reached differently: a
+three-component picture comes back as an `*image.YCbCr` with its planes intact
+and `render` upsamples them, while a four-component one is merged inside the
+decoder. The two were checked against each other at every output position,
+edges included, and agree exactly; and each is measured against poppler
+independently — peak 4 for three components, peak 3 for four. That is a
+duplication with a reason and a cross-check, which is not the same as a
+duplication.
 
 ## Every differing bucket in the run
 
@@ -1262,7 +1337,7 @@ decode that hands back its planes.
 | `gh-pypdf` | `DCTDecode` | direct | 2 | 0.000517 | 0.000517 | 3 | 3 | 0.2581 | 0.2581 | -0.0561 | -0.0989 |
 | `gh-safedocs` | `DCTDecode` | direct | 1 | 0.000595 | 0.000595 | 4 | 4 | 0.2810 | 0.2810 | -0.1230 | -0.1230 |
 | `us-dol` | `DCTDecode` | direct | 15 | 0.001119 | 0.001339 | 3 | 4 | 0.3029 | 0.3190 | -0.2787 | -0.2882 |
-| `gh-openpdf` | `DCTDecode` | converted | 2 | 0.110570 | 0.110570 | 33 | 33 | 4.3791 | 4.3791 | +0.2261 | +0.2261 |
+| `gh-openpdf` | `DCTDecode` | converted | 2 | 0.009838 | 0.009838 | 20 | 20 | 0.3022 | 0.3022 | +0.2829 | +0.2829 |
 | `fr-impots` | `DCTDecode` | converted | 2 | 0.712278 | 0.712278 | 11 | 11 | 34.9926 | 34.9926 | -3.9243 | -3.9243 |
 
 ## What is not measured, and why
