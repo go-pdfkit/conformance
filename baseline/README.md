@@ -1454,15 +1454,77 @@ both directions rather than only the flattering one:
 - exactly one bucket changes: `fr-impots DCTDecode converted`, 2 differing → 0
 - the corpus goes from 6586 to 6588 exact, `differing` from 241 to 239
 
-#### What is still declined
+#### How far this reaches, which is not two documents
 
-The version 4 `mAB ` shape — a longer sandwich with a second set of curves and
-a matrix in the middle — is still refused, and `ErrICCNotArithmetic` still says
-so. No picture in this corpus carries one. That sentence is allowed to stand
-**because it can name the artefact it is a limit of**, which is the test §16's
-table sets out: a `lutAtoBType` tag, unread by `gfx/color/icclut.go`. Whether
-that sentence survives its own test is a question for whoever meets a profile
-that carries one — which is the point of writing it down this way.
+The measurement moved two pictures, and that is not the size of the change.
+Two instruments were pointed at the corpus, and they answer two different
+questions.
+
+**What is embedded.** Every ICC profile in the bytes, found by inflating every
+stream — a profile is always a standalone stream, so this reaches all of them
+without a PDF parser, and the encrypted or `LZWDecode`d documents were
+normalised with `qpdf --decrypt --stream-data=uncompress` first:
+
+| profile shape | documents | read since |
+|---|---:|---|
+| `RGB` matrix and curves | 1127 | v0.26.0 (§16) |
+| `GRAY` one curve | 63 | v0.26.0 (§16) |
+| **`CMYK` `mft2` lookup table** | **57** | **v0.27.0, this section** |
+| **`CMYK` `mft1` lookup table** | **3** | **v0.27.0, this section** |
+| `mAB ` version 4 lookup table | **0** | not read |
+
+**What is drawn through.** `survey`, which is in this repository and opens the
+documents rather than reading round them, counts the profile behind every
+colour space a page's drawing reaches — through a `Separation`'s alternate, a
+`DeviceN`'s, an `Indexed` base, and through a form's own resources:
+
+| what gfx makes of it | documents |
+|---|---:|
+| matrix and curves | 445 |
+| one curve | 57 |
+| **lookup table, 4 channels** | **24** |
+| a parametric curve, declined | 7 |
+| malformed | 6 |
+
+**60 embed one, 24 draw through one, and 36 name an `/OutputIntents`** — which
+is a declaration of the press the document is FOR, not a colour anything is
+drawn in. That is the gap, and it is the right shape: a government form
+declares PDF/X conformance and prints in black.
+
+> **60 − 36 = 24 is a coincidence of totals, and the check that would have
+> published it as a finding is the one that was nearly skipped.** Per
+> population the two do NOT line up: `fr-cerfa` has one document with no
+> output intent and TWO that are drawn through, and `gh-pypdf` has one that
+> embeds a press profile nothing draws through and declares no intent either.
+> The sets are the same SIZE and not the same DOCUMENTS. Two errors in
+> opposite directions cancelled in the total, which is the oldest way for a
+> proxy measure to look like a proof.
+
+So the honest sentence is the third one: **24 documents draw through a profile
+this change reads**, where before it read none of them, and two of those
+drawings are pictures the instrument can compare.
+
+#### What is still declined, with its size
+
+Two shapes, and the census above is what makes them countable rather than
+rhetorical:
+
+| shape | documents drawing through one | what it would take |
+|---|---:|---|
+| a parametric curve, `para` | **7** | five formulas from the specification |
+| a version 4 `mAB ` lookup table | **0** | a second sandwich: curves, matrix, curves |
+
+**This section first asserted the second of those without looking**, which is
+precisely the habit §16's table is about, and it did not know about the first
+at all. Both are now named and counted, and `gfx` v0.28.0 names them in the
+refusal itself rather than saying only that a profile was not read: one bucket
+for a table engine and five formulas counted nothing, and it took a census to
+notice.
+
+**Neither sentence is a limit of the question.** One is five formulas, the
+other is a longer version of a sandwich this file now reads. They are recorded
+here with their sizes so that whoever picks one up is not starting from a
+claim, and so that §16's table has one fewer place to grow.
 
 ## Every differing bucket in the run
 

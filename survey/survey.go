@@ -9,9 +9,13 @@
 package survey
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"sort"
+	"strings"
 
+	gfxcolor "github.com/go-gfx/gfx/color"
 	"github.com/go-pdfkit/reader"
 )
 
@@ -53,6 +57,18 @@ type Counts struct {
 	// carry Adobe's EBX lending DRM, which is not a defect and not something to
 	// implement.
 	Refused map[string]int
+	// Profiles is, per SHAPE of embedded ICC profile, how many DOCUMENTS
+	// carry at least one -- where the shape is what gfx/color makes of the
+	// profile rather than which tag it happens to use, because that is the
+	// question a reader actually has: can this be converted by arithmetic,
+	// or does it need a table.
+	//
+	// It follows the spaces that name ANOTHER space. The picture that made
+	// this necessary is a `Separation` whose alternate is a CMYK press
+	// profile; a census of the spaces a page names DIRECTLY would not have
+	// seen it, and the profile it misses was for two versions the largest
+	// mean squared error in the corpus.
+	Profiles map[string]int
 }
 
 // newCounts makes the maps, so a caller never has to.
@@ -63,6 +79,7 @@ func newCounts() Counts {
 		BlankWithout: map[string]int{},
 		MaskedBy:     map[string]int{},
 		Refused:      map[string]int{},
+		Profiles:     map[string]int{},
 	}
 }
 
@@ -74,6 +91,9 @@ func (c Counts) Masks() []string { return keys(c.MaskedBy) }
 
 // Reasons returns the refusals seen, in a stable order.
 func (c Counts) Reasons() []string { return keys(c.Refused) }
+
+// Shapes returns the ICC profile shapes seen, in a stable order.
+func (c Counts) Shapes() []string { return keys(c.Profiles) }
 
 // keys is the names of a count, sorted, so two runs print the same thing.
 func keys(m map[string]int) []string {
@@ -126,16 +146,26 @@ func surveyOne(path string, pagesPerDoc int, c *Counts) (opened bool) {
 		return false
 	}
 	inThisDocument := map[string]bool{}
+	profiles := map[string]bool{}
+	// Forms already walked, per DOCUMENT. A generator that puts a page's
+	// whole content in one form and draws it on every page would otherwise
+	// have that form walked once per page, and a form that names another
+	// walked once per path to it -- which took a census of this corpus from
+	// under a minute to over ten.
+	walked := map[reader.Ref]bool{}
 	pages := d.PageCount()
 	if pagesPerDoc > 0 && pages > pagesPerDoc {
 		pages = pagesPerDoc
 	}
 	for p := 1; p <= pages; p++ {
 		c.Pages++
-		surveyPage(d, p, c, inThisDocument)
+		surveyPage(d, p, c, inThisDocument, profiles, walked)
 	}
 	for name := range inThisDocument {
 		c.UsedBy[name]++
+	}
+	for name := range profiles {
+		c.Profiles[name]++
 	}
 	return true
 }
@@ -147,13 +177,14 @@ func surveyOne(path string, pagesPerDoc int, c *Counts) (opened bool) {
 // for. So the errors here cannot happen and are dropped rather than handled: a
 // branch that cannot be reached cannot be tested, and an untested branch in the
 // code that decides what a measurement says is worse than no branch.
-func surveyPage(d *reader.Document, p int, c *Counts, inThisDocument map[string]bool) {
+func surveyPage(d *reader.Document, p int, c *Counts, inThisDocument, profiles map[string]bool, walked map[reader.Ref]bool) {
 	page, _ := d.Page(p)
 	res, _ := d.Resolve(page["Resources"])
 	rd, ok := reader.ToDict(res)
 	if !ok {
 		return
 	}
+	profilesUnder(d, rd, profiles, walked)
 	onThisPage := map[string]bool{}
 	images := 0
 	xo, _ := d.Resolve(rd["XObject"])
@@ -167,7 +198,8 @@ func surveyPage(d *reader.Document, p int, c *Counts, inThisDocument map[string]
 			c.Images[name]++
 			onThisPage[name] = true
 			inThisDocument[name] = true
-			if m, ok := maskFilter(d, streamOf(d, v)); ok {
+			st := streamOf(d, v)
+			if m, ok := maskFilter(d, st); ok {
 				c.MaskedBy[m]++
 			}
 		}
@@ -242,4 +274,123 @@ func marks(d *reader.Document, p int) int {
 		}
 	}
 	return n
+}
+
+// profileShapes adds the shape of every ICC profile reachable from a colour
+// space, following the spaces that name ANOTHER space: a `Separation`'s
+// alternate, a `DeviceN`'s, an `Indexed` base, a `Pattern`'s underlying space.
+//
+// The depth bound is not decoration. A file is somebody else's bytes and a
+// colour space may name itself, directly or round a ring of four.
+func profileShapes(d *reader.Document, v reader.Object, into map[string]bool, depth int) {
+	if depth > 8 {
+		return
+	}
+	// The errors here are dropped for the reason surveyPage gives: the reader
+	// answers a dangling reference with Null and no error, so a branch on them
+	// could not be reached and could not be tested.
+	o, _ := d.Resolve(v)
+	arr, ok := reader.ToArray(o)
+	if !ok || len(arr) < 2 {
+		return
+	}
+	name, _ := reader.ToName(arr[0])
+	switch name {
+	case "ICCBased":
+		if shape, ok := iccShape(d, arr[1]); ok {
+			into[shape] = true
+		}
+	case "Separation", "DeviceN":
+		// [/Separation name ALTERNATE tint] and [/DeviceN names ALTERNATE ...]
+		if len(arr) > 2 {
+			profileShapes(d, arr[2], into, depth+1)
+		}
+	case "Indexed", "Pattern":
+		// [/Indexed BASE hival lookup] and [/Pattern BASE]
+		profileShapes(d, arr[1], into, depth+1)
+	}
+}
+
+// iccShape says what gfx/color makes of one ICCBased profile stream, and
+// whether there was a profile there at all.
+func iccShape(d *reader.Document, v reader.Object) (string, bool) {
+	o, _ := d.Resolve(v)
+	st, ok := reader.ToStream(o)
+	if !ok {
+		return "", false
+	}
+	data := d.DecodeStreamRecovering(st).Data
+	if len(data) == 0 {
+		return "", false
+	}
+	profile, err := gfxcolor.ReadICC(data)
+	switch {
+	case errors.Is(err, gfxcolor.ErrICCNotArithmetic):
+		// gfx names the shape it met, and the shape is the whole point: a
+		// version 4 lookup table and a parametric curve are limits of very
+		// different sizes, and one bucket for both counts nothing. The
+		// sentinel's own words are the same on every refusal, so they are
+		// trimmed and what is left is the artefact.
+		return strings.TrimPrefix(err.Error(), gfxcolor.ErrICCNotArithmetic.Error()+": "), true
+	case err != nil:
+		return "malformed", true
+	}
+	switch profile := profile.(type) {
+	case *gfxcolor.ICCGrayTRC:
+		return "one curve", true
+	case *gfxcolor.ICCLutProfile:
+		return fmt.Sprintf("lookup table, %d channels", profile.Inputs), true
+	}
+	// ReadICC answers with one of three shapes or an error, and the other two
+	// are above.
+	return "matrix and curves", true
+}
+
+// profilesUnder adds every ICC profile reachable from one resource dictionary:
+// the colour spaces it names, the colour space each of its pictures names, and
+// the resources of each FORM it names.
+//
+// The forms are why this recurses. A form XObject carries its own /Resources,
+// and a page that draws all its content through one -- which is how a great
+// many generators write a page -- names no colour space at all at the top
+// level. Counting only the top level saw a third of the press profiles in this
+// corpus.
+// There is no depth bound here and there does not need to be one: every form
+// is entered at most once per document, and a document holds finitely many.
+// A bound would be a second mechanism for the same job, and the one that
+// silently stops counting.
+func profilesUnder(d *reader.Document, rd reader.Dict, profiles map[string]bool, walked map[reader.Ref]bool) {
+	cs, _ := d.Resolve(rd["ColorSpace"])
+	if csd, ok := reader.ToDict(cs); ok {
+		for _, v := range csd {
+			profileShapes(d, v, profiles, 0)
+		}
+	}
+	xo, _ := d.Resolve(rd["XObject"])
+	xd, ok := reader.ToDict(xo)
+	if !ok {
+		return
+	}
+	for _, v := range xd {
+		if ref, named := v.(reader.Ref); named {
+			if walked[ref] {
+				continue
+			}
+			walked[ref] = true
+		}
+		o, _ := d.Resolve(v)
+		st, ok := reader.ToStream(o)
+		if !ok {
+			continue
+		}
+		switch sub, _ := reader.ToName(st.Dict["Subtype"]); sub {
+		case "Image":
+			profileShapes(d, st.Dict["ColorSpace"], profiles, 0)
+		case "Form":
+			inner, _ := d.Resolve(st.Dict["Resources"])
+			if id, ok := reader.ToDict(inner); ok {
+				profilesUnder(d, id, profiles, walked)
+			}
+		}
+	}
 }
