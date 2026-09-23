@@ -1536,6 +1536,107 @@ change is worth 101 levels on seven documents and nothing at all here, and
 **both halves of that sentence had to be measured**: the first against lcms,
 the second against the whole corpus.
 
+### 20. What `D` = 2 permits, derived rather than inherited
+
+**This file has carried `D` = 2 since the beginning and has never derived it
+for what it is applied to.** §1 notes that a figure in circulation used a gate
+of 4; §7 says no per-filter exception has a measured case; §14 observes that
+every remaining direct difference sits one or two levels above the gate and
+declines to act — *a gate moved because it would flatter a number is not a
+gate*. That refusal is right and it leaves a question open: **is 2 the number
+this pipeline's own conformance permits, or a number inherited from a
+different measurement?**
+
+#### Where the 2 comes from
+
+From ffmpeg's IDCT conformance test, read in the source rather than in a
+quotation (`libavcodec/tests/dct.c:259`):
+
+```c
+spec_err = is_idct && (err_inf > 1 || omse > 0.02 || fabs(ome) > 0.0015);
+```
+
+`err_inf` is a **per-output-sample** maximum against a **floating-point**
+reference IDCT. A conformant implementation is therefore within 1 of that
+reference, and **two** conformant implementations are within 2 of each other.
+That is the derivation, and it is correct — **for one IDCT**.
+
+#### What it is applied to
+
+A three-component JPEG puts three IDCTs, a chroma upsampling and a colour
+conversion between the coefficients and the pixels this file compares.
+
+**Upsampling cannot amplify.** Fancy upsampling is `(3·near + far + rounding)/4`
+— weights that are non-negative and sum to one. A convex combination of values
+each within ε is within ε. The bound is unchanged, and §14 measured exactly
+that: 1×1 chroma peaks at 4 and 2×2 chroma peaks at 4 as well.
+
+**The colour matrix does amplify**, by the sum of the absolute values of its
+row:
+
+| channel | JFIF row | gain | from ±2 per component |
+|---|---|---:|---:|
+| R | `Y + 1.402·Cr` | 2.402 | 4.80 |
+| G | `Y − 0.344136·Cb − 0.714136·Cr` | 2.058 | 4.12 |
+| **B** | **`Y + 1.772·Cb`** | **2.772** | **5.54** |
+
+Rounding to eight bits on both sides adds one more. So:
+
+| shape | what stands between the coefficients and the pixels | permitted |
+|---|---|---:|
+| 1 component | one IDCT | **2** |
+| 3 components | three IDCTs, upsampling, the matrix above | **6.5** |
+
+#### The premise is measured, not assumed
+
+The derivation rests on both decoders being conformant IDCTs, which is an
+assumption about our own. **The grey pictures measure it directly**: a
+one-component JPEG exercises the IDCT and nothing else, and §14's split found
+**0 of 36 outside the gate at a worst peak of 1**. One, against a permitted 2.
+
+#### What the corpus looks like against the derived bound
+
+| | differing | inside 6.5 |
+|---|---:|---:|
+| `direct` | 217 | **217** |
+| `converted` | 22 | 20 |
+| **total** | **239** | **237** |
+
+Every direct difference in this corpus sits at a peak of **4 or less**. The two
+that do not are `gh-openpdf DCTDecode converted` at peak 20 — and 6.5 is a
+*lower* bound for a converted picture, which carries a colour conversion on top
+of the decode. §17 measured that space's amplification at about twelvefold, so
+a peak of 20 there is what a sample error of under 2 becomes: inside the same
+premise, arrived at from the other end.
+
+**So every difference this file reports is consistent with two conformant
+decoders**, and the 239 count is the gate's, not the decoders'.
+
+#### Two things this derivation does NOT cover
+
+- **`JPXDecode`.** One picture differs, at peak 3. JPEG 2000's conformance is
+  the irreversible 9/7 wavelet, not an IDCT, and `err_inf > 1` says nothing
+  about it. Its bound would have to be derived from its own standard.
+- **A calibrated space, exactly.** §17's twelvefold is a measurement of one
+  space at one point, not a bound. A derived gate for the converted bucket
+  would need the amplification of each space, which is a Jacobian and not a
+  constant.
+
+#### And it is still not acted on
+
+`D` is a published condition of this instrument
+([conformance#16](https://github.com/go-pdfkit/conformance/issues/16)); moving
+it moves every figure in this file and every comparison with an earlier run.
+The arithmetic above is an argument, not a mandate, and a derivation that
+happens to raise a rate deserves more suspicion than one that lowers it, not
+less.
+
+What changes here is only that the file no longer has to say *"one or two
+levels above the gate"* without being able to say what the gate is for. It can
+now say which of its differences are inside what conformance permits — **237 of
+239** — and that the remaining two are accounted for by §17 rather than
+unexplained.
+
 ## Every differing bucket in the run
 
 > **The previous revision of this table carried three rows its own records did
