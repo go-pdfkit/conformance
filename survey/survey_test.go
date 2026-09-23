@@ -459,6 +459,24 @@ func iccGamma(g float64) []byte {
 	return d
 }
 
+// iccPara writes a parametricCurveType of shape 0: Y = X^g.
+func iccPara(g float64) []byte { return iccParaTag(0, g) }
+
+// iccParaShape writes one of a shape ICC does not define, with one
+// coefficient, which is what a reader meets when a profile is from the future
+// or from nowhere.
+func iccParaShape(shape int) []byte { return iccParaTag(shape, 1) }
+
+func iccParaTag(shape int, params ...float64) []byte {
+	d := make([]byte, 12+len(params)*4)
+	copy(d, "para")
+	binary.BigEndian.PutUint16(d[8:], uint16(shape))
+	for i, v := range params {
+		binary.BigEndian.PutUint32(d[12+i*4:], uint32(int32(math.Round(v*65536))))
+	}
+	return d
+}
+
 func iccOpaque(typ string, n int) []byte {
 	d := make([]byte, 8+n)
 	copy(d, typ)
@@ -554,11 +572,16 @@ func TestEveryProfileShapeIsCountedAsWhatGfxMakesOfIt(t *testing.T) {
 		{"a press", pressProfile(), "lookup table, 4 channels"},
 		{"a version 4 lookup table", iccProfileBytes("CMYK", "Lab ", [][2]any{{"A2B0", iccOpaque("mAB ", 64)}}),
 			`a "mAB " lookup table`},
-		{"a parametric curve", iccProfileBytes("RGB ", "XYZ ", [][2]any{
+		{"a curve written as a formula", iccProfileBytes("RGB ", "XYZ ", [][2]any{
 			{"rXYZ", iccXYZ(0.4, 0.2, 0)}, {"gXYZ", iccXYZ(0.3, 0.7, 0.1)},
-			{"bXYZ", iccXYZ(0.2, 0.1, 0.7)}, {"rTRC", iccOpaque("para", 12)},
-			{"gTRC", iccOpaque("para", 12)}, {"bTRC", iccOpaque("para", 12)}}),
-			"a parametric curve"},
+			{"bXYZ", iccXYZ(0.2, 0.1, 0.7)}, {"rTRC", iccPara(2)},
+			{"gTRC", iccPara(2)}, {"bTRC", iccPara(2)}}),
+			"matrix and curves"},
+		{"a formula of a shape ICC does not define", iccProfileBytes("RGB ", "XYZ ", [][2]any{
+			{"rXYZ", iccXYZ(0.4, 0.2, 0)}, {"gXYZ", iccXYZ(0.3, 0.7, 0.1)},
+			{"bXYZ", iccXYZ(0.2, 0.1, 0.7)}, {"rTRC", iccParaShape(9)},
+			{"gTRC", iccParaShape(9)}, {"bTRC", iccParaShape(9)}}),
+			"a parametric curve of shape 9"},
 		{"not a profile", []byte("these are not profile bytes at all"), "malformed"},
 	} {
 		got := spacePage(t, func(w *reader.Writer) reader.Object { return iccArray(w, c.profile) })

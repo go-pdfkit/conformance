@@ -17,7 +17,7 @@ instrument.
 
 | | |
 |---|---|
-| taken | 2026-09-23T09:49:29Z .. 2026-09-23T12:28:43Z (UTC) |
+| taken | 2026-09-23T16:16:33Z .. 2026-09-23T18:25:23Z (UTC) |
 | judge | pdfimages version 26.04.0 |
 | **measure** | **per channel, gate `D` = 2, count budget `N` = 0** ([conformance#16](https://github.com/go-pdfkit/conformance/issues/16)) |
 | **pairing** | **by object number, falling back to size only when one side published none** ([#30](https://github.com/go-pdfkit/conformance/pull/30)); a MASK by the object of the picture that names it ([#32](https://github.com/go-pdfkit/conformance/pull/32), [#34](https://github.com/go-pdfkit/conformance/pull/34)) |
@@ -25,9 +25,9 @@ instrument.
 | **walk** | **the page's CONTENT STREAM, not its /Resources** ([render#43](https://github.com/go-pdfkit/render/pull/43)) |
 | **bucketing** | the listing **and** the picture's own `/ColorSpace` ([conformance#20](https://github.com/go-pdfkit/conformance/issues/20)) |
 | **bound on the judge** | **2m0s per document, per tool** ([conformance#21](https://github.com/go-pdfkit/conformance/issues/21)) |
-| `go-pdfkit/render` | **v0.32.0** |
+| `go-pdfkit/render` | **v0.33.0** |
 | `go-pdfkit/reader` | v0.6.0 |
-| `go-gfx/gfx` | **v0.27.0** |
+| `go-gfx/gfx` | **v0.29.0** |
 | `tannevaled/gobig2` | v0.1.0 |
 | `go-images/jpeg2000` | **v0.1.0** *(was `ajroetker/go-jpeg2000` v0.0.2; see §15)* |
 | `go-images/jpeg` | **v0.1.0** *(was the standard library's `image/jpeg`; see §18)* |
@@ -44,11 +44,8 @@ standard library's `image/jpeg` to `go-images/jpeg` v0.1.0, under Go's own
 BSD-3 (§18). Each carries one change, each states it in a `NOTICE`, and the
 JPEG fork runs Go's own test suite unaltered.
 
-**This run was interrupted and resumed**, so its records span two hours and
-thirty-nine minutes of wall clock with about seventy idle minutes inside it:
-twenty populations were taken in one stretch, the remaining three afterwards,
-by the same binary. The previous run's records spanned two days for a similar
-reason — the machine slept between `ia-biodiversity` and what followed. No
+**This run took two hours and nine minutes without a break.** An earlier one
+was interrupted and resumed, and one before that spanned two days — the machine slept between `ia-biodiversity` and what followed. No
 figure moves either way: what is compared is pixels, and pixels do not depend
 on when the comparison ran. It is the reason this file carries no timings.
 
@@ -1480,11 +1477,19 @@ colour space a page's drawing reaches — through a `Separation`'s alternate, a
 
 | what gfx makes of it | documents |
 |---|---:|
-| matrix and curves | 445 |
+| matrix and curves | 448 |
 | one curve | 57 |
 | **lookup table, 4 channels** | **24** |
-| a parametric curve, declined | 7 |
 | malformed | 6 |
+
+> **That table had a sixth row and the row is why this section grew twice.** At
+> `gfx` v0.28.0 it read *a parametric curve, declined — 7 documents*, and one
+> of those seven was **Display P3**: sRGB's own transfer function written out
+> as a formula, over DCI-P3 primaries. Drawing its samples as sRGB instead was
+> **up to 101 levels of 255 out, mean 23**. v0.29.0 reads the five shapes ICC
+> defines, and the row is gone; only 3 of the 7 appear in the row above,
+> because 4 of them also carry an ordinary profile and were already counted
+> there.
 
 **60 embed one, 24 draw through one, and 36 name an `/OutputIntents`** — which
 is a declaration of the press the document is FOR, not a colour anything is
@@ -1511,20 +1516,25 @@ rhetorical:
 
 | shape | documents drawing through one | what it would take |
 |---|---:|---|
-| a parametric curve, `para` | **7** | five formulas from the specification |
+| a `para` shape outside the five ICC defines | **0** | knowing what it means |
 | a version 4 `mAB ` lookup table | **0** | a second sandwich: curves, matrix, curves |
 
 **This section first asserted the second of those without looking**, which is
-precisely the habit §16's table is about, and it did not know about the first
-at all. Both are now named and counted, and `gfx` v0.28.0 names them in the
-refusal itself rather than saying only that a profile was not read: one bucket
-for a table engine and five formulas counted nothing, and it took a census to
-notice.
+precisely the habit §16's table is about, and it did not know about the
+parametric curve at all. Both were named and counted once `gfx` v0.28.0 named
+the shape in the refusal itself rather than saying only that a profile was not
+read — one bucket for a table engine and five formulas counted nothing, and it
+took a census to notice — and the parametric one was then simply read (v0.29.0).
 
-**Neither sentence is a limit of the question.** One is five formulas, the
-other is a longer version of a sandwich this file now reads. They are recorded
-here with their sizes so that whoever picks one up is not starting from a
-claim, and so that §16's table has one fewer place to grow.
+**And it moved no figure in this file, which is the honest half.** All 23
+populations were re-measured and **every bucket in the corpus is
+byte-identical** — not "no counter moved", not "within the gate": the same
+numbers, all 83 of them. Those seven documents colour
+FILLS through their profile, and `images` extracts pictures: it is the
+paragraph §16 ends on, arriving as a measurement rather than as a caveat. The
+change is worth 101 levels on seven documents and nothing at all here, and
+**both halves of that sentence had to be measured**: the first against lcms,
+the second against the whole corpus.
 
 ## Every differing bucket in the run
 
