@@ -198,3 +198,22 @@ func TestTheMasksAreReportedBesideTheFilters(t *testing.T) {
 		t.Errorf("the mask count is not reported: %q", out.String())
 	}
 }
+
+// TestTheReportSaysWhatColourProfilesAPopulationCarries covers the line a
+// reader of this command wants when the question is colour rather than
+// filters: how many documents carry a profile that needs a table.
+func TestTheReportSaysWhatColourProfilesAPopulationCarries(t *testing.T) {
+	var out bytes.Buffer
+	report(&out, "alpha", survey.Counts{
+		Files: 3, Documents: 3,
+		Profiles: map[string]int{"lookup table, 4 channels": 2, "matrix and curves": 1},
+	})
+	for _, want := range []string{
+		"ICC profile:     2 documents carry one that is lookup table, 4 channels",
+		"ICC profile:     1 documents carry one that is matrix and curves",
+	} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("the report does not say %q:\n%s", want, out.String())
+		}
+	}
+}

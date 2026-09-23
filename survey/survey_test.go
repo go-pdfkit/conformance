@@ -1,6 +1,8 @@
 package survey
 
 import (
+	"encoding/binary"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -412,5 +414,370 @@ func TestAMaskThatIsNotAnImageIsNotOne(t *testing.T) {
 	}
 	if c.Images["JPXDecode"] != 1 {
 		t.Errorf("the picture itself was not counted: %v", c.Images)
+	}
+}
+
+// iccProfileBytes writes a real ICC profile, so these tests exercise the
+// reading rather than a stand-in for it. tags is signature to tag data.
+func iccProfileBytes(space, pcs string, tags [][2]any) []byte {
+	head := make([]byte, 132)
+	head[8] = 2
+	copy(head[12:16], "prtr")
+	copy(head[16:20], space)
+	copy(head[20:24], pcs)
+	copy(head[36:40], "acsp")
+	binary.BigEndian.PutUint32(head[128:], uint32(len(tags)))
+	table := make([]byte, len(tags)*12)
+	off := len(head) + len(table)
+	var body []byte
+	for i, t := range tags {
+		sig, data := t[0].(string), t[1].([]byte)
+		copy(table[i*12:], sig)
+		binary.BigEndian.PutUint32(table[i*12+4:], uint32(off+len(body)))
+		binary.BigEndian.PutUint32(table[i*12+8:], uint32(len(data)))
+		body = append(body, data...)
+	}
+	out := append(append(head, table...), body...)
+	binary.BigEndian.PutUint32(out[0:4], uint32(len(out)))
+	return out
+}
+
+func iccXYZ(x, y, z float64) []byte {
+	d := make([]byte, 20)
+	copy(d, "XYZ ")
+	for i, v := range []float64{x, y, z} {
+		binary.BigEndian.PutUint32(d[8+i*4:], uint32(int32(math.Round(v*65536))))
+	}
+	return d
+}
+
+func iccGamma(g float64) []byte {
+	d := make([]byte, 14)
+	copy(d, "curv")
+	binary.BigEndian.PutUint32(d[8:], 1)
+	binary.BigEndian.PutUint16(d[12:], uint16(math.Round(g*256)))
+	return d
+}
+
+func iccOpaque(typ string, n int) []byte {
+	d := make([]byte, 8+n)
+	copy(d, typ)
+	return d
+}
+
+// iccLutTag writes an mft2 lookup table of four inputs on a grid of two, which
+// is the shape of a press profile and the shape no matrix describes.
+func iccLutTag() []byte {
+	d := make([]byte, 52)
+	copy(d, "mft2")
+	d[8], d[9], d[10] = 4, 3, 2
+	for i := range 3 {
+		binary.BigEndian.PutUint32(d[12+i*16:], 0x00010000)
+	}
+	binary.BigEndian.PutUint16(d[48:], 2)
+	binary.BigEndian.PutUint16(d[50:], 2)
+	put := func(v uint16) {
+		var u [2]byte
+		binary.BigEndian.PutUint16(u[:], v)
+		d = append(d, u[:]...)
+	}
+	ramp := func() { put(0); put(0xffff) }
+	for range 4 {
+		ramp()
+	}
+	for range 16 * 3 {
+		put(0x4000)
+	}
+	for range 3 {
+		ramp()
+	}
+	return d
+}
+
+func rgbProfile() []byte {
+	return iccProfileBytes("RGB ", "XYZ ", [][2]any{
+		{"rXYZ", iccXYZ(0.4, 0.2, 0)}, {"gXYZ", iccXYZ(0.3, 0.7, 0.1)},
+		{"bXYZ", iccXYZ(0.2, 0.1, 0.7)},
+		{"rTRC", iccGamma(2.2)}, {"gTRC", iccGamma(2.2)}, {"bTRC", iccGamma(2.2)},
+	})
+}
+
+func greyProfile() []byte {
+	return iccProfileBytes("GRAY", "XYZ ", [][2]any{
+		{"wtpt", iccXYZ(0.9642, 1.0, 0.8249)}, {"kTRC", iccGamma(2.2)},
+	})
+}
+
+func pressProfile() []byte {
+	return iccProfileBytes("CMYK", "Lab ", [][2]any{{"A2B1", iccLutTag()}})
+}
+
+// spacePage builds a one-page document whose /Resources /ColorSpace names the
+// space given, under the name "CS".
+func spacePage(t *testing.T, build func(w *reader.Writer) reader.Object) Counts {
+	t.Helper()
+	w := reader.NewWriter("1.7")
+	pagesRef := w.Reserve()
+	pageRef := w.Add(reader.Dict{
+		"Type": reader.Name("Page"), "Parent": pagesRef,
+		"MediaBox":  reader.Array{reader.Integer(0), reader.Integer(0), reader.Integer(50), reader.Integer(50)},
+		"Contents":  w.Add(&reader.Stream{Dict: reader.Dict{}, Raw: []byte("0 0 1 rg 0 0 5 5 re f")}),
+		"Resources": reader.Dict{"ColorSpace": reader.Dict{"CS": build(w)}},
+	})
+	w.Put(pagesRef, reader.Dict{"Type": reader.Name("Pages"),
+		"Kids": reader.Array{pageRef}, "Count": reader.Integer(1)})
+	out, err := w.Finish(reader.Dict{"Root": w.Add(reader.Dict{
+		"Type": reader.Name("Catalog"), "Pages": pagesRef})})
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "doc.pdf")
+	if err := os.WriteFile(path, out, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return Survey([]string{path}, 0)
+}
+
+func iccArray(w *reader.Writer, profile []byte) reader.Object {
+	return reader.Array{reader.Name("ICCBased"),
+		w.Add(&reader.Stream{Dict: reader.Dict{"N": reader.Integer(3)}, Raw: profile})}
+}
+
+func TestEveryProfileShapeIsCountedAsWhatGfxMakesOfIt(t *testing.T) {
+	for _, c := range []struct {
+		name    string
+		profile []byte
+		want    string
+	}{
+		{"three curves and a matrix", rgbProfile(), "matrix and curves"},
+		{"one curve", greyProfile(), "one curve"},
+		{"a press", pressProfile(), "lookup table, 4 channels"},
+		{"a version 4 lookup table", iccProfileBytes("CMYK", "Lab ", [][2]any{{"A2B0", iccOpaque("mAB ", 64)}}),
+			`a "mAB " lookup table`},
+		{"a parametric curve", iccProfileBytes("RGB ", "XYZ ", [][2]any{
+			{"rXYZ", iccXYZ(0.4, 0.2, 0)}, {"gXYZ", iccXYZ(0.3, 0.7, 0.1)},
+			{"bXYZ", iccXYZ(0.2, 0.1, 0.7)}, {"rTRC", iccOpaque("para", 12)},
+			{"gTRC", iccOpaque("para", 12)}, {"bTRC", iccOpaque("para", 12)}}),
+			"a parametric curve"},
+		{"not a profile", []byte("these are not profile bytes at all"), "malformed"},
+	} {
+		got := spacePage(t, func(w *reader.Writer) reader.Object { return iccArray(w, c.profile) })
+		if got.Profiles[c.want] != 1 {
+			t.Errorf("%s: counted %v, want one %q", c.name, got.Profiles, c.want)
+		}
+		if len(got.Shapes()) != 1 {
+			t.Errorf("%s: shapes = %v, want exactly one", c.name, got.Shapes())
+		}
+	}
+}
+
+// TestAProfileIsFoundThroughTheSpaceThatNamesIt is the case the census was
+// extended for: the press profile that carried the corpus's largest mean
+// squared error is not named by the page, it is named by a Separation's
+// ALTERNATE. A census of the spaces a page names directly sees nothing.
+func TestAProfileIsFoundThroughTheSpaceThatNamesIt(t *testing.T) {
+	for name, wrap := range map[string]func(w *reader.Writer, inner reader.Object) reader.Object{
+		"a Separation's alternate": func(w *reader.Writer, inner reader.Object) reader.Object {
+			return reader.Array{reader.Name("Separation"), reader.Name("PANTONE 293 U"), inner,
+				w.Add(reader.Dict{"FunctionType": reader.Integer(2), "N": reader.Integer(1)})}
+		},
+		"a DeviceN's alternate": func(w *reader.Writer, inner reader.Object) reader.Object {
+			return reader.Array{reader.Name("DeviceN"), reader.Array{reader.Name("Black")}, inner,
+				w.Add(reader.Dict{"FunctionType": reader.Integer(2), "N": reader.Integer(1)})}
+		},
+		"an Indexed base": func(w *reader.Writer, inner reader.Object) reader.Object {
+			return reader.Array{reader.Name("Indexed"), inner, reader.Integer(1), reader.String("ab")}
+		},
+		"a Pattern base": func(w *reader.Writer, inner reader.Object) reader.Object {
+			return reader.Array{reader.Name("Pattern"), inner}
+		},
+	} {
+		got := spacePage(t, func(w *reader.Writer) reader.Object {
+			return wrap(w, iccArray(w, pressProfile()))
+		})
+		if got.Profiles["lookup table, 4 channels"] != 1 {
+			t.Errorf("%s: counted %v, want the press profile", name, got.Profiles)
+		}
+	}
+}
+
+// TestASpaceThatNamesItselfDoesNotRunForever is the depth bound. A corpus is
+// somebody else's bytes and a colour space may point at itself.
+func TestASpaceThatNamesItselfDoesNotRunForever(t *testing.T) {
+	w := reader.NewWriter("1.7")
+	pagesRef := w.Reserve()
+	csRef := w.Reserve()
+	w.Put(csRef, reader.Array{reader.Name("Pattern"), csRef})
+	pageRef := w.Add(reader.Dict{
+		"Type": reader.Name("Page"), "Parent": pagesRef,
+		"MediaBox":  reader.Array{reader.Integer(0), reader.Integer(0), reader.Integer(50), reader.Integer(50)},
+		"Contents":  w.Add(&reader.Stream{Dict: reader.Dict{}, Raw: []byte("0 0 5 5 re f")}),
+		"Resources": reader.Dict{"ColorSpace": reader.Dict{"CS": csRef}},
+	})
+	w.Put(pagesRef, reader.Dict{"Type": reader.Name("Pages"),
+		"Kids": reader.Array{pageRef}, "Count": reader.Integer(1)})
+	out, err := w.Finish(reader.Dict{"Root": w.Add(reader.Dict{
+		"Type": reader.Name("Catalog"), "Pages": pagesRef})})
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "doc.pdf")
+	if err := os.WriteFile(path, out, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := Survey([]string{path}, 0); len(got.Profiles) != 0 {
+		t.Errorf("counted %v, want nothing", got.Profiles)
+	}
+}
+
+func TestASpaceWithNoProfileBehindItIsNotCounted(t *testing.T) {
+	for name, build := range map[string]func(w *reader.Writer) reader.Object{
+		"a name where a stream should be": func(w *reader.Writer) reader.Object {
+			return reader.Array{reader.Name("ICCBased"), reader.Name("nonsense")}
+		},
+		"a stream that decodes to nothing": func(w *reader.Writer) reader.Object {
+			return reader.Array{reader.Name("ICCBased"), w.Add(&reader.Stream{
+				Dict: reader.Dict{"Filter": reader.Name("FlateDecode")}, Raw: []byte("not deflate")})}
+		},
+		"a space of one element": func(w *reader.Writer) reader.Object {
+			return reader.Array{reader.Name("ICCBased")}
+		},
+		"a device space, which names no profile": func(w *reader.Writer) reader.Object {
+			return reader.Name("DeviceRGB")
+		},
+		"a space this census does not follow": func(w *reader.Writer) reader.Object {
+			return reader.Array{reader.Name("CalRGB"), w.Add(reader.Dict{})}
+		},
+	} {
+		if got := spacePage(t, build); len(got.Profiles) != 0 {
+			t.Errorf("%s: counted %v, want nothing", name, got.Profiles)
+		}
+	}
+}
+
+// TestAPicturesOwnColourSpaceIsCountedToo covers the other place a profile is
+// named: not the page's resources but the image dictionary.
+func TestAPicturesOwnColourSpaceIsCountedToo(t *testing.T) {
+	w := reader.NewWriter("1.7")
+	pagesRef := w.Reserve()
+	img := w.Add(&reader.Stream{Dict: reader.Dict{
+		"Type": reader.Name("XObject"), "Subtype": reader.Name("Image"),
+		"Width": reader.Integer(1), "Height": reader.Integer(1),
+		"Filter":     reader.Name("DCTDecode"),
+		"ColorSpace": iccArray(w, pressProfile()),
+	}, Raw: []byte{0}})
+	pageRef := w.Add(reader.Dict{
+		"Type": reader.Name("Page"), "Parent": pagesRef,
+		"MediaBox":  reader.Array{reader.Integer(0), reader.Integer(0), reader.Integer(50), reader.Integer(50)},
+		"Contents":  w.Add(&reader.Stream{Dict: reader.Dict{}, Raw: []byte("q 50 0 0 50 0 0 cm /I Do Q")}),
+		"Resources": reader.Dict{"XObject": reader.Dict{"I": img}},
+	})
+	w.Put(pagesRef, reader.Dict{"Type": reader.Name("Pages"),
+		"Kids": reader.Array{pageRef}, "Count": reader.Integer(1)})
+	out, err := w.Finish(reader.Dict{"Root": w.Add(reader.Dict{
+		"Type": reader.Name("Catalog"), "Pages": pagesRef})})
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "doc.pdf")
+	if err := os.WriteFile(path, out, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := Survey([]string{path}, 0); got.Profiles["lookup table, 4 channels"] != 1 {
+		t.Errorf("counted %v, want the picture's own profile", got.Profiles)
+	}
+}
+
+// TestAProfileInsideAFormIsFound. A page that draws all its content through a
+// form XObject names no colour space of its own, and the form carries its own
+// /Resources. Counting only the top level saw a third of this corpus's press
+// profiles.
+func TestAProfileInsideAFormIsFound(t *testing.T) {
+	w := reader.NewWriter("1.7")
+	pagesRef := w.Reserve()
+	form := w.Add(&reader.Stream{Dict: reader.Dict{
+		"Type": reader.Name("XObject"), "Subtype": reader.Name("Form"),
+		"BBox":      reader.Array{reader.Integer(0), reader.Integer(0), reader.Integer(5), reader.Integer(5)},
+		"Resources": reader.Dict{"ColorSpace": reader.Dict{"CS": iccArray(w, pressProfile())}},
+	}, Raw: []byte("/CS cs 0 0 5 5 re f")})
+	pageRef := w.Add(reader.Dict{
+		"Type": reader.Name("Page"), "Parent": pagesRef,
+		"MediaBox":  reader.Array{reader.Integer(0), reader.Integer(0), reader.Integer(50), reader.Integer(50)},
+		"Contents":  w.Add(&reader.Stream{Dict: reader.Dict{}, Raw: []byte("/F Do")}),
+		"Resources": reader.Dict{"XObject": reader.Dict{"F": form}},
+	})
+	w.Put(pagesRef, reader.Dict{"Type": reader.Name("Pages"),
+		"Kids": reader.Array{pageRef}, "Count": reader.Integer(1)})
+	out, err := w.Finish(reader.Dict{"Root": w.Add(reader.Dict{
+		"Type": reader.Name("Catalog"), "Pages": pagesRef})})
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "doc.pdf")
+	if err := os.WriteFile(path, out, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := Survey([]string{path}, 0); got.Profiles["lookup table, 4 channels"] != 1 {
+		t.Errorf("counted %v, want the profile inside the form", got.Profiles)
+	}
+}
+
+// TestAFormThatNamesItselfDoesNotRunForever is the other depth bound: a form
+// may name itself in its own resources, and a corpus is somebody else's bytes.
+func TestAFormThatNamesItselfDoesNotRunForever(t *testing.T) {
+	w := reader.NewWriter("1.7")
+	pagesRef := w.Reserve()
+	formRef := w.Reserve()
+	w.Put(formRef, &reader.Stream{Dict: reader.Dict{
+		"Type": reader.Name("XObject"), "Subtype": reader.Name("Form"),
+		"BBox":      reader.Array{reader.Integer(0), reader.Integer(0), reader.Integer(5), reader.Integer(5)},
+		"Resources": reader.Dict{"XObject": reader.Dict{"F": formRef}},
+	}, Raw: []byte("/F Do")})
+	pageRef := w.Add(reader.Dict{
+		"Type": reader.Name("Page"), "Parent": pagesRef,
+		"MediaBox":  reader.Array{reader.Integer(0), reader.Integer(0), reader.Integer(50), reader.Integer(50)},
+		"Contents":  w.Add(&reader.Stream{Dict: reader.Dict{}, Raw: []byte("/F Do")}),
+		"Resources": reader.Dict{"XObject": reader.Dict{"F": formRef}},
+	})
+	w.Put(pagesRef, reader.Dict{"Type": reader.Name("Pages"),
+		"Kids": reader.Array{pageRef}, "Count": reader.Integer(1)})
+	out, err := w.Finish(reader.Dict{"Root": w.Add(reader.Dict{
+		"Type": reader.Name("Catalog"), "Pages": pagesRef})})
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "doc.pdf")
+	if err := os.WriteFile(path, out, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := Survey([]string{path}, 0); len(got.Profiles) != 0 {
+		t.Errorf("counted %v, want nothing", got.Profiles)
+	}
+}
+
+// TestSomethingThatIsNotAnXObjectIsSkipped covers the resource dictionary that
+// names a thing which is not a stream at all.
+func TestSomethingThatIsNotAnXObjectIsSkipped(t *testing.T) {
+	w := reader.NewWriter("1.7")
+	pagesRef := w.Reserve()
+	pageRef := w.Add(reader.Dict{
+		"Type": reader.Name("Page"), "Parent": pagesRef,
+		"MediaBox":  reader.Array{reader.Integer(0), reader.Integer(0), reader.Integer(50), reader.Integer(50)},
+		"Contents":  w.Add(&reader.Stream{Dict: reader.Dict{}, Raw: []byte("0 0 5 5 re f")}),
+		"Resources": reader.Dict{"XObject": reader.Dict{"X": reader.Name("not a stream")}},
+	})
+	w.Put(pagesRef, reader.Dict{"Type": reader.Name("Pages"),
+		"Kids": reader.Array{pageRef}, "Count": reader.Integer(1)})
+	out, err := w.Finish(reader.Dict{"Root": w.Add(reader.Dict{
+		"Type": reader.Name("Catalog"), "Pages": pagesRef})})
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "doc.pdf")
+	if err := os.WriteFile(path, out, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := Survey([]string{path}, 0); len(got.Profiles) != 0 {
+		t.Errorf("counted %v, want nothing", got.Profiles)
 	}
 }
