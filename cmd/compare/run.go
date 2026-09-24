@@ -24,6 +24,7 @@ func run(args []string, out, errOut io.Writer) int {
 	only := fs.String("only", "", "judge just this population")
 	pages := fs.Int("pages", 1, "pages of each document to judge")
 	dpi := fs.Float64("dpi", 72, "what to ask both renderers for")
+	super := fs.Int("super", 1, "draw this many times oversize and reduce before comparing")
 	budget := fs.Duration("budget", 20*time.Second, "how long a page may be drawn for")
 	slow := fs.Duration("slow", 20*time.Second, "report pages we took longer than this on")
 	judgeTimeout := fs.Duration("timeout", poppler.Timeout, "how long the judge may take on one page before it is called a hang")
@@ -67,7 +68,7 @@ func run(args []string, out, errOut io.Writer) int {
 		var rs []compare.Result
 		for _, p := range paths {
 			rs = append(rs, compareOne(p, compare.Options{
-				DPI: *dpi, MaxDuration: *budget, Pages: *pages})...)
+				DPI: *dpi, MaxDuration: *budget, Pages: *pages, Super: *super})...)
 		}
 		report(out, name, compare.Summarise(rs, *slow))
 	}
@@ -85,6 +86,16 @@ func report(out io.Writer, name string, s compare.Summary) {
 			s.Median, s.P90, s.P99, s.Max)
 		fmt.Fprintf(out, "\tunder 1%% %d  under 2%% %d  under 5%% %d  under 10%% %d\n",
 			s.Under[0.01], s.Under[0.02], s.Under[0.05], s.Under[0.10])
+	}
+	// Beside the criterion, not instead of it: the line above cannot see a
+	// page tinted by less than a quarter of the range, nor one that lost a
+	// whole layer, and this one can.
+	fmt.Fprintf(out, "\tidentical byte for byte %5.2f%%   mean |diff| %6.3f levels\n",
+		100*s.IdenticalMean, s.MeanDiff)
+	fmt.Fprintf(out, "\tcolour, levels of 255: worst square %.2f  worst pixel %.0f\n",
+		s.ColourMean, s.ColourWorst)
+	for _, r := range s.Worst {
+		fmt.Fprintf(out, "\tworst %6.2f%%  %s page %d\n", 100*r.Share, filepath.Base(r.Path), r.Page)
 	}
 	fmt.Fprintf(out, "\tslowest page %v, %d over the threshold\n", s.Slowest.Round(time.Millisecond), s.Over)
 	for _, r := range s.Slow {

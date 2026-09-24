@@ -6,6 +6,8 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"testing"
 	"time"
 
@@ -367,5 +369,228 @@ func TestAJudgeThatWillNotFinishIsNamedRatherThanWaitedOn(t *testing.T) {
 	}
 	if s.NotCompared != 1 || s.Compared != 0 {
 		t.Errorf("a hang was counted as a comparison: %+v", s)
+	}
+}
+
+// TestTheWorstPagesAreNamedWorstFirst. A count of pages over a threshold says
+// a corpus has a problem and gives nobody a way to go and look at it, which is
+// the argument Slow already makes; this is the same argument for the pages
+// that DISAGREE, and they are the ones anybody actually opens.
+func TestTheWorstPagesAreNamedWorstFirst(t *testing.T) {
+	var rs []Result
+	// More than worstKept, so the cap is exercised, and deliberately out of
+	// order so the sort is too.
+	for i := range worstKept + 5 {
+		rs = append(rs, Result{Path: "/corpus/a.pdf", Page: i + 1, Share: float64(i+1) / 100})
+	}
+	// A page that agrees exactly, and one that could not be compared: neither
+	// is a disagreement and neither belongs in the list.
+	rs = append(rs, Result{Path: "/corpus/exact.pdf", Page: 1, Share: 0})
+	rs = append(rs, Result{Path: "/corpus/unjudged.pdf", Page: 1, Share: -1, Note: "refused"})
+
+	s := Summarise(rs, 0)
+	if len(s.Worst) != worstKept {
+		t.Fatalf("named %d pages, want %d", len(s.Worst), worstKept)
+	}
+	for i := 1; i < len(s.Worst); i++ {
+		if s.Worst[i-1].Share < s.Worst[i].Share {
+			t.Errorf("page %d (%.3f) is named before page %d (%.3f)",
+				i-1, s.Worst[i-1].Share, i, s.Worst[i].Share)
+		}
+	}
+	for _, r := range s.Worst {
+		if r.Share <= 0 {
+			t.Errorf("%s page %d has share %.3f and is not a disagreement", r.Path, r.Page, r.Share)
+		}
+	}
+}
+
+// TestTwoPagesThatDisagreeEquallyAreNamedInAStableOrder. Two runs of the same
+// corpus must print the same list, or a diff between two reports is noise.
+func TestTwoPagesThatDisagreeEquallyAreNamedInAStableOrder(t *testing.T) {
+	rs := []Result{
+		{Path: "/corpus/b.pdf", Page: 2, Share: 0.5},
+		{Path: "/corpus/a.pdf", Page: 9, Share: 0.5},
+		{Path: "/corpus/a.pdf", Page: 1, Share: 0.5},
+	}
+	s := Summarise(rs, 0)
+	got := make([]string, 0, len(s.Worst))
+	for _, r := range s.Worst {
+		got = append(got, r.Path+":"+strconv.Itoa(r.Page))
+	}
+	want := []string{"/corpus/a.pdf:1", "/corpus/a.pdf:9", "/corpus/b.pdf:2"}
+	if !slices.Equal(got, want) {
+		t.Errorf("order = %v, want %v", got, want)
+	}
+}
+
+// TestColourSeesWhatTheCriterionCannot is why this term exists. The criterion
+// asks how many pixels are more than a QUARTER OF THE RANGE apart once both
+// pages are blurred, so anything below that is nought to it however much of
+// the page it covers.
+//
+// Measured on a real page: `ia-medical/b21988274.pdf` drawn with its ink layer
+// dropped, against poppler drawing it. The criterion reads 0.0003 and then
+// 0.0000 once the layer is drawn -- it cannot tell the two apart. The worst
+// square reads 50.06 and then 4.05.
+func TestColourSeesWhatTheCriterionCannot(t *testing.T) {
+	const w, h = 128, 128
+	a := &raster.Image{W: w, H: h, Pix: make([]uint8, w*h*4)}
+	b := &raster.Image{W: w, H: h, Pix: make([]uint8, w*h*4)}
+	for i := range w * h {
+		for c := range 4 {
+			a.Pix[i*4+c] = 200
+			b.Pix[i*4+c] = 200
+		}
+	}
+	// One tile's worth, twenty levels apart: a fifth of what the criterion
+	// needs before it counts a single pixel.
+	for y := range tile {
+		for x := range tile {
+			i := (y*w + x) * 4
+			for c := range 3 {
+				b.Pix[i+c] = 180
+			}
+		}
+	}
+	if got := difference(a, b); got != 0 {
+		t.Errorf("the criterion read %.6f: this test no longer measures what it says", got)
+	}
+	worstTile, worst := colourDifference(a, b)
+	if worstTile < 15 || worstTile > 20 {
+		t.Errorf("worst square = %.2f, want about 20 — the difference put there", worstTile)
+	}
+	if worst < 15 || worst > 20 {
+		t.Errorf("worst pixel = %.2f, want about 20", worst)
+	}
+}
+
+// TestDrawingOversizeMakesTwoRasterisersAgree. Most of what two rasterisers
+// disagree about is the SAMPLING of an edge, not the page. Reducing an
+// oversize pair makes both converge on the same coverage, and this says so on
+// a shape whose edge falls between pixels on purpose.
+func TestDrawingOversizeMakesTwoRasterisersAgree(t *testing.T) {
+	// Two "rasterisations" of the same half-covered pixel row: one rounds the
+	// coverage up, the other down. At full size they disagree by the whole
+	// range; reduced by two they agree exactly.
+	const w, h = 8, 8
+	a := &raster.Image{W: w, H: h, Pix: make([]uint8, w*h*4)}
+	b := &raster.Image{W: w, H: h, Pix: make([]uint8, w*h*4)}
+	for y := range h {
+		for x := range w {
+			i := (y*w + x) * 4
+			lit, dark := uint8(255), uint8(0)
+			for c := range 4 {
+				// a lights the even columns, b the odd ones: the same half
+				// of the ink, sampled the other way round.
+				if x%2 == 0 {
+					a.Pix[i+c], b.Pix[i+c] = lit, dark
+				} else {
+					a.Pix[i+c], b.Pix[i+c] = dark, lit
+				}
+			}
+		}
+	}
+	if id, _ := exactness(a, b); id != 0 {
+		t.Fatalf("at full size %.2f of pixels are identical, want none", id)
+	}
+	ra, rb := reduce(a, 2), reduce(b, 2)
+	id, mean := exactness(ra, rb)
+	if id != 1 || mean != 0 {
+		t.Errorf("reduced by two: %.2f identical, mean %.3f — want all of it and nothing",
+			id, mean)
+	}
+}
+
+// TestTwoPagesOfDifferentSizesAreNotCompared. Every term here needs both
+// pages on the same grid, and a pair that is not says so with -1 rather than
+// with a number nobody can read.
+func TestTwoPagesOfDifferentSizesAreNotCompared(t *testing.T) {
+	a := &raster.Image{W: 4, H: 4, Pix: make([]uint8, 4*4*4)}
+	for _, b := range []*raster.Image{
+		{W: 5, H: 4, Pix: make([]uint8, 5*4*4)},
+		{W: 4, H: 5, Pix: make([]uint8, 4*5*4)},
+		{W: 0, H: 0},
+	} {
+		if id, mean := exactness(a, b); id != -1 || mean != -1 {
+			t.Errorf("%dx%d: exactness = %.2f, %.2f; want -1, -1", b.W, b.H, id, mean)
+		}
+		if c, worst := colourDifference(a, b); c != -1 || worst != -1 {
+			t.Errorf("%dx%d: colourDifference = %.2f, %.2f; want -1, -1", b.W, b.H, c, worst)
+		}
+	}
+}
+
+// TestAPageThatCouldNotBeMeasuredIsLeftOutOfTheMeans. -1 is not a small
+// number; it is the absence of one, and averaging it in would drag every
+// population towards a figure no page has.
+func TestAPageThatCouldNotBeMeasuredIsLeftOutOfTheMeans(t *testing.T) {
+	s := Summarise([]Result{
+		{Path: "/a.pdf", Page: 1, Share: 0.01, Identical: 0.5, Mean: 4, Colour: 8, ColourWorst: 20},
+		{Path: "/b.pdf", Page: 1, Share: 0.03, Identical: -1, Mean: -1, Colour: -1, ColourWorst: -1},
+	}, 0)
+	if s.Compared != 2 {
+		t.Fatalf("compared %d, want 2", s.Compared)
+	}
+	if s.IdenticalMean != 0.25 || s.MeanDiff != 2 {
+		t.Errorf("identical mean %.3f, mean diff %.3f: the unmeasured page was counted in",
+			s.IdenticalMean, s.MeanDiff)
+	}
+	if s.ColourMean != 4 || s.ColourWorst != 20 {
+		t.Errorf("colour mean %.3f, worst %.3f: the unmeasured page was counted in",
+			s.ColourMean, s.ColourWorst)
+	}
+}
+
+// TestDrawingOversizeIsEndToEnd. Super asks BOTH renderers for a bigger page
+// and reduces what comes back, so the two must still be the same size when
+// they meet — and the judge has to be asked for the bigger one too, or the
+// pages arrive on different grids and nothing can be compared at all.
+func TestDrawingOversizeIsEndToEnd(t *testing.T) {
+	// The stand-in draws whatever size it is asked for, which is the point:
+	// at Super 2 it must be asked for twice the page.
+	standIn(t, flat(color.RGBA{255, 255, 255, 255}), 144, 144)
+	got := Compare(onePage(t, ""), Options{Super: 2})
+	if len(got) != 1 {
+		t.Fatalf("%d results", len(got))
+	}
+	r := got[0]
+	if r.Share != 0 {
+		t.Errorf("share %.4f on a blank page drawn twice, note %q", r.Share, r.Note)
+	}
+	if r.Identical != 1 {
+		t.Errorf("identical %.4f, want all of it: the reduction put the two on "+
+			"different grids", r.Identical)
+	}
+}
+
+// TestColourIsADistanceAndNotADirection. The square is as far away when it is
+// lighter as when it is darker, and a term that only saw one of those would
+// miss half of what a colour space gets wrong.
+func TestColourIsADistanceAndNotADirection(t *testing.T) {
+	const w, h = 128, 128
+	mk := func(v uint8) *raster.Image {
+		img := &raster.Image{W: w, H: h, Pix: make([]uint8, w*h*4)}
+		for i := range w * h {
+			for c := range 4 {
+				img.Pix[i*4+c] = 200
+			}
+		}
+		for y := range tile {
+			for x := range tile {
+				i := (y*w + x) * 4
+				for c := range 3 {
+					img.Pix[i+c] = v
+				}
+			}
+		}
+		return img
+	}
+	darker, lighter := mk(180), mk(220)
+	plain := mk(200)
+	down, _ := colourDifference(plain, darker)
+	up, _ := colourDifference(plain, lighter)
+	if down < 15 || up < 15 {
+		t.Errorf("darker %.2f, lighter %.2f: both are twenty levels away", down, up)
 	}
 }
