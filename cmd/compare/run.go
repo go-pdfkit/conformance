@@ -92,8 +92,8 @@ func report(out io.Writer, name string, s compare.Summary) {
 	// whole layer, and this one can.
 	fmt.Fprintf(out, "\tidentical byte for byte %5.2f%%   mean |diff| %6.3f levels\n",
 		100*s.IdenticalMean, s.MeanDiff)
-	fmt.Fprintf(out, "\tcolour, levels of 255: worst square %.2f  worst pixel %.0f\n",
-		s.ColourMean, s.ColourWorst)
+	fmt.Fprintf(out, "\tcolour, levels of 255: worst square mean %.2f  max %.2f  worst pixel %.0f\n",
+		s.ColourMean, s.ColourMax, s.ColourWorst)
 	for _, r := range s.Worst {
 		fmt.Fprintf(out, "\tworst %6.2f%%  %s page %d\n", 100*r.Share, filepath.Base(r.Path), r.Page)
 	}

@@ -1,0 +1,18 @@
+ia-biodiversity	250 compared	0 not
+	pixels differing: median 0.0020  p90 0.0136  p99 0.0589  worst 0.5940
+	under 1% 218  under 2% 235  under 5% 244  under 10% 248
+	identical byte for byte 32.17%   mean |diff| 11.352 levels
+	colour, levels of 255: worst square mean 22.23  max 228.53  worst pixel 255
+	worst  59.40%  insectlivesastol00simp.pdf page 1
+	worst  20.32%  bulletinno38tasm.pdf page 1
+	worst   9.90%  bidragtillknne00falc.pdf page 1
+	worst   5.89%  checklistoffishi88alma.pdf page 1
+	worst   5.86%  bulletinsocit08pyre.pdf page 1
+	worst   5.19%  charlespickerin00pick.pdf page 1
+	worst   3.36%  injuryrecoveryde00oste.pdf page 1
+	worst   3.31%  bulletinofgeolo30geol.pdf page 1
+	worst   3.19%  bulletinofdepart03jama.pdf page 1
+	worst   2.88%  invertebrata00queeo.pdf page 1
+	worst   2.76%  infield883chic.pdf page 1
+	worst   2.70%  iterhelveticuman1740hall.pdf page 1
+	slowest page 2.867s, 0 over the threshold

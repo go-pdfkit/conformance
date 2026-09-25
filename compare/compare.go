@@ -426,10 +426,17 @@ type Summary struct {
 	// IdenticalMean is the mean of [Result.Identical] over the pages
 	// compared, and MeanDiff the mean of [Result.Mean].
 	IdenticalMean, MeanDiff float64
-	// ColourMean and ColourWorst carry [Result.Colour] up to the population:
-	// the mean over every page compared, and the worst any page reached.
+	// ColourMean is the MEAN over the pages compared of each page's worst
+	// square, and ColourMax the largest of them. Both are needed and the
+	// difference between them matters: one page of 250 at fifty levels moves
+	// the mean by a fifth of a level and is invisible in it, which is how a
+	// scanned page drawn without its ink layer hid inside a population that
+	// read 14.98 before the fix and 14.83 after.
+	//
+	// ColourWorst is the worst single blurred pixel any page reached.
+	//
 	// They are magnitudes beside the criterion, never a criterion.
-	ColourMean, ColourWorst float64
+	ColourMean, ColourMax, ColourWorst float64
 	// Slowest is the longest our own renderer took on any one page.
 	Slowest time.Duration
 	// Over is how many pages took longer than the threshold given.
@@ -495,6 +502,9 @@ func Summarise(rs []Result, slow time.Duration) Summary {
 		}
 		if r.Colour >= 0 {
 			s.ColourMean += r.Colour
+			if r.Colour > s.ColourMax {
+				s.ColourMax = r.Colour
+			}
 			if r.ColourWorst > s.ColourWorst {
 				s.ColourWorst = r.ColourWorst
 			}
