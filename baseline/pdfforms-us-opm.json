@@ -1,6 +1,6 @@
 {
   "corpus": "/Users/Shared/pdfforms",
-  "taken": "2026-09-23T16:18:42Z",
+  "taken": "2026-09-24T17:10:47Z",
   "pages": 1,
   "gate": 2,
   "timeout": "2m0s",
@@ -12,7 +12,7 @@
     },
     {
       "path": "github.com/go-gfx/gfx",
-      "version": "v0.29.0"
+      "version": "v0.31.0"
     },
     {
       "path": "github.com/go-images/jpeg",
@@ -40,7 +40,7 @@
     },
     {
       "path": "github.com/go-pdfkit/render",
-      "version": "v0.33.0"
+      "version": "v0.35.0"
     },
     {
       "path": "github.com/sergeymakinen/go-bmp",
@@ -52,7 +52,7 @@
     },
     {
       "path": "github.com/tannevaled/gobig2",
-      "version": "v0.1.0"
+      "version": "v0.2.0"
     },
     {
       "path": "golang.org/x/image",

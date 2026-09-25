@@ -594,3 +594,30 @@ func TestColourIsADistanceAndNotADirection(t *testing.T) {
 		t.Errorf("darker %.2f, lighter %.2f: both are twenty levels away", down, up)
 	}
 }
+
+// TestOneBadPageHidesInTheMeanAndShowsInTheMax is why both are reported.
+//
+// Found by reading a real population wrong: ia-medical held one page drawn
+// without its ink layer, worth 50 levels on its own, and the population's
+// colour figure read 14.98 before the fix and 14.83 after. The figure was the
+// MEAN of the pages' worst squares, and 50 spread over 250 pages is a fifth of
+// a level. The label said "worst square", which it was not.
+func TestOneBadPageHidesInTheMeanAndShowsInTheMax(t *testing.T) {
+	rs := make([]Result, 0, 250)
+	for i := range 249 {
+		rs = append(rs, Result{Path: "/ok.pdf", Page: i + 1, Share: 0, Colour: 15, ColourWorst: 20})
+	}
+	rs = append(rs, Result{Path: "/bad.pdf", Page: 1, Share: 0, Colour: 50, ColourWorst: 92})
+
+	s := Summarise(rs, 0)
+	if s.ColourMax != 50 {
+		t.Errorf("max = %.2f, want the 50 the one bad page reached", s.ColourMax)
+	}
+	// The mean moves by a seventh of a level: the page is there and invisible.
+	if s.ColourMean < 15 || s.ColourMean > 15.2 {
+		t.Errorf("mean = %.3f, want it barely moved from 15", s.ColourMean)
+	}
+	if s.ColourWorst != 92 {
+		t.Errorf("worst pixel = %.2f, want 92", s.ColourWorst)
+	}
+}

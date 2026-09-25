@@ -17,7 +17,7 @@ instrument.
 
 | | |
 |---|---|
-| taken | 2026-09-23T16:16:33Z .. 2026-09-23T18:25:23Z (UTC) |
+| taken | 2026-09-24T17:08:38Z .. 2026-09-24T20:07:32Z (UTC) |
 | judge | pdfimages version 26.04.0 |
 | **measure** | **per channel, gate `D` = 2, count budget `N` = 0** ([conformance#16](https://github.com/go-pdfkit/conformance/issues/16)) |
 | **pairing** | **by object number, falling back to size only when one side published none** ([#30](https://github.com/go-pdfkit/conformance/pull/30)); a MASK by the object of the picture that names it ([#32](https://github.com/go-pdfkit/conformance/pull/32), [#34](https://github.com/go-pdfkit/conformance/pull/34)) |
@@ -25,17 +25,22 @@ instrument.
 | **walk** | **the page's CONTENT STREAM, not its /Resources** ([render#43](https://github.com/go-pdfkit/render/pull/43)) |
 | **bucketing** | the listing **and** the picture's own `/ColorSpace` ([conformance#20](https://github.com/go-pdfkit/conformance/issues/20)) |
 | **bound on the judge** | **2m0s per document, per tool** ([conformance#21](https://github.com/go-pdfkit/conformance/issues/21)) |
-| `go-pdfkit/render` | **v0.33.0** |
+| `go-pdfkit/render` | **v0.35.0** |
 | `go-pdfkit/reader` | v0.6.0 |
-| `go-gfx/gfx` | **v0.29.0** |
-| `tannevaled/gobig2` | v0.1.0 |
+| `go-gfx/gfx` | **v0.31.0** |
+| `tannevaled/gobig2` | **v0.2.0** |
 | `go-images/jpeg2000` | **v0.1.0** *(was `ajroetker/go-jpeg2000` v0.0.2; see §15)* |
 | `go-images/jpeg` | **v0.1.0** *(was the standard library's `image/jpeg`; see §18)* |
 | pages per document | 1 (the first page of each document) |
 | corpora | `/Users/Shared/pdfscans` (MANIFEST.tsv), `/Users/Shared/pdfforms` (MANIFEST.tsv) |
 
 **Every one of the 23 populations ran to completion, and every one is in the
-tables below.** All 23 exited 0.
+tables below.** All 23 exited 0, and **no document in the set anywhere hit the
+judge's two-minute bound** -- the `hung` field is absent from all 23 records.
+
+That last sentence is not free, and §22 says what it cost: the first record for
+`ia-americana` had **three** entries in it, and reading the counts without
+reading that field turned a bounded judge into what looked like a regression.
 
 **Two decoders changed identity between runs, and both are forks.** The JPEG
 2000 one went from `ajroetker/go-jpeg2000` v0.0.2 to `go-images/jpeg2000`
@@ -276,8 +281,8 @@ Scanned pages — `/Users/Shared/pdfscans`:
 
 | population | documents | unopenable | refused | declined | hung | pictures | direct | inverted | compared | exact | identical | agreement | converted | calibrated |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `ia-medical` | 250 | 0 | 0 | 0 | 0 | 745 | 722 | 193 | 529 | 528 | 33 | 99.8% | 1 | 1 |
-| `ia-biodiversity` | 250 | 0 | 1 | 0 | 0 | 752 | 703 | 53 | 650 | 650 | 157 | 100.0% | 0 | 0 |
+| `ia-medical` | 250 | 0 | 0 | 0 | 0 | 746 | 723 | 194 | 529 | 528 | 33 | 99.8% | 1 | 1 |
+| `ia-biodiversity` | 250 | 0 | 1 | 0 | 0 | 754 | 705 | 55 | 650 | 650 | 157 | 100.0% | 0 | 0 |
 | `ia-americana` | 250 | 28 | 0 | 0 | 0 | 502 | 494 | 89 | 405 | 379 | 96 | 93.6% | 8 | 8 |
 | `ia-texts` | 12 | 7 | 0 | 0 | 0 | 14 | 14 | 3 | 11 | 11 | 2 | 100.0% | 0 | 0 |
 | `ia-uscourts` | 250 | 0 | 0 | 0 | 0 | 133 | 113 | 40 | 73 | 65 | 53 | 89.0% | 17 | 3 |
@@ -317,25 +322,28 @@ because the two are far apart and only one of them is the claim, and beside
 | `(samples)` | 4280 | 904 | 0 | 904 | 904 | 904 | **100.0%** | 2950 | 2950 | 0 | 1762 | 286 | 135 | 5 | 0 | — |
 | `(samples) mask` | 1336 | 1128 | 154 | 974 | 974 | 974 | **100.0%** | 15 | 15 | 0 | 15 | 67 | 126 | 0 | 0 | — |
 | `JPXDecode` | 1241 | 1231 | 0 | 1231 | 1231 | 7 | **100.0%** | 10 | 9 | 1 | 9 | 0 | 0 | 0 | 0 | 3 |
-| `JBIG2Decode mask` | 591 | 521 | 271 | 250 | 250 | 250 | **100.0%** | 0 | 0 | 0 | 0 | 70 | 0 | 0 | 0 | — |
+| `JBIG2Decode mask` | 594 | 524 | 274 | 250 | 250 | 250 | **100.0%** | 0 | 0 | 0 | 0 | 70 | 0 | 0 | 0 | — |
 | `DCTDecode` | 590 | 425 | 0 | 425 | 208 | 4 | **48.9%** | 44 | 23 | 21 | 32 | 121 | 0 | 0 | 217 | 20 |
 | `DCTDecode mask` | 12 | 11 | 0 | 11 | 11 | 5 | **100.0%** | 1 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | — |
 | `JBIG2Decode` | 11 | 10 | 0 | 10 | 10 | 10 | **100.0%** | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | — |
 | `JPXDecode mask` | 2 | 2 | 0 | 2 | 2 | 2 | **100.0%** | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — |
 
 Across the whole fleet: **3385 of 3957 direct comparable pictures agree, 85.5%**,
-and 1990 of them are bit-identical. At v0.20.0 it was 3347 of 3962, **84.5%**,
+and 1990 of them are bit-identical. Neither figure moves in this run, and §21
+says why: the three pictures it gained are all complements, which `compared`
+excludes. At v0.20.0 it was 3347 of 3962, **84.5%**,
 with the same 1990 identical.
 
 ## What this says
 
-**Fifteen findings, and they are about four runs.** §1 to §8 and §10 were
+**Twenty-two findings, and they are about five runs.** §1 to §8 and §10 were
 written about earlier ones — §1 to §5 and §7 about the v0.20.0 → v0.21.0
 comparison of 2026-08-31, §8 and §10 about the two runs of 2026-09-07 — and are
 kept because their reasoning still holds; where they quote a figure, that figure
 is the one their own run measured. §6 was rewritten when a later run disproved
 it. **§9 is rewritten again here**, because the gap it called "the work" turned
-out not to be a codec at all. §11 to §18 belong to this run.
+out not to be a codec at all. §11 to §20 belong to the run of
+2026-09-23, and **§21 and §22 to this one**.
 
 Three of them correct this file rather than the library. §14 corrects a claim
 §14 itself made before the pictures were split; §16 corrects §11, which named
@@ -541,7 +549,11 @@ carried the 2m0s bound of
 of them fired.
 
 **That is not evidence that the corpus holds nothing that hangs**, and the
-record must not be read as if it were. `pdfforms/gh-qpdf/qpdf_qtest_qpdf_shared-unnamed-field.pdf`
+record must not be read as if it were. §22 adds the second way it fires, which
+this section did not foresee: **not a document that hangs, but a machine that
+was busy**. The bound is on wall-clock time, so what it separates is not
+"pathological" from "ordinary" but "finished in time" from "did not", and the
+second set grows when something else is running. `pdfforms/gh-qpdf/qpdf_qtest_qpdf_shared-unnamed-field.pdf`
 — 2496 bytes — hangs `pdfimages`, `pdfimages -list` **and** `pdfinfo`, all three
 confirmed. `images` never meets it: the document opens for us, its first page
 draws no picture, so `render.Images` returns nothing and poppler is never asked
@@ -1637,6 +1649,123 @@ now say which of its differences are inside what conformance permits — **237 o
 239** — and that the remaining two are accounted for by §17 rather than
 unexplained.
 
+### 21. Three stencils a resource budget was refusing, and an instrument that cannot see what that bought
+
+A JBIG2 symbol dictionary is bounded twice in `gobig2`: a **per-symbol** cap
+and an **aggregate** cap charged for every symbol the dictionary holds. Both
+existed to stop one adversarial seed -- 198 megapixels across 538 symbols.
+
+The per-symbol cap was the weaker idea of the two. A dictionary cannot spend
+more than the aggregate however it splits it up, so capping one symbol lower
+than the aggregate **forbids a shape rather than bounding an amount of work**,
+and the 16 MP symbol that motivated it is stopped by the aggregate check on the
+very next statement. Raising it to the aggregate widens no worst case.
+
+The aggregate was calibrated on the seed rather than on the corpus. A scanned
+page's ink layer is a **multiple** of the page, not a fraction of it: at 16 MP
+three real documents had theirs dropped and were drawn from their background
+alone. **64 MP takes all three, and 96 and 128 MP take nothing further** -- the
+population is exhausted at 4x. What that costs is the same factor of
+adversarial decode, ~540 ms against ~135 ms, and the seed is **still refused**
+at 64 MP exactly as it was at 16.
+
+#### What it moved here: three pictures, and no rate at all
+
+| | before | after |
+|---|---:|---:|
+| `ia-biodiversity` `JBIG2Decode mask` pictures | 251 | **253** |
+| `ia-medical` `JBIG2Decode mask` pictures | 247 | **248** |
+| fleet `JBIG2Decode mask` pictures | 591 | **594** |
+| fleet `JBIG2Decode mask` **compared** | 250 | **250** |
+| fleet `JBIG2Decode mask` agreement | 100.0% | **100.0%** |
+
+All three land in the **inverted** column -- they are the complement half of a
+mask pair, which this instrument excludes from `compared` by construction. So
+three stencils that previously did not decode now decode, and **not one figure
+in the agreement tables moves**. Read here alone, the change is invisible.
+
+That is not a small print: it is what this instrument is. It compares
+**extracted pictures** against `pdfimages`. A stencil that is dropped does not
+make a picture disagree -- it makes a picture **absent**, and an absent picture
+is not counted as a difference by any of the four terms. **The page is where a
+dropped ink layer shows**, and the page is measured by a different tool.
+
+#### What it moved on the page, against a control that changes one thing
+
+`compare`, over the same 250 documents, twice, from **one binary built twice**
+-- current in everything but the cap, which the control pins at 16 MP through a
+`replace`. Both records are in [`baseline/pages/`](pages/), unedited:
+
+| `ia-biodiversity`, 250 pages | 16 MP | 64 MP |
+|---|---:|---:|
+| worst page | **59.40%** | **20.32%** |
+| p90 | 1.36% | **1.10%** |
+| p99 | 5.89% | 5.86% |
+| pages under 1% | 218 | **220** |
+| under 2% | 235 | **237** |
+| under 5% | 244 | **245** |
+| under 10% | 248 | **249** |
+| mean \|diff\| | 11.352 | **11.308** |
+| worst square, mean over pages | 22.23 | **21.78** |
+| median | 0.0020 | 0.0020 |
+| identical byte for byte | 32.17% | 32.17% |
+
+`insectlivesastol00simp.pdf` leaves the worst twelve altogether: it was the
+page at 59.40% and it is now below 2.18%, which is where twelfth place sits.
+
+Two things in that table are worth as much as the headline. **The median does
+not move, and neither does bit-identity**: this is three pages out of 250, and
+a population statistic taken over the middle cannot see three pages however
+badly they were drawn. And the control **reproduces the previous run's figures
+for this population exactly** -- 0.5940, 1.36%, 218, 11.352, 22.23 -- so
+nothing else that changed between the two runs touched it. The cap answers for
+all of it.
+
+`ia-medical` gained a stencil too, and its mean went the OTHER way: 6.469 to
+**6.482** levels, with no page crossing any threshold. That is not a
+contradiction and it is not noise. Drawing an ink layer that was being dropped
+puts ink on a page that had none there; where our stencil and poppler's differ
+by a pixel at an edge, the page is **structurally** right and **arithmetically**
+a little further away. A mean over levels cannot tell those apart, which is the
+same reason the share-of-pixels column exists beside it.
+
+### 22. The judge was cut off by the load on the machine, and the counts read as a regression
+
+The first record taken for `ia-americana` with this build lost pictures against
+the one it replaced:
+
+| | JBIG2 masks | `JPXDecode` | of those, exact |
+|---|---:|---:|---:|
+| the run this replaces | 82 | 226 | 221 |
+| the first re-measure | **79** | **220** | **215** |
+| the same build, again | 82 | 226 | 221 |
+
+`documents`, `unopenable`, `refused` and `declined` were **identical** across
+all three. Nothing errored. The first reading of it was that the change had
+cost us six pictures, and the second was that it was unexplained.
+
+It was neither. The record carries a `hung` field, `omitempty`, and the middle
+run had **three entries in it** -- three documents `pdfimages` did not finish
+inside the 2m0s bound this file has always published. **The bound is on the
+judge, not on us.** A document the judge does not finish yields no reference
+pictures at all, so our counts fall with no error anywhere.
+
+Three documents, each a scanned page of the shape §21 describes -- one JBIG2
+stencil and two `JPXDecode` layers -- is **-3 and -6**, which is exactly what
+was lost. And `exact` fell by as much as `pictures`: not one picture had begun
+to disagree, several had simply not been judged.
+
+What put the judge over its bound was this machine, busy compiling and running
+test suites while the measurement ran. The rule against measuring under load
+was already written down; what was not, and is now, is **how** it fails. It
+does not add noise to a figure. It **truncates the reference** and leaves a
+figure that is internally consistent, plausible, and short.
+
+The check that belongs in front of any such explanation is one line: read the
+field that counts what was abandoned, before reading the field that counts what
+was found. An `omitempty` field is absent from every healthy record, which is
+exactly why nobody looks for it.
+
 ## Every differing bucket in the run
 
 > **The previous revision of this table carried three rows its own records did
@@ -1701,7 +1830,12 @@ unexplained.
   and pdfium's units and bounded by nothing, because no bound has been measured
   for pictures that were *extracted* rather than rendered. Choosing one from
   these records is a job for a later run, and the records carry the terms.
-- **The bound on the judge is unexercised by `images` on this corpus.** Finding
-  5. It has been shown to fire, through `compare`, on the one document known to
-  hang.
+- ~~**The bound on the judge is unexercised by `images` on this corpus.**~~
+  **It fired, three times, and §22 is what it cost to find out.** Finding 5
+  said this of the run that first wrote it and it stayed true through several
+  more, which is how it came to be read as a property of the corpus rather than
+  of one run. It is a property of the **machine**: the bound is on wall-clock
+  time, and the corpus was measured beside a compiler. What is true of the
+  records beside this file is the narrower thing the Conditions now state --
+  none of *these* 23 has a `hung` entry.
 - **One page per document.** A first page is not a document.
