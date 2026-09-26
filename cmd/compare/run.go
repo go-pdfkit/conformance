@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"sort"
 	"time"
@@ -29,6 +30,7 @@ func run(args []string, out, errOut io.Writer) int {
 	slow := fs.Duration("slow", 20*time.Second, "report pages we took longer than this on")
 	judgeTimeout := fs.Duration("timeout", poppler.Timeout, "how long the judge may take on one page before it is called a hang")
 	limit := fs.Int("limit", 0, "judge no more than this many documents per population")
+	timings := fs.String("timings", "", "write one line per page: population, document, page, ours ns, theirs ns")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -40,6 +42,24 @@ func run(args []string, out, errOut io.Writer) int {
 	// pdftoppm hangs on at least one document of this corpus and a hang looks
 	// exactly like a slow run; see conformance#21.
 	poppler.Timeout = *judgeTimeout
+	// A summary is a summary. The per-page timings are what let somebody else
+	// check the claim, or correct it: the judge is a SUBPROCESS and we are not,
+	// so its measured time carries its own startup -- 9.7ms on an empty page,
+	// of which 8.3ms is its linking rather than the spawn. Whether that belongs
+	// in the comparison depends on the question (a command-line tool pays it; a
+	// library does not), and a reader who has the per-page numbers can answer
+	// either. One who has only the medians can answer neither.
+	var tf *os.File
+	if *timings != "" {
+		var err error
+		tf, err = os.Create(*timings)
+		if err != nil {
+			fmt.Fprintf(errOut, "compare: %v\n", err)
+			return 1
+		}
+		defer tf.Close()
+		fmt.Fprintln(tf, "population\tdocument\tpage\tours_ns\ttheirs_ns\thung")
+	}
 	entries, err := corpus.Read(*dir)
 	if err != nil {
 		fmt.Fprintf(errOut, "compare: %v\n", err)
@@ -67,8 +87,22 @@ func run(args []string, out, errOut io.Writer) int {
 		}
 		var rs []compare.Result
 		for _, p := range paths {
-			rs = append(rs, compareOne(p, compare.Options{
-				DPI: *dpi, MaxDuration: *budget, Pages: *pages, Super: *super})...)
+			got := compareOne(p, compare.Options{
+				DPI: *dpi, MaxDuration: *budget, Pages: *pages, Super: *super})
+			rs = append(rs, got...)
+			for _, r := range got {
+				if tf != nil {
+					// "-" rather than an empty field: a row that ends in a tab
+					// is a row whose last column a reader cannot tell from a
+					// missing one.
+					hung := r.Tool
+					if hung == "" {
+						hung = "-"
+					}
+					fmt.Fprintf(tf, "%s\t%s\t%d\t%d\t%d\t%s\n",
+						name, filepath.Base(r.Path), r.Page, r.Ours, r.Theirs, hung)
+				}
+			}
 		}
 		report(out, name, compare.Summarise(rs, *slow))
 	}

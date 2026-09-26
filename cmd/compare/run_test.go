@@ -234,3 +234,51 @@ func TestTheReportIsSilentWithNoTimings(t *testing.T) {
 		t.Errorf("it spoke about timings it does not have:\n%s", out.String())
 	}
 }
+
+// TestPerPageTimingsAreWritten covers the file that makes the speed claim
+// auditable. The summary gives medians; only the per-page rows let a reader
+// correct for the judge being a subprocess, or check the medians at all.
+func TestPerPageTimingsAreWritten(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "timings.tsv")
+	var out, errOut bytes.Buffer
+	if code := run([]string{"-dir", tinyCorpus(t), "-timings", path}, &out, &errOut); code != 0 {
+		t.Fatalf("exit %d: %s", code, errOut.String())
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(string(b), "\n")
+	if n := len(lines); n > 0 && lines[n-1] == "" {
+		lines = lines[:n-1]
+	}
+	if len(lines) < 2 {
+		t.Fatalf("the file holds only %d line(s):\n%s", len(lines), b)
+	}
+	if lines[0] != "population\tdocument\tpage\tours_ns\ttheirs_ns\thung" {
+		t.Errorf("header %q", lines[0])
+	}
+	for _, l := range lines[1:] {
+		if n := len(strings.Split(l, "\t")); n != 6 {
+			t.Errorf("row has %d fields, want 6: %q", n, l)
+		}
+	}
+}
+
+// TestATimingsFileThatCannotBeWrittenIsReported: a run that silently loses its
+// own measurements is worse than one that stops.
+func TestATimingsFileThatCannotBeWrittenIsReported(t *testing.T) {
+	var out, errOut bytes.Buffer
+	// A directory where the file has to go, which no operating system will let
+	// os.Create open for writing.
+	blocked := filepath.Join(t.TempDir(), "blocked")
+	if err := os.MkdirAll(blocked, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if code := run([]string{"-dir", tinyCorpus(t), "-timings", blocked}, &out, &errOut); code != 1 {
+		t.Errorf("exit %d, want 1", code)
+	}
+	if !strings.Contains(errOut.String(), "compare:") {
+		t.Errorf("it did not say why: %q", errOut.String())
+	}
+}
