@@ -1894,6 +1894,45 @@ subject was sampled and found to pass 3 times in 8. Each probe had been a single
 draw from a 38%-pass population and had shown nothing. The rate has to be
 measured on the unmodified subject before any arm can be compared.
 
+### macOS and Windows, which the references do hold
+
+Added the same day, and a different kind of gap: eight of the ten repositories
+cross-compiled for `darwin/arm64` and `windows/amd64` and ran on neither. poppler
+and pdfium are tested on both, so this is not ground the references lack — it is
+ground they hold and we did not.
+
+macOS was green everywhere from the first run. Windows found one defect and four
+assertions that were really about the machine.
+
+**The defect: a path in a manifest is not a path on this machine.** The
+compatibility shim for the older manifest schema asked
+`strings.ContainsRune(e.Path, filepath.Separator)` to tell an old bare-name row
+from a modern joined one. `filepath.Separator` is a **backslash** on Windows, so
+every modern row — `a/first.pdf` — was read as an old one and had its origin
+joined on again: `a\a\first.pdf`. **No document in the corpus could be found.**
+`Entry.Path`'s own doc comment says a corpus can be moved; it can only move
+between machines if its separator does not belong to one. Four sites confused a
+stored path with a filesystem path, and `path.Join` — imported as `slashpath` so
+the distinction shows at the call — now marks the two apart.
+
+Like the codestream ceiling, **this one is inexpressible on Linux**:
+`filepath.Separator` *is* a slash there. The Windows lane is its only witness.
+
+**The four assertions.** Three fixtures created their condition with a POSIX
+`chmod` that Windows does not honour on a directory — so they set up nothing, the
+operation succeeded, and they reported a defect where there was none. Two now put
+an obstacle that every operating system respects (a directory where a file must
+go, or a read-only *file*, which Windows does honour); the third needs a directory
+the process cannot read, which cannot be made portably, and skips with that
+written down. A fixture that silently arranges nothing is worse than a skip.
+
+The fourth asserted `Ours != 0` to ask whether a duration had been recorded. It
+had been: a render faster than one clock tick measures **zero**, honestly, and on
+Windows that tick is up to 15.6 ms. `time.Since` now sits behind a name the test
+replaces, so the assertion is about the plumbing rather than about how fast the
+machine is. It is the same mistake as the five-second budget bound above, in a
+second place.
+
 ### What the references do
 
 poppler and pdfium test on none of the four 64-bit architectures here. 32-bit
