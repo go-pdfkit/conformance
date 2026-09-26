@@ -470,6 +470,31 @@ type Summary struct {
 	// not named is indistinguishable from a page that scored badly, which is
 	// the whole reason the bound exists.
 	Hung []Result
+
+	// Timed is how many pages BOTH renderers were timed on, and it is smaller
+	// than Compared: a page the judge would not finish has a duration that is
+	// the bound rather than a measurement, and counting it would flatter us by
+	// exactly the bound. A page neither could draw has no timing at all.
+	Timed int
+	// OursTotal and TheirsTotal are the sums over those pages. A total is worth
+	// having and is not the headline: it is dominated by the few heaviest pages,
+	// so a renderer can win it while losing most of the corpus, or lose it while
+	// winning most.
+	OursTotal, TheirsTotal time.Duration
+	// RatioMedian and RatioP90 are quantiles of ours/theirs PER PAGE. Below one
+	// is faster. The median says what a typical page does, which the totals
+	// cannot.
+	RatioMedian, RatioP90 float64
+	// Faster is how many of the Timed pages we drew in less time than the judge.
+	Faster int
+	// WorstRatio names the pages where ours/theirs is largest, largest first --
+	// the same argument Slow and Worst make: "we are slower on 14 pages" is a
+	// number, the documents are a finding.
+	//
+	// Largest is not the same as slower. On a population we win everywhere the
+	// worst ratio is still below one, and naming these pages "losses" said
+	// otherwise for as long as it took to read one report.
+	WorstRatio []Result
 }
 
 // slowKept is how many slow pages are named. Enough to see whether they are
@@ -485,7 +510,7 @@ const worstKept = 12
 // Summarise turns results into the distribution worth quoting.
 func Summarise(rs []Result, slow time.Duration) Summary {
 	s := Summary{Under: map[float64]int{}, Notes: map[string]int{}}
-	var shares []float64
+	var shares, ratios []float64
 	for _, r := range rs {
 		if r.Ours > s.Slowest {
 			s.Slowest = r.Ours
@@ -519,12 +544,43 @@ func Summarise(rs []Result, slow time.Duration) Summary {
 				s.ColourWorst = r.ColourWorst
 			}
 		}
+		// The judge's own duration is only a measurement when the judge
+		// finished. r.Tool is set on a hang, and a hang's duration is the bound.
+		if r.Tool == "" && r.Ours > 0 && r.Theirs > 0 {
+			s.Timed++
+			s.OursTotal += r.Ours
+			s.TheirsTotal += r.Theirs
+			ratios = append(ratios, float64(r.Ours)/float64(r.Theirs))
+			if r.Ours < r.Theirs {
+				s.Faster++
+			}
+			s.WorstRatio = append(s.WorstRatio, r)
+		}
 	}
 	s.Compared = len(shares)
 	if s.Compared > 0 {
 		s.ColourMean /= float64(s.Compared)
 		s.IdenticalMean /= float64(s.Compared)
 		s.MeanDiff /= float64(s.Compared)
+	}
+	if len(ratios) > 0 {
+		sort.Slice(s.WorstRatio, func(i, j int) bool {
+			a := float64(s.WorstRatio[i].Ours) / float64(s.WorstRatio[i].Theirs)
+			b := float64(s.WorstRatio[j].Ours) / float64(s.WorstRatio[j].Theirs)
+			if a != b {
+				return a > b
+			}
+			if s.WorstRatio[i].Path != s.WorstRatio[j].Path {
+				return s.WorstRatio[i].Path < s.WorstRatio[j].Path
+			}
+			return s.WorstRatio[i].Page < s.WorstRatio[j].Page
+		})
+		if len(s.WorstRatio) > slowKept {
+			s.WorstRatio = s.WorstRatio[:slowKept]
+		}
+		sort.Float64s(ratios)
+		s.RatioMedian = ratios[int(0.5*float64(len(ratios)-1))]
+		s.RatioP90 = ratios[int(0.9*float64(len(ratios)-1))]
 	}
 	if len(shares) == 0 {
 		return s
