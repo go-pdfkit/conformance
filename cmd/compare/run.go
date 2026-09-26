@@ -30,7 +30,7 @@ func run(args []string, out, errOut io.Writer) int {
 	slow := fs.Duration("slow", 20*time.Second, "report pages we took longer than this on")
 	judgeTimeout := fs.Duration("timeout", poppler.Timeout, "how long the judge may take on one page before it is called a hang")
 	limit := fs.Int("limit", 0, "judge no more than this many documents per population")
-	timings := fs.String("timings", "", "write one line per page: population, document, page, ours ns, theirs ns")
+	timings := fs.String("timings", "", "write one line per page: population, document, page, ours ns, theirs ns, share, hang")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -58,7 +58,7 @@ func run(args []string, out, errOut io.Writer) int {
 			return 1
 		}
 		defer tf.Close()
-		fmt.Fprintln(tf, "population\tdocument\tpage\tours_ns\ttheirs_ns\thung")
+		fmt.Fprintln(tf, "population\tdocument\tpage\tours_ns\ttheirs_ns\tshare\thung")
 	}
 	entries, err := corpus.Read(*dir)
 	if err != nil {
@@ -99,8 +99,15 @@ func run(args []string, out, errOut io.Writer) int {
 					if hung == "" {
 						hung = "-"
 					}
-					fmt.Fprintf(tf, "%s\t%s\t%d\t%d\t%d\t%s\n",
-						name, filepath.Base(r.Path), r.Page, r.Ours, r.Theirs, hung)
+					// SHARE, and it is not decoration. A page one side did not
+					// draw has Share -1, and its duration is the time taken to
+					// decline rather than to render: reading a timing without it
+					// counts a refusal as a very fast page. Three 12 MB scans in
+					// this corpus come back in 4 to 15 ms against poppler's 1.7
+					// to 2.8 SECONDS, and a table that cannot see Share calls
+					// each of them a 0.004x win.
+					fmt.Fprintf(tf, "%s\t%s\t%d\t%d\t%d\t%.6f\t%s\n",
+						name, filepath.Base(r.Path), r.Page, r.Ours, r.Theirs, r.Share, hung)
 				}
 			}
 		}
