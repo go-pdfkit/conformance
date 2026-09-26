@@ -34,6 +34,15 @@ instrument.
 | pages per document | 1 (the first page of each document) |
 | corpora | `/Users/Shared/pdfscans` (MANIFEST.tsv), `/Users/Shared/pdfforms` (MANIFEST.tsv) |
 
+**These figures still hold eight releases later.** `render` has gone from
+v0.35.0 to v0.43.0 since they were taken -- a real bold face where there was a
+faked one, and seven changes made for speed -- and two populations re-measured
+with v0.43.0 come out **identical**: `ia-texts` and `fr-impots`, every bucket,
+every term, and the population counts. The speed changes were each shown
+byte-identical over both corpora, and the bold face is text, which this
+instrument does not look at. What is stale here is the version numbers in the
+rows above, not the numbers in the tables below.
+
 **Every one of the 23 populations ran to completion, and every one is in the
 tables below.** All 23 exited 0, and **no document in the set anywhere hit the
 judge's two-minute bound** -- the `hung` field is absent from all 23 records.
