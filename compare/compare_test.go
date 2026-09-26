@@ -76,8 +76,14 @@ func TestTwoPicturesOfTheSamePageAgree(t *testing.T) {
 	if got[0].Share != 0 {
 		t.Errorf("share %v, note %q", got[0].Share, got[0].Note)
 	}
-	if got[0].Ours == 0 {
-		t.Error("our own time was not measured")
+	// The clock is replaced rather than out-run: a render faster than one clock
+	// tick measures zero honestly, and on Windows a tick can be 15.6 ms. What is
+	// asserted is that comparePage puts what it measured into Ours.
+	was := since
+	t.Cleanup(func() { since = was })
+	since = func(time.Time) time.Duration { return 7 * time.Millisecond }
+	if got := Compare(onePage(t, ""), Options{}); got[0].Ours != 7*time.Millisecond {
+		t.Errorf("our own time came back as %v, not what the clock said", got[0].Ours)
 	}
 }
 
