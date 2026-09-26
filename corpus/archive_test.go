@@ -408,10 +408,22 @@ func TestHarvestReportsAManifestItCannotWrite(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, "scans"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Chmod(dir, 0o555); err != nil {
+	// A READ-ONLY MANIFEST FILE, which blocks the write on every operating
+	// system: Windows does not honour a read-only directory (new files may still
+	// be created in one), but it does honour a read-only file.
+	//
+	// It has to be a real, readable manifest and not a directory in its place:
+	// Harvest READS the manifest before writing it, os.Open succeeds on a
+	// directory under POSIX, and the read then failed instead of the write --
+	// which took Harvest out through a different branch and dropped its coverage
+	// from 100% to 96.8%. The obstacle has to sit at the step being tested.
+	if err := Write(dir, nil); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { os.Chmod(dir, 0o755) })
+	if err := os.Chmod(filepath.Join(dir, ManifestName), 0o444); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(filepath.Join(dir, ManifestName), 0o644) })
 	if _, err := Harvest(context.Background(), &Archive{Base: f.server(t).URL}, Plan{
 		Dir: dir, Origin: "scans", Query: "q", Want: 1, Workers: 1,
 	}); err == nil {

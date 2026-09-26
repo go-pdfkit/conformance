@@ -421,9 +421,32 @@ func TestQuartzRendersPageOneOnly(t *testing.T) {
 	}
 }
 
+// TestHelperProcessForRunCmd is not a test: it is the subprocess
+// TestRunCmdKeepsTheStreamsApartAndHonoursTheDirectory runs. It prints its
+// working directory on stdout, one line on stderr, and exits 3.
+//
+// The test used to run `sh -c "pwd; ..."`, which does not exist on Windows. Re-
+// executing the test binary needs no shell and no assumption about what is
+// installed.
+func TestHelperProcessForRunCmd(t *testing.T) {
+	if os.Getenv("CONFORMANCE_RUNCMD_HELPER") != "1" {
+		return
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(9)
+	}
+	fmt.Println(wd)
+	fmt.Fprintln(os.Stderr, "err")
+	os.Exit(3)
+}
+
 func TestRunCmdKeepsTheStreamsApartAndHonoursTheDirectory(t *testing.T) {
 	dir := t.TempDir()
-	o, e, err := runCmd(context.Background(), dir, "sh", "-c", "pwd; echo err 1>&2; exit 3")
+	t.Setenv("CONFORMANCE_RUNCMD_HELPER", "1")
+	o, e, err := runCmd(context.Background(), dir, os.Args[0],
+		"-test.run=^TestHelperProcessForRunCmd$", "-test.count=1")
 	if exitCode(err) != 3 {
 		t.Fatalf("exit %d, %v", exitCode(err), err)
 	}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -167,6 +168,15 @@ func TestTheShareIsOutOfTheDocumentsThatOpened(t *testing.T) {
 }
 
 func TestACorpusItCannotWalkIsReported(t *testing.T) {
+	// POSIX only, and not for convenience: this test needs a directory the
+	// process cannot read, and on Windows there is no portable way to make one.
+	// The read-only attribute does not deny traversal, so the fixture would set
+	// up nothing and the assertion would fail on a walk that in fact succeeded
+	// -- reporting a defect where there is none. Skipping says that, where a
+	// silently-passing fixture would not.
+	if runtime.GOOS == "windows" {
+		t.Skip("a directory cannot be made unreadable on Windows")
+	}
 	dir := t.TempDir()
 	shut := filepath.Join(dir, "shut")
 	if err := os.Mkdir(shut, 0o755); err != nil {

@@ -113,7 +113,10 @@ func TestOnlySoManyDocumentsCanBeAskedFor(t *testing.T) {
 			t.Fatal(err)
 		}
 		entries = append(entries, corpus.Entry{
-			Path: filepath.Join("alpha", name), Origin: "alpha", Source: "u", SHA256: "x"})
+			// A slash, not filepath.Join: this is what a manifest holds, and a
+			// manifest holds the same text on every machine. The line above is
+			// a real path on this disk and rightly uses filepath.
+			Path: "alpha/" + name, Origin: "alpha", Source: "u", SHA256: "x"})
 	}
 	if err := corpus.Write(dir, entries); err != nil {
 		t.Fatal(err)

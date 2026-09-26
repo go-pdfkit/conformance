@@ -182,8 +182,15 @@ func (l layout) parse(line string) (Entry, error) {
 	// An older manifest keeps the population in one column and the bare file
 	// name in another, the population being the directory. Rejoin them so a
 	// path is a path whichever tool wrote it.
-	if e.Origin != "" && !strings.ContainsRune(e.Path, filepath.Separator) {
-		e.Path = filepath.Join(e.Origin, e.Path)
+	//
+	// SLASH, not filepath.Separator. A path in a manifest is a path in a DATA
+	// FILE -- the field's own doc comment says a corpus can be moved, and it can
+	// only move between machines if the separator does not depend on the machine.
+	// Asking filepath.Separator here read every MODERN row as an old bare-name
+	// row on Windows, because "a/first.pdf" holds no backslash: the origin was
+	// duplicated into "a\a\first.pdf" and no document could be found at all.
+	if e.Origin != "" && !strings.ContainsRune(e.Path, '/') {
+		e.Path = e.Origin + "/" + e.Path
 	}
 	return e, nil
 }

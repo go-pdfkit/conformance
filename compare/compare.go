@@ -153,6 +153,16 @@ func Compare(path string, opt Options) []Result {
 	return out
 }
 
+// since is time.Since, behind a name a test can replace.
+//
+// A duration is measured, so "was it measured?" cannot be asked of its value: a
+// render that takes less than one clock tick honestly measures ZERO. On Windows
+// that tick is up to 15.6 ms, which is how a test asserting Ours != 0 came to
+// fail there on a perfectly good measurement. Making a duration too big to be
+// zero would have been an assertion about the machine's speed, not about this
+// code recording the time.
+var since = time.Since
+
 // comparePage judges one page.
 func comparePage(d *reader.Document, path string, p int, opt Options) Result {
 	r := Result{Path: path, Page: p, Share: -1}
@@ -162,7 +172,7 @@ func comparePage(d *reader.Document, path string, p int, opt Options) Result {
 		super = 1
 	}
 	ours, err := render.Page(d, p, render.Options{DPI: opt.DPI * float64(super), MaxDuration: opt.MaxDuration})
-	r.Ours = time.Since(start)
+	r.Ours = since(start)
 	if ours == nil {
 		r.Note = "we drew nothing"
 		if err != nil {

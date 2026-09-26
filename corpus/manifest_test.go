@@ -87,9 +87,12 @@ func TestAnEarlierSchemaIsStillReadable(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("read %d rows", len(got))
 	}
-	// The population and the bare name are rejoined, so a path is a path
-	// whichever tool wrote it.
-	if got[0].Path != filepath.Join("ca-cra", "gst190.pdf") {
+	// The population and the bare name are rejoined with a SLASH, spelt out
+	// here rather than composed with filepath.Join. A manifest path has to mean
+	// the same thing on the next machine to read it, so the separator must not
+	// be the one belonging to the machine running the test -- asking
+	// filepath.Join for it demanded a backslash on Windows.
+	if got[0].Path != "ca-cra/gst190.pdf" {
 		t.Errorf("path %q", got[0].Path)
 	}
 	if got[0].Bytes != 403556 || got[0].Fetched.Year() != 2026 {
