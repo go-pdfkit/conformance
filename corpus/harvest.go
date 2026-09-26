@@ -5,6 +5,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	// Aliased because a local variable in this file is called path, and
+	// because the distinction it marks is the point: slashpath builds paths
+	// that go into a manifest, filepath builds paths that touch this disk.
+	slashpath "path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -109,7 +113,9 @@ func Harvest(ctx context.Context, a *Archive, p Plan) ([]Entry, error) {
 				return
 			}
 			for _, id := range ids {
-				if have[filepath.Join(p.Origin, id+".pdf")] {
+				// path.Join, not filepath.Join: this key is compared against
+				// Entry.Path out of a manifest, which is slash-separated.
+				if have[slashpath.Join(p.Origin, id+".pdf")] {
 					continue
 				}
 				select {
@@ -183,7 +189,9 @@ func fetchOne(ctx context.Context, a *Archive, p Plan, into, id string) (Entry, 
 		return Entry{}, fmt.Errorf("what came back is not a PDF")
 	}
 	return Entry{
-		Path:    filepath.Join(p.Origin, name),
+		// path.Join, not filepath.Join: this goes INTO the manifest, where a
+		// path has to mean the same thing on the next machine to read it.
+		Path:    slashpath.Join(p.Origin, name),
 		Origin:  p.Origin,
 		Source:  a.URL(id, f.Name),
 		Bytes:   n,
