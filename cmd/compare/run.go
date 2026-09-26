@@ -97,6 +97,29 @@ func report(out io.Writer, name string, s compare.Summary) {
 	for _, r := range s.Worst {
 		fmt.Fprintf(out, "\tworst %6.2f%%  %s page %d\n", 100*r.Share, filepath.Base(r.Path), r.Page)
 	}
+	// The speed half of what was already being measured. Result.Theirs has been
+	// filled in since this instrument was written and never reported, so a claim
+	// about speed could not be reproduced by running it.
+	if s.Timed > 0 {
+		fmt.Fprintf(out, "\ttime, %d pages both were timed on: ours %v  theirs %v  (%.3fx)\n",
+			s.Timed, s.OursTotal.Round(time.Millisecond), s.TheirsTotal.Round(time.Millisecond),
+			float64(s.OursTotal)/float64(s.TheirsTotal))
+		fmt.Fprintf(out, "\tper page ours/theirs: median %.3fx  p90 %.3fx   faster on %d of %d\n",
+			s.RatioMedian, s.RatioP90, s.Faster, s.Timed)
+		for _, r := range s.WorstRatio {
+			ratio := float64(r.Ours) / float64(r.Theirs)
+			// "slower" only when it is: the worst ratio in a population we win
+			// everywhere is still a win, and labelling it a loss misreads the
+			// report at a glance.
+			verdict := "faster"
+			if ratio > 1 {
+				verdict = "SLOWER"
+			}
+			fmt.Fprintf(out, "\tworst %6.2fx %-6s ours %8v  theirs %8v  %s page %d\n",
+				ratio, verdict, r.Ours.Round(time.Millisecond),
+				r.Theirs.Round(time.Millisecond), filepath.Base(r.Path), r.Page)
+		}
+	}
 	fmt.Fprintf(out, "\tslowest page %v, %d over the threshold\n", s.Slowest.Round(time.Millisecond), s.Over)
 	for _, r := range s.Slow {
 		fmt.Fprintf(out, "\t%12v  %s page %d\n",

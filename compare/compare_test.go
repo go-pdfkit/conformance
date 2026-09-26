@@ -1,6 +1,7 @@
 package compare
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -625,5 +626,112 @@ func TestOneBadPageHidesInTheMeanAndShowsInTheMax(t *testing.T) {
 	}
 	if s.ColourWorst != 92 {
 		t.Errorf("worst pixel = %.2f, want 92", s.ColourWorst)
+	}
+}
+
+// TestTheSpeedHalfIsReported covers the half of every comparison that was being
+// measured and thrown away: Result.Theirs. A claim that we are faster than the
+// judge could not be reproduced by running this instrument, because the
+// instrument did not say.
+func TestTheSpeedHalfIsReported(t *testing.T) {
+	ms := func(n int) time.Duration { return time.Duration(n) * time.Millisecond }
+	rs := []Result{
+		{Path: "a.pdf", Page: 1, Share: 0, Ours: ms(10), Theirs: ms(100)},  // 0.10x
+		{Path: "b.pdf", Page: 1, Share: 0, Ours: ms(50), Theirs: ms(100)},  // 0.50x
+		{Path: "c.pdf", Page: 1, Share: 0, Ours: ms(200), Theirs: ms(100)}, // 2.00x, a loss
+		{Path: "d.pdf", Page: 1, Share: 0, Ours: ms(400), Theirs: ms(100)}, // 4.00x, the worst
+	}
+	s := Summarise(rs, 0)
+	if s.Timed != 4 {
+		t.Fatalf("timed %d of 4", s.Timed)
+	}
+	if s.OursTotal != ms(660) || s.TheirsTotal != ms(400) {
+		t.Errorf("totals ours %v theirs %v", s.OursTotal, s.TheirsTotal)
+	}
+	// Sorted ratios are 0.10, 0.50, 2.00, 4.00; the median index is
+	// int(0.5*3) = 1, so 0.50.
+	if s.RatioMedian != 0.5 {
+		t.Errorf("median ratio %v, want 0.5", s.RatioMedian)
+	}
+	if s.Faster != 2 {
+		t.Errorf("faster on %d, want 2", s.Faster)
+	}
+	// The worst loss is named first, and the losses are named at all: a count
+	// nobody can open is not a finding.
+	if len(s.WorstRatio) == 0 || filepath.Base(s.WorstRatio[0].Path) != "d.pdf" {
+		t.Errorf("losses %+v", s.WorstRatio)
+	}
+	// The totals say 1.65x while the median says 0.50x, and both are true. That
+	// is the reason the median is the headline: one heavy page carries a total.
+	if got := float64(s.OursTotal) / float64(s.TheirsTotal); got < 1.6 || got > 1.7 {
+		t.Errorf("total ratio %v", got)
+	}
+}
+
+// TestAHangIsNotATiming is the trap this measurement could most easily fall
+// into: a page the judge would not finish has a duration that is the BOUND, and
+// counting it would flatter us by exactly the bound.
+func TestAHangIsNotATiming(t *testing.T) {
+	ms := func(n int) time.Duration { return time.Duration(n) * time.Millisecond }
+	s := Summarise([]Result{
+		{Path: "ok.pdf", Page: 1, Share: 0, Ours: ms(10), Theirs: ms(20)},
+		{Path: "hung.pdf", Page: 1, Share: 0, Ours: ms(10), Theirs: 2 * time.Minute, Tool: "pdftoppm"},
+		{Path: "untimed.pdf", Page: 1, Share: 0, Ours: 0, Theirs: 0},
+	}, 0)
+	if s.Timed != 1 {
+		t.Fatalf("timed %d, want 1: a hang and an untimed page are not measurements", s.Timed)
+	}
+	if s.TheirsTotal != ms(20) {
+		t.Errorf("theirs total %v -- the bound leaked in", s.TheirsTotal)
+	}
+	if len(s.Hung) != 1 {
+		t.Errorf("the hang must still be named: %+v", s.Hung)
+	}
+}
+
+// TestManyLossesAreCapped keeps the report readable without dropping the count.
+func TestManyLossesAreCapped(t *testing.T) {
+	var rs []Result
+	for i := 0; i < slowKept+7; i++ {
+		rs = append(rs, Result{
+			Path: fmt.Sprintf("doc%02d.pdf", i), Page: 1, Share: 0,
+			Ours: time.Duration(i+2) * time.Millisecond, Theirs: time.Millisecond,
+		})
+	}
+	s := Summarise(rs, 0)
+	if s.Timed != slowKept+7 {
+		t.Errorf("timed %d", s.Timed)
+	}
+	if len(s.WorstRatio) != slowKept {
+		t.Errorf("named %d losses, want %d", len(s.WorstRatio), slowKept)
+	}
+	if s.Faster != 0 {
+		t.Errorf("faster on %d, want 0", s.Faster)
+	}
+}
+
+// TestTiedLossesAreOrderedStably matters because this report is compared between
+// runs: two pages that lost by the same factor must be named in the same order
+// every time, or a rerun reads as a change.
+func TestTiedLossesAreOrderedStably(t *testing.T) {
+	ms := func(n int) time.Duration { return time.Duration(n) * time.Millisecond }
+	rs := []Result{
+		{Path: "b.pdf", Page: 2, Share: 0, Ours: ms(30), Theirs: ms(10)},
+		{Path: "b.pdf", Page: 1, Share: 0, Ours: ms(30), Theirs: ms(10)},
+		{Path: "a.pdf", Page: 1, Share: 0, Ours: ms(30), Theirs: ms(10)},
+	}
+	s := Summarise(rs, 0)
+	want := []struct {
+		path string
+		page int
+	}{{"a.pdf", 1}, {"b.pdf", 1}, {"b.pdf", 2}}
+	if len(s.WorstRatio) != 3 {
+		t.Fatalf("named %d", len(s.WorstRatio))
+	}
+	for i, w := range want {
+		if s.WorstRatio[i].Path != w.path || s.WorstRatio[i].Page != w.page {
+			t.Errorf("at %d got %s page %d, want %s page %d",
+				i, s.WorstRatio[i].Path, s.WorstRatio[i].Page, w.path, w.page)
+		}
 	}
 }

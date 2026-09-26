@@ -196,3 +196,41 @@ func TestTheBoundOnTheJudgeCanBeSaid(t *testing.T) {
 		t.Errorf("the judge is bounded at %v", poppler.Timeout)
 	}
 }
+
+// TestTheReportSaysHowTheTwoRenderersTimed covers the block that prints the
+// speed half of the comparison. It is printed at all because Result.Theirs was
+// being measured and never reported: a claim about speed that this instrument
+// cannot be run to check is not a claim anyone can act on.
+func TestTheReportSaysHowTheTwoRenderersTimed(t *testing.T) {
+	ms := func(n int) time.Duration { return time.Duration(n) * time.Millisecond }
+	var out bytes.Buffer
+	report(&out, "pop", compare.Summarise([]compare.Result{
+		{Path: "/c/fast.pdf", Page: 1, Share: 0, Ours: ms(10), Theirs: ms(100)},
+		{Path: "/c/slow.pdf", Page: 1, Share: 0, Ours: ms(300), Theirs: ms(100)},
+	}, 0))
+	got := out.String()
+	for _, want := range []string{
+		"2 pages both were timed on",
+		"ours 310ms",
+		"theirs 200ms",
+		"faster on 1 of 2",
+		"worst   3.00x SLOWER",
+		"slow.pdf page 1",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the report does not say %q:\n%s", want, got)
+		}
+	}
+}
+
+// TestTheReportIsSilentWithNoTimings keeps a run that could time nothing from
+// printing a ratio of zero over zero.
+func TestTheReportIsSilentWithNoTimings(t *testing.T) {
+	var out bytes.Buffer
+	report(&out, "pop", compare.Summarise([]compare.Result{
+		{Path: "/c/x.pdf", Page: 1, Share: -1, Note: "we drew nothing"},
+	}, 0))
+	if strings.Contains(out.String(), "both were timed on") {
+		t.Errorf("it spoke about timings it does not have:\n%s", out.String())
+	}
+}
