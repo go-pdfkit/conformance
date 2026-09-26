@@ -255,12 +255,12 @@ func TestPerPageTimingsAreWritten(t *testing.T) {
 	if len(lines) < 2 {
 		t.Fatalf("the file holds only %d line(s):\n%s", len(lines), b)
 	}
-	if lines[0] != "population\tdocument\tpage\tours_ns\ttheirs_ns\thung" {
+	if lines[0] != "population\tdocument\tpage\tours_ns\ttheirs_ns\tshare\thung" {
 		t.Errorf("header %q", lines[0])
 	}
 	for _, l := range lines[1:] {
-		if n := len(strings.Split(l, "\t")); n != 6 {
-			t.Errorf("row has %d fields, want 6: %q", n, l)
+		if n := len(strings.Split(l, "\t")); n != 7 {
+			t.Errorf("row has %d fields, want 7: %q", n, l)
 		}
 	}
 }
