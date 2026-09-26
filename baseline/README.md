@@ -1818,6 +1818,89 @@ exactly why nobody looks for it.
 | `us-dol` | `DCTDecode` | direct | 15 | 0.001119 | 0.001339 | 3 | 4 | 0.3029 | 0.3190 | -0.2787 | -0.2882 |
 | `gh-openpdf` | `DCTDecode` | converted | 2 | 0.009838 | 0.009838 | 20 | 20 | 0.3022 | 0.3022 | +0.2829 | +0.2829 |
 
+## §23 — Where this runs, which is not where the references run
+
+Measured 2026-09-26. Every number above compares us against poppler on one
+machine, an arm64 Mac. That comparison cannot say anything about a claim we had
+been making implicitly all along — that a pure-Go stack runs anywhere Go runs.
+That was a property of the **language**, not a measured property of this code.
+
+Ten repositories now run their whole test suite on six architectures per commit:
+`render`, `reader`, `pdffont`, `conformance`, `opentype`, `fonts`, `jpeg`,
+`jpeg2000`, `gfx`, `gobig2`. Before this they cross-compiled for four 64-bit
+targets and ran on none of them; `jpeg2000` had never been built for a 32-bit
+target at all.
+
+| | |
+|---|---|
+| `riscv64`, `loong64`, `ppc64le` | green from the first run |
+| `s390x` — **big-endian** | green from the first run |
+| `386`, `arm` — **32-bit `int`** | four real defects |
+
+**The big-endian result is the negative one worth recording.** This stack
+reassembles multi-byte numbers out of byte streams everywhere — image samples,
+font tables, JBIG2 bitplanes, JPEG markers — and not one of those readers carried
+an endianness assumption. Nothing had to be fixed for s390x.
+
+**The 32-bit lanes found four defects**, all of the same shape: a ceiling whose
+arithmetic overflowed before the ceiling could refuse anything.
+
+1. `render/affordDecoded` — `cw*ch > maxImagePixels` in an `int`.
+   `65535 × 65535` wraps to **−131 071** in an `int32`, so a **1 KB file** made
+   the decoder ask for four gigabytes and `image.NewGray` panicked.
+2. `render/decodeBase` — the same product, the same fix.
+3. `render/Page` — converted the extent to an `int` *before* judging it.
+   Converting a float too large for an `int` is undefined in Go, so a `MediaBox`
+   of `1e300` **panicked on arm64 too**. The 32-bit lane only led us to it; the
+   defect was on the main platform.
+4. `opentype` table directory — `int(be32(length))` is **−1** on 32-bit for
+   `0xFFFFFFFF`, so `off+length` came out *smaller* than `off`, the "out of
+   range" check passed a table that was not in the file, and the slice panicked
+   `b[184:183]`.
+
+All 3 215 corpus documents render byte-identical across those fixes, so nothing
+above this section moved.
+
+### Two lanes that failed on the bound rather than on the code
+
+`riscv64`, `s390x` and `386` failed `TestAPageMayBeGivenOnlySoLong`, which
+allowed a fixed five seconds. The deadline is consulted once every 256 drawing
+operations, so the overshoot is a quantity in **operations**; five seconds was
+that quantity converted at the speed of the machine that wrote the test. The
+same correct code took 5.4 s, 8.3 s and 11.3 s. The bound is now a ratio against
+an unbounded draw of the same page — 0.109 measured at 40 000 rectangles — so
+every fixed cost cancels and no machine's speed is written into the assertion.
+
+### `386` runs without an emulator, and that is a correctness requirement
+
+`qemu-i386` loses the guest's floating-point state across the signal Go delivers
+for asynchronous preemption. Eight identical lanes per condition on one commit:
+
+| condition | failures |
+|---|---|
+| `qemu-i386` | **5 of 8** |
+| `qemu-i386`, `GODEBUG=asyncpreemptoff=1` | 0 of 8 |
+| native on the same x86-64 runner | 0 of 8 |
+| `qemu-arm` | 0 of 8 |
+
+Each failure hit a different input although the seed is fixed, and the wrong
+value was a sign flip rather than a rounding difference. A 386 ELF is a native
+binary on that runner, so the emulator bought nothing and cost a lane that went
+red at random.
+
+**Method note.** Two instrumented runs of the panicking test passed, and that
+was written down as the instrumentation mattering — before the unmodified
+subject was sampled and found to pass 3 times in 8. Each probe had been a single
+draw from a 38%-pass population and had shown nothing. The rate has to be
+measured on the unmodified subject before any arm can be compared.
+
+### What the references do
+
+poppler and pdfium test on none of the four 64-bit architectures here. 32-bit
+ARM they do hold, and we did not until now. This section is the only part of
+this document where the comparison is not a number against poppler's number, and
+it is the only part where the answer is ground the references do not cover.
+
 ## What is not measured, and why
 
 - **The record does not carry what the colour-space rule moved.** `calibrated`
