@@ -2006,35 +2006,38 @@ instrument that produced them. They can now.
 
 ### The figures
 
+Every page below was drawn by both renderers AND agreed to within 10%. The pages
+that were not are in *What this section had wrong* at the end, with what they cost.
+
 | corpus | population | pages | ours | theirs | total | median | p90 | faster |
 |---|---|---|---|---|---|---|---|---|
-| `pdfforms` | `ca-cra` | 84 | 2.1 s | 8.4 s | **0.246×** | 0.236× | 0.314× | 84/84 |
-| `pdfforms` | `fr-cerfa` | 450 | 12.2 s | 39.5 s | **0.309×** | 0.211× | 0.456× | 439/450 |
-| `pdfforms` | `fr-impots` | 50 | 4.3 s | 4.5 s | **0.953×** | 0.325× | 1.502× | 43/50 |
-| `pdfforms` | `gh-openpdf` | 42 | 0.2 s | 1.5 s | **0.102×** | 0.038× | 0.147× | 42/42 |
-| `pdfforms` | `gh-pdfbox` | 149 | 1.4 s | 6.6 s | **0.210×** | 0.071× | 0.274× | 147/149 |
-| `pdfforms` | `gh-pdfcpu` | 147 | 1.0 s | 8.9 s | **0.116×** | 0.105× | 0.172× | 147/147 |
-| `pdfforms` | `gh-pypdf` | 33 | 0.2 s | 1.2 s | **0.197×** | 0.084× | 0.291× | 33/33 |
-| `pdfforms` | `gh-qpdf` | 80 | 0.2 s | 3.2 s | **0.067×** | 0.056× | 0.104× | 80/80 |
-| `pdfforms` | `gh-safedocs` | 21 | 2.0 s | 0.9 s | **2.088×** | 0.049× | 0.182× | 20/21 |
-| `pdfforms` | `gh-verapdf` | 134 | 0.1 s | 3.3 s | **0.033×** | 0.023× | 0.051× | 134/134 |
-| `pdfforms` | `int-wipo` | 116 | 1.2 s | 8.3 s | **0.148×** | 0.129× | 0.213× | 116/116 |
-| `pdfforms` | `uk-govuk` | 302 | 15.9 s | 31.0 s | **0.513×** | 0.208× | 0.682× | 285/302 |
-| `pdfforms` | `us-dol` | 140 | 3.2 s | 12.1 s | **0.262×** | 0.262× | 0.364× | 140/140 |
-| `pdfforms` | `us-irs` | 69 | 1.7 s | 6.3 s | **0.274×** | 0.264× | 0.301× | 69/69 |
-| `pdfforms` | `us-opm` | 66 | 1.4 s | 6.8 s | **0.210×** | 0.174× | 0.291× | 66/66 |
-| `pdfforms` | `us-ssa` | 199 | 2.6 s | 18.2 s | **0.144×** | 0.118× | 0.184× | 199/199 |
-| `pdfforms` | `us-uscis` | 88 | 1.3 s | 8.0 s | **0.165×** | 0.164× | 0.196× | 88/88 |
-| `pdfforms` | `us-uscourts` | 69 | 0.7 s | 4.9 s | **0.142×** | 0.132× | 0.174× | 69/69 |
-| `pdfscans` | `ia-americana` | 222 | 117.8 s | 182.7 s | **0.645×** | 0.595× | 1.337× | 172/222 |
-| `pdfscans` | `ia-biodiversity` | 250 | 95.2 s | 109.9 s | **0.867×** | 1.004× | 1.291× | 122/250 |
-| `pdfscans` | `ia-medical` | 250 | 66.0 s | 141.5 s | **0.466×** | 0.425× | 0.948× | 227/250 |
-| `pdfscans` | `ia-texts` | 5 | 1.9 s | 2.7 s | **0.701×** | 0.613× | 0.877× | 4/5 |
-| `pdfscans` | `ia-uscourts` | 250 | 5.1 s | 19.5 s | **0.259×** | 0.156× | 0.522× | 250/250 |
-| | **all 23** | **3216** | **337.7 s** | **629.9 s** | **0.536×** | **0.202×** | 0.852× | **2976/3216** |
+| `pdfforms` | `ca-cra` | 84 | 2.2 s | 8.6 s | **0.255×** | 0.247× | 0.337× | 84/84 |
+| `pdfforms` | `fr-cerfa` | 450 | 12.3 s | 39.9 s | **0.309×** | 0.213× | 0.441× | 440/450 |
+| `pdfforms` | `fr-impots` | 50 | 4.4 s | 4.6 s | **0.962×** | 0.333× | 1.510× | 43/50 |
+| `pdfforms` | `gh-openpdf` | 42 | 0.2 s | 1.5 s | **0.103×** | 0.033× | 0.149× | 42/42 |
+| `pdfforms` | `gh-pdfbox` | 148 | 1.4 s | 6.6 s | **0.210×** | 0.071× | 0.270× | 146/148 |
+| `pdfforms` | `gh-pdfcpu` | 147 | 1.1 s | 9.5 s | **0.114×** | 0.105× | 0.176× | 147/147 |
+| `pdfforms` | `gh-pypdf` | 32 | 0.3 s | 1.6 s | **0.189×** | 0.066× | 0.353× | 32/32 |
+| `pdfforms` | `gh-qpdf` | 80 | 0.3 s | 4.7 s | **0.065×** | 0.047× | 0.142× | 80/80 |
+| `pdfforms` | `gh-safedocs` | 19 | 1.4 s | 0.9 s | **1.541×** | 0.042× | 0.088× | 18/19 |
+| `pdfforms` | `gh-verapdf` | 134 | 0.1 s | 3.4 s | **0.035×** | 0.024× | 0.049× | 134/134 |
+| `pdfforms` | `int-wipo` | 116 | 1.3 s | 8.2 s | **0.153×** | 0.142× | 0.209× | 116/116 |
+| `pdfforms` | `uk-govuk` | 302 | 15.4 s | 29.9 s | **0.514×** | 0.198× | 0.699× | 285/302 |
+| `pdfforms` | `us-dol` | 140 | 3.1 s | 12.0 s | **0.259×** | 0.257× | 0.378× | 140/140 |
+| `pdfforms` | `us-irs` | 69 | 1.6 s | 6.2 s | **0.261×** | 0.249× | 0.287× | 69/69 |
+| `pdfforms` | `us-opm` | 66 | 1.2 s | 6.2 s | **0.195×** | 0.165× | 0.269× | 66/66 |
+| `pdfforms` | `us-ssa` | 199 | 2.2 s | 17.3 s | **0.127×** | 0.113× | 0.167× | 199/199 |
+| `pdfforms` | `us-uscis` | 88 | 1.3 s | 7.8 s | **0.161×** | 0.158× | 0.198× | 88/88 |
+| `pdfforms` | `us-uscourts` | 68 | 0.7 s | 4.8 s | **0.136×** | 0.123× | 0.169× | 68/68 |
+| `pdfscans` | `ia-americana` | 218 | 120.5 s | 179.3 s | **0.672×** | 0.601× | 1.300× | 167/218 |
+| `pdfscans` | `ia-biodiversity` | 249 | 94.5 s | 107.5 s | **0.879×** | 1.015× | 1.285× | 120/249 |
+| `pdfscans` | `ia-medical` | 250 | 67.6 s | 144.3 s | **0.468×** | 0.425× | 0.956× | 228/250 |
+| `pdfscans` | `ia-texts` | 5 | 2.0 s | 2.8 s | **0.699×** | 0.587× | 0.848× | 4/5 |
+| `pdfscans` | `ia-uscourts` | 250 | 5.1 s | 19.6 s | **0.260×** | 0.161× | 0.521× | 250/250 |
+| | **all 23** | **3206** | **340.1 s** | **627.4 s** | **0.542×** | **0.199×** | 0.839× | **2966/3206** |
 
-**Over the whole corpus we take 0.536× of poppler's time -- 1.87× faster -- and on
-a typical page 0.202×, which is 4.95× faster. We are faster on 2 976 of 3 216
+**Over the whole corpus we take 0.542× of poppler's time -- 1.85× faster -- and on
+a typical page 0.199×, which is 5.03× faster. We are faster on 2 966 of 3 206
 pages.**
 
 The total and the median say different things and both are wanted. `gh-safedocs`
@@ -2124,3 +2127,58 @@ are French tax forms, a coherent cluster rather than seven unrelated pages.
   faster. Everything above this section is what stops that reading, and the two
   halves have to be read together.
 
+### What this section had wrong when it was first written
+
+The first version of this section counted **every** page it had a pair of
+durations for. That is wrong in a way that flatters us, and the instrument's own
+doc comment had said so all along: *"a page drawn in no time may be a page drawn
+blank."*
+
+Ten pages had a timing and should not have been in a speed comparison -- two that
+were never compared at all, and eight that disagree by 10% or more:
+
+| ratio | share | ours | theirs | population | document |
+|---|---|---|---|---|---|
+| 0.0019× | 0.2032 | 5.4 ms | 2846.5 ms | `ia-biodiversity` | `bulletinno38tasm.pdf` |
+| 0.0046× | 0.4165 | 13.1 ms | 2834.4 ms | `ia-americana` | `sim_unitarian-register-and-the-universalist-le` |
+| 0.0058× | 0.4092 | 15.3 ms | 2623.5 ms | `ia-americana` | `sim_unitarian-register-and-the-universalist-le` |
+| 0.0070× | 0.4489 | 11.5 ms | 1631.4 ms | `ia-americana` | `19490909-Sea_Coast_Echo.pdf` |
+| 0.0077× | 0.3283 | 12.1 ms | 1580.1 ms | `ia-americana` | `19511012-Sea_Coast_Echo.pdf` |
+| 0.0155× | not compared | 0.2 ms | 11.5 ms | `gh-safedocs` | `Dialects_Dialect-DictIsStream.pdf` |
+| 0.0957× | 0.1111 | 5.9 ms | 61.4 ms | `gh-pdfbox` | `PDFBOX-3127-RAU4G6QMOVRYBISJU7R6MOVZCRFUO7P4-V` |
+| 0.1065× | 0.1049 | 6.6 ms | 62.2 ms | `us-uscourts` | `ao038.pdf` |
+| 0.2192× | 0.1357 | 7.5 ms | 34.3 ms | `gh-safedocs` | `Miscellaneous_Targeted_Test_PDFs_PatternTextIn` |
+| 0.6031× | not compared | 17.3 ms | 28.7 ms | `gh-pypdf` | `017-unreadable-meta-data_unreadablemetadata.pd` |
+
+Look at the first five. **A 22 MB scanned newspaper comes back from us in 11 ms
+against poppler's 1.6 seconds, with 45% of the page different.** That is not a
+win of 140×; it is a page we did not draw.
+
+The mechanism, measured rather than guessed: those pages carry CCITT scans of
+**7 779 × 10 699 = 83.2 megapixels**, and `render`'s per-picture ceiling
+(`maxImagePixels`) is 64 MP. Each image is refused, the page comes back white, and
+it comes back fast. Raising the ceiling to 256 MP makes `19490909-Sea_Coast_Echo.pdf`
+draw in **573 ms** against poppler's 1 631 ms -- so on a page we currently leave
+blank we would be **2.8× faster** than the judge. The ceiling is a deliberate
+defence (a 208 KB file can name 87 GB) and a 400 dpi bilevel newspaper page is not
+an attack, so what it costs is now on the record; whether to move it is a decision
+about a security bound, not a speed fix, and it is not made here.
+
+**Correcting all of this moves the headline very little**, which is the other half
+of the finding:
+
+| pages kept | total | median | faster |
+|---|---|---|---|
+| all 3 216, no filter *(as first published)* | 0.532× | 0.199× | 92.5% |
+| 3 206 agreeing to within 10% *(published now)* | **0.542×** | **0.199×** | 92.5% |
+| 3 185 agreeing to within 5% | 0.543× | 0.199× | 92.5% |
+| 3 139 agreeing to within 2% | 0.546× | 0.198× | 92.5% |
+| 3 000 agreeing to within 1% | 0.543× | 0.196× | 92.6% |
+
+The answer is stable because only ten pages of 3 216 disagree enough to matter.
+That is worth knowing, and it is not a reason the first version was acceptable:
+the same hole in a corpus with more broken pages would have moved the number a
+long way, and nothing in the method would have said so.
+
+`compare -timings` now writes `Result.Share` beside the two durations, so this
+table can be rebuilt with any threshold, or with none.
