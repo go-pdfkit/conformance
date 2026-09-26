@@ -34,14 +34,24 @@ instrument.
 | pages per document | 1 (the first page of each document) |
 | corpora | `/Users/Shared/pdfscans` (MANIFEST.tsv), `/Users/Shared/pdfforms` (MANIFEST.tsv) |
 
-**These figures still hold eight releases later.** `render` has gone from
-v0.35.0 to v0.43.0 since they were taken -- a real bold face where there was a
-faked one, and seven changes made for speed -- and two populations re-measured
-with v0.43.0 come out **identical**: `ia-texts` and `fr-impots`, every bucket,
-every term, and the population counts. The speed changes were each shown
-byte-identical over both corpora, and the bold face is text, which this
-instrument does not look at. What is stale here is the version numbers in the
-rows above, not the numbers in the tables below.
+**These figures still hold twelve releases later.** `render` has gone from
+v0.35.0 to v0.47.0 since they were taken -- a real bold face where there was a
+faked one, and the rest changes made for speed -- and two populations re-measured
+at v0.43.0 came out **identical**: `ia-texts` and `fr-impots`, every bucket, every
+term, and the population counts. Every speed change from v0.35.0 to v0.47.0 was
+shown byte-identical over both corpora before it was merged, one sweep of 3 215
+documents each, and the bold face is text, which this instrument does not look at.
+What is stale here is the version numbers in the rows above, not the numbers in
+the tables below.
+
+**Until 2026-09-26 that argument was the only thing keeping them honest, because
+this repository could not have re-measured them.** Its `go.mod` pinned `render`
+**v0.35.0** -- eleven releases behind -- so anyone who cloned it and ran `compare`
+measured the renderer these tables were taken with and would have concluded that
+nothing had happened since. Nothing was updating the dependencies of this stack:
+no Renovate pull request has ever been opened in any of its repositories, and
+`go-highway` had reached eight released versions behind. The instrument now builds
+against what we ship, which is why §24 exists at all.
 
 **Every one of the 23 populations ran to completion, and every one is in the
 tables below.** All 23 exited 0, and **no document in the set anywhere hit the
@@ -1970,3 +1980,147 @@ it is the only part where the answer is ground the references do not cover.
   records beside this file is the narrower thing the Conditions now state --
   none of *these* 23 has a `hung` entry.
 - **One page per document.** A first page is not a document.
+
+## §24 — How long the two take, which this document had never said
+
+Measured 2026-09-26. Everything above this section is about **fidelity**: which
+pixels the two renderers disagree about. Nothing above it says which is faster,
+although `compare` has been measuring that on every page since it was written --
+`Result.Theirs` was filled in and never reported. The project's speed claims
+therefore lived in release notes and could not be reproduced by running the
+instrument that produced them. They can now.
+
+| | |
+|---|---|
+| taken | 2026-09-26T16:59Z .. 2026-09-26T17:20Z (UTC) |
+| judge | pdftoppm version 26.04.0 |
+| `go-pdfkit/render` | **v0.47.0** |
+| `go-images/jpeg2000` | v0.7.0 |
+| `go-gfx/gfx` | v0.34.0 |
+| resolution | 72 dpi, asked of both |
+| pages per document | 1 (the first page of each document) |
+| machine | Apple M4 Max, 16 cores |
+| load | 4.87 at the start, 7.48 at the end (one-minute average) |
+| corpora | `/Users/Shared/pdfscans`, `/Users/Shared/pdfforms` |
+| per-page rows | `compare -timings`, which is what makes the rest of this section checkable |
+
+### The figures
+
+| corpus | population | pages | ours | theirs | total | median | p90 | faster |
+|---|---|---|---|---|---|---|---|---|
+| `pdfforms` | `ca-cra` | 84 | 2.1 s | 8.4 s | **0.246×** | 0.236× | 0.314× | 84/84 |
+| `pdfforms` | `fr-cerfa` | 450 | 12.2 s | 39.5 s | **0.309×** | 0.211× | 0.456× | 439/450 |
+| `pdfforms` | `fr-impots` | 50 | 4.3 s | 4.5 s | **0.953×** | 0.325× | 1.502× | 43/50 |
+| `pdfforms` | `gh-openpdf` | 42 | 0.2 s | 1.5 s | **0.102×** | 0.038× | 0.147× | 42/42 |
+| `pdfforms` | `gh-pdfbox` | 149 | 1.4 s | 6.6 s | **0.210×** | 0.071× | 0.274× | 147/149 |
+| `pdfforms` | `gh-pdfcpu` | 147 | 1.0 s | 8.9 s | **0.116×** | 0.105× | 0.172× | 147/147 |
+| `pdfforms` | `gh-pypdf` | 33 | 0.2 s | 1.2 s | **0.197×** | 0.084× | 0.291× | 33/33 |
+| `pdfforms` | `gh-qpdf` | 80 | 0.2 s | 3.2 s | **0.067×** | 0.056× | 0.104× | 80/80 |
+| `pdfforms` | `gh-safedocs` | 21 | 2.0 s | 0.9 s | **2.088×** | 0.049× | 0.182× | 20/21 |
+| `pdfforms` | `gh-verapdf` | 134 | 0.1 s | 3.3 s | **0.033×** | 0.023× | 0.051× | 134/134 |
+| `pdfforms` | `int-wipo` | 116 | 1.2 s | 8.3 s | **0.148×** | 0.129× | 0.213× | 116/116 |
+| `pdfforms` | `uk-govuk` | 302 | 15.9 s | 31.0 s | **0.513×** | 0.208× | 0.682× | 285/302 |
+| `pdfforms` | `us-dol` | 140 | 3.2 s | 12.1 s | **0.262×** | 0.262× | 0.364× | 140/140 |
+| `pdfforms` | `us-irs` | 69 | 1.7 s | 6.3 s | **0.274×** | 0.264× | 0.301× | 69/69 |
+| `pdfforms` | `us-opm` | 66 | 1.4 s | 6.8 s | **0.210×** | 0.174× | 0.291× | 66/66 |
+| `pdfforms` | `us-ssa` | 199 | 2.6 s | 18.2 s | **0.144×** | 0.118× | 0.184× | 199/199 |
+| `pdfforms` | `us-uscis` | 88 | 1.3 s | 8.0 s | **0.165×** | 0.164× | 0.196× | 88/88 |
+| `pdfforms` | `us-uscourts` | 69 | 0.7 s | 4.9 s | **0.142×** | 0.132× | 0.174× | 69/69 |
+| `pdfscans` | `ia-americana` | 222 | 117.8 s | 182.7 s | **0.645×** | 0.595× | 1.337× | 172/222 |
+| `pdfscans` | `ia-biodiversity` | 250 | 95.2 s | 109.9 s | **0.867×** | 1.004× | 1.291× | 122/250 |
+| `pdfscans` | `ia-medical` | 250 | 66.0 s | 141.5 s | **0.466×** | 0.425× | 0.948× | 227/250 |
+| `pdfscans` | `ia-texts` | 5 | 1.9 s | 2.7 s | **0.701×** | 0.613× | 0.877× | 4/5 |
+| `pdfscans` | `ia-uscourts` | 250 | 5.1 s | 19.5 s | **0.259×** | 0.156× | 0.522× | 250/250 |
+| | **all 23** | **3216** | **337.7 s** | **629.9 s** | **0.536×** | **0.202×** | 0.852× | **2976/3216** |
+
+**Over the whole corpus we take 0.536× of poppler's time -- 1.87× faster -- and on
+a typical page 0.202×, which is 4.95× faster. We are faster on 2 976 of 3 216
+pages.**
+
+The total and the median say different things and both are wanted. `gh-safedocs`
+is the demonstration: its total is **2.088×**, its median is **0.049×**, and it is
+faster on 20 of its 21 pages. One page carries the whole total. A report that gave
+only totals would have called that population a loss; one that gave only medians
+would have hidden the page.
+
+### What is excluded, and why
+
+64 of the 3 280 pages are not in the table. 63 could not be compared at all (`63
+refused`, `2 different sizes` -- a page neither drew, or drew at different sizes).
+**One page is excluded because the judge hung**, and that exclusion is the one
+that matters: a page `pdftoppm` would not finish has a duration equal to the
+two-minute bound, not a measurement, and counting it would flatter us by exactly
+the bound. It is excluded from the timing and still named as a hang.
+
+### The bias in our favour, bounded
+
+**We render in-process and the judge is a subprocess**, so its measured time
+carries its own startup. Measured on an empty 72×72 page, min of fifteen runs:
+
+| | |
+|---|---|
+| `pdftoppm` | **9.7 ms** |
+| a bare process spawn (`/usr/bin/true`) | 1.4 ms |
+| so poppler's own linking and initialisation | **8.3 ms** |
+
+Whether that belongs in the comparison depends on the question: a command-line
+user pays it on every document, a library caller does not. So both are given.
+Subtracting the **whole** floor from **every** page -- an over-correction, since
+that is more than the startup of any page that did real work -- moves the total
+from 0.536× to **0.564×**. The answer does not depend on it.
+
+That floor is not a guess. Poppler's fastest page in the whole corpus took
+**9.25 ms**, and only two of 3 216 pages came in under the empty-page figure at
+all. No page of real work beats an empty one by more than half a millisecond,
+which is what a floor means.
+
+### Where we lose, named
+
+240 pages of 3 216 are slower than the judge, and they are not spread evenly:
+
+| population | slower | of |
+|---|---|---|
+| `ia-biodiversity` | **128** | 250 |
+| `ia-americana` | 50 | 222 |
+| `ia-medical` | 23 | 250 |
+| `uk-govuk` | 17 | 302 |
+| `fr-cerfa` | 11 | 450 |
+| `fr-impots` | 7 | 50 |
+| `gh-pdfbox` | 2 | 149 |
+| `gh-safedocs` | 1 | 21 |
+
+`ia-biodiversity` is the one population where a typical page is a tie: median
+**1.004×**, slower on more pages than not. It is scanned material, which is where
+the JPEG 2000 path lives, and it is the population to measure against next.
+
+| ratio | ours | theirs | population | document |
+|---|---|---|---|---|
+| **36.98×** | 1897 ms | 51 ms | `gh-safedocs` | `Miscellaneous_Targeted_Test_PDFs_ContentStreamCycleType3insideType3.pdf` |
+| **8.13×** | 741 ms | 91 ms | `fr-impots` | `2047_2047_5488.pdf` |
+| **7.46×** | 638 ms | 86 ms | `fr-impots` | `2042_2042_5475.pdf` |
+| **5.97×** | 455 ms | 76 ms | `fr-impots` | `2042_2042_5474.pdf` |
+| **5.65×** | 715 ms | 127 ms | `fr-cerfa` | `cerfa_12496.pdf` |
+| **5.36×** | 395 ms | 74 ms | `fr-impots` | `2042_2042_5180.pdf` |
+| **5.23×** | 394 ms | 75 ms | `fr-impots` | `2042_2042_5535.pdf` |
+| **4.06×** | 776 ms | 191 ms | `ia-americana` | `rg104entry21718631008NOUSflagsmadeforMint.pdf` |
+
+The single worst page is a content-stream **cycle** -- a Type 3 font whose glyph
+procedure uses the same Type 3 font. Poppler answers in 51 ms and we take 1.9 s,
+so whatever bounds our recursion bounds it expensively. Six of the other seven
+are French tax forms, a coherent cluster rather than seven unrelated pages.
+
+### What this section does not say
+
+- **One machine, one resolution, one page per document.** A different DPI changes
+  the balance between parsing and rasterising, and the first page of a document is
+  not the document.
+- **The machine was not idle.** The load figures are in the conditions above. The
+  ratio is the robust statistic here because both renderers draw the same page
+  back to back under the same conditions; the absolute seconds are inflated and
+  should not be quoted on their own.
+- **It compares our library against their command-line tool.** The bound above is
+  what that costs, and it is small, but it is not zero.
+- **It is not fidelity.** A renderer that draws the wrong thing quickly is not
+  faster. Everything above this section is what stops that reading, and the two
+  halves have to be read together.
+
