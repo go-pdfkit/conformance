@@ -21,13 +21,14 @@ story; this directory is what stops it happening quietly again.
 
 | | |
 |---|---|
-| taken | 2026-09-27T11:31Z .. 2026-09-27T11:53Z (UTC) |
-| `go-pdfkit/render` | v0.51.0 |
+| taken | 2026-09-27T14:19Z .. 2026-09-27T14:51Z (UTC) |
+| `go-pdfkit/render` | v0.52.0 |
 | `go-images/jpeg2000` | v0.8.0 |
 | judge | pdftoppm 26.04.0 |
 | resolution | 72 dpi, first page of each document |
 | machine | Apple M4 Max, 16 cores |
-| load | 14.17 at the start, 5.07 at the end |
+| load | 15.53 at the start, 11.09 at the end |
+| note | `pdfforms` is the SECOND of two takes. In the first, poppler drew nothing for 20 `gh-pdfbox` pages, which `compare` reported as its own note (`20 they drew nothing`) and excluded as not comparable; the re-run had none of them. A reference file is where that kind of accident would be hardest to notice later, so the clean take is the one kept. |
 
 ## What a row is not
 
