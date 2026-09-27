@@ -1994,7 +1994,7 @@ instrument that produced them. They can now.
 |---|---|
 | taken | 2026-09-27T14:19Z .. 2026-09-27T14:51Z (UTC) *(first: 2026-09-26T16:59Z)* |
 | judge | pdftoppm version 26.04.0 |
-| `go-pdfkit/render` | **v0.52.0** *(first taken at v0.47.0; see the re-measurements below)* |
+| `go-pdfkit/render` | **v0.52.0** *(first taken at v0.47.0; see the re-measurements below. `go.mod` holds v0.53.0, which changed exactly one page of this table -- said plainly at the end of §24 rather than left for a reader to notice.)* |
 | `go-images/jpeg2000` | v0.8.0 |
 | `go-gfx/gfx` | v0.34.0 |
 | resolution | 72 dpi, asked of both |
@@ -2127,7 +2127,7 @@ at a depth of twelve is 3^12 executions, and the page spent its whole operation
 budget repainting marks it had already made. poppler's own depth bound is **100**,
 eight times looser than ours, and it answers in 51 ms; what stops it is a set of
 the char procs it is currently drawing (`Gfx.cc`, `charProcDrawing`). `render`
-#85 refuses the re-entry the same way: **1 327 ms to 27 ms with a byte-identical
+v0.53.0 refuses the re-entry the same way: **1 327 ms to 27 ms with a byte-identical
 picture**, which is 1.9× FASTER than the judge rather than 26× slower.
 
 ### What this section does not say
@@ -2235,6 +2235,28 @@ re-run had **none** of them, which is what makes it the judge's accident rather 
 a property of this version. The figures above use the second take of `pdfforms` for
 that reason, and the reason it was caught at all is that the population count moved
 — which is why the `pages` column is published beside every ratio.
+
+### What v0.53.0 changed, and why the table was not taken again
+
+`go.mod` holds `render` v0.53.0 and the figures above are v0.52.0's. That is the
+same mismatch this re-measurement existed to fix, so here is exactly what it
+covers.
+
+v0.53.0 changed **one page of 3 208**: the Type 3 content-stream cycle, from
+1 327 ms to 27 ms with a byte-identical picture. Every other document in both
+corpora is byte-identical too -- 3 281 of 3 281 -- and the page was measured
+directly, with a control page that the mechanism does not touch (`cerfa_10832.pdf`,
+28.3 ms before and 28.4 ms after, same pixels) and with the refusal ablated to show
+that it is what did it (the same fixture takes 232 506 times a witness's operations
+without it).
+
+**The table was not taken again, and that is a decision rather than an omission.**
+The two `pdfforms` takes above differ by 41% on one population from load alone, so
+a fresh take would move 3 207 pages by noise in order to update one. What it would
+change, if taken: `gh-safedocs` leaves "Where we lose" (its one slower page was that
+page), the worst-ratio table loses its first row, and the slower count falls from
+165 to 164. Those three follow from the single measurement and are stated here
+rather than published as though they had been swept.
 
 ### Re-measured at v0.51.0, and what the re-measurement found
 
