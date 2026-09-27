@@ -690,20 +690,29 @@ func TestAHangIsNotATiming(t *testing.T) {
 }
 
 // TestManyLossesAreCapped keeps the report readable without dropping the count.
+//
+// The cap is the POOL, not the few a report prints: a caller that redraws these
+// needs candidates it can promote, because the list was selected on the maximum of
+// one sample per page and a page whose sample was luckily low belongs in it once it
+// is measured properly.
 func TestManyLossesAreCapped(t *testing.T) {
 	var rs []Result
-	for i := 0; i < slowKept+7; i++ {
+	for i := 0; i < worstRatioPool+7; i++ {
 		rs = append(rs, Result{
 			Path: fmt.Sprintf("doc%02d.pdf", i), Page: 1, Share: 0,
 			Ours: time.Duration(i+2) * time.Millisecond, Theirs: time.Millisecond,
 		})
 	}
 	s := Summarise(rs, 0)
-	if s.Timed != slowKept+7 {
+	if s.Timed != worstRatioPool+7 {
 		t.Errorf("timed %d", s.Timed)
 	}
-	if len(s.WorstRatio) != slowKept {
-		t.Errorf("named %d losses, want %d", len(s.WorstRatio), slowKept)
+	if len(s.WorstRatio) != worstRatioPool {
+		t.Errorf("named %d losses, want %d", len(s.WorstRatio), worstRatioPool)
+	}
+	if worstRatioPool <= slowKept {
+		t.Errorf("the pool (%d) must be larger than what a report prints (%d), "+
+			"or a redraw cannot promote anything into the list", worstRatioPool, slowKept)
 	}
 	if s.Faster != 0 {
 		t.Errorf("faster on %d, want 0", s.Faster)
