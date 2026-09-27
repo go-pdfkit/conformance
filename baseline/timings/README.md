@@ -1,0 +1,50 @@
+# Reference timings
+
+One row per page: how long each renderer took, and whether the two could be
+compared at all. Written by
+
+    compare -dir /Users/Shared/pdfscans -timings pdfscans.tsv
+    compare -dir /Users/Shared/pdfforms -timings pdfforms.tsv
+
+and read back by
+
+    compare -dir /Users/Shared/pdfscans -against baseline/timings/pdfscans.tsv
+
+which reports the pages that got slower. **These files are here because a
+byte-identity sweep cannot see a slowdown**, and one hid here for three of them:
+`render` v0.49.0 took a 256-entry colour-conversion memo away from any
+single-component picture carrying a soft mask, and 86 pages of this corpus ran two
+to twelve times slower with byte-identical output. §24 of `../README.md` tells that
+story; this directory is what stops it happening quietly again.
+
+## What these were taken with
+
+| | |
+|---|---|
+| taken | 2026-09-27T11:31Z .. 2026-09-27T11:53Z (UTC) |
+| `go-pdfkit/render` | v0.51.0 |
+| `go-images/jpeg2000` | v0.8.0 |
+| judge | pdftoppm 26.04.0 |
+| resolution | 72 dpi, first page of each document |
+| machine | Apple M4 Max, 16 cores |
+| load | 14.17 at the start, 5.07 at the end |
+
+## What a row is not
+
+**A single timing.** One measurement per page cannot separate a regression from a
+scheduling accident, and the load above says the machine was not quiet. Two rows of
+the report that produced these files were chased and were noise:
+`cerfa_11055.pdf` came out at 20.98× and takes 16 ms in every release;
+`indianhealthcare00unit_3.pdf` at 3.85× is 5% faster than it was.
+
+So `-against` names candidates. Re-measure a page before believing its row, and
+replace these files only from a run you would be willing to defend.
+
+## Columns
+
+`population`, `document`, `page`, `ours_ns`, `theirs_ns`, `share`, `hung`.
+
+`share` is the fraction of pixels that differ materially, or `-1` when the two
+could not be compared. `-against` uses it to leave out pages whose comparability
+changed: a page that was blank and now draws is slower and is not a regression.
+`hung` is the tool the judge did not finish on, or `-`.
