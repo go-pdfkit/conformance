@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -202,7 +203,6 @@ func TestTheBoundOnTheJudgeCanBeSaid(t *testing.T) {
 // being measured and never reported: a claim about speed that this instrument
 // cannot be run to check is not a claim anyone can act on.
 func TestTheReportSaysHowTheTwoRenderersTimed(t *testing.T) {
-	ms := func(n int) time.Duration { return time.Duration(n) * time.Millisecond }
 	var out bytes.Buffer
 	report(&out, "pop", compare.Summarise([]compare.Result{
 		{Path: "/c/fast.pdf", Page: 1, Share: 0, Ours: ms(10), Theirs: ms(100)},
@@ -312,5 +312,82 @@ func TestARunCanBeComparedWithAnEarlierOne(t *testing.T) {
 	}
 	if !strings.Contains(errOut.String(), "compare:") {
 		t.Errorf("it did not say why: %q", errOut.String())
+	}
+}
+
+// TestTheRunDrawsItsCandidatesAgain covers the confirmation seam end to end. The
+// stub answers slowly while the corpus is walked and quickly when a candidate is
+// drawn again, which is exactly the shape of the thirteen false positives that put
+// this check here.
+func TestTheRunDrawsItsCandidatesAgain(t *testing.T) {
+	dir := tinyCorpus(t)
+	ref := filepath.Join(t.TempDir(), "ref.tsv")
+	// A reference in which both pages were fast. 7 fields, and the header line
+	// is skipped by readTimings just as it is in a file the tool wrote.
+	rows := "population\tdocument\tpage\tours\ttheirs\tshare\thung\n"
+	for _, pop := range []string{"alpha", "beta"} {
+		rows += fmt.Sprintf("%s\tone.pdf\t0\t%d\t%d\t%.6f\t-\n",
+			pop, 100*time.Millisecond, 100*time.Millisecond, 0.001)
+	}
+	if err := os.WriteFile(ref, []byte(rows), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// draws counts every call so the walk and the confirmation can answer
+	// differently. The two documents of tinyCorpus make the walk two calls.
+	for _, tc := range []struct {
+		name          string
+		redraw        time.Duration
+		redrawPage    int
+		wantSubstring string
+	}{
+		// Both documents of tinyCorpus regress, so the counts are 2.
+		{"still slower is confirmed", 400 * time.Millisecond, 0, "2 page(s) at least"},
+		{"faster is dropped", 90 * time.Millisecond, 0, "2 dropped by re-measurement (~), 0 confirmed"},
+		// A confirmation that cannot find the page it asked for leaves the
+		// candidate standing: an unread answer is not a negative.
+		{"a page it cannot find is kept", 90 * time.Millisecond, 99, "2 page(s) at least"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			was := compareOne
+			t.Cleanup(func() { compareOne = was })
+			draws := 0
+			compareOne = func(p string, _ compare.Options) []compare.Result {
+				draws++
+				ours, page := 400*time.Millisecond, 0
+				if draws > 2 { // past the walk: this is a confirmation
+					ours, page = tc.redraw, tc.redrawPage
+				}
+				return []compare.Result{{
+					Path: p, Page: page, Ours: ours,
+					Theirs: 100 * time.Millisecond, Share: 0.001,
+				}}
+			}
+			var out, errOut bytes.Buffer
+			if code := run([]string{"-dir", dir, "-against", ref, "-confirm", "2"}, &out, &errOut); code != 0 {
+				t.Fatalf("exit %d: %s", code, errOut.String())
+			}
+			if draws <= 2 {
+				t.Errorf("compareOne was called %d times: nothing was drawn again", draws)
+			}
+			if !strings.Contains(out.String(), tc.wantSubstring) {
+				t.Errorf("want %q in:\n%s", tc.wantSubstring, out.String())
+			}
+			// The mark is the verdict, so it is asserted rather than the prose.
+			switch tc.name {
+			case "still slower is confirmed":
+				if n := strings.Count(out.String(), "\n! "); n != 2 {
+					t.Errorf("%d rows marked confirmed, want 2:\n%s", n, out.String())
+				}
+			case "faster is dropped":
+				if n := strings.Count(out.String(), "\n~ "); n != 2 {
+					t.Errorf("%d rows marked noise, want 2:\n%s", n, out.String())
+				}
+			case "a page it cannot find is kept":
+				if strings.Contains(out.String(), "\n! ") || strings.Contains(out.String(), "\n~ ") {
+					t.Errorf("a candidate nothing drew again must carry no verdict:\n%s", out.String())
+				}
+			}
+		})
 	}
 }

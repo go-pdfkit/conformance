@@ -34,6 +34,8 @@ func run(args []string, out, errOut io.Writer) int {
 	against := fs.String("against", "", "a -timings file from an earlier run; report pages that got slower")
 	factor := fs.Float64("factor", 2, "how much slower a page must be to be reported by -against")
 	atLeast := fs.Duration("atleast", 10*time.Millisecond, "ignore pages faster than this when comparing with -against")
+	slowerBy := fs.Duration("slower", 100*time.Millisecond, "how much longer a page must take, in absolute terms, to be reported by -against")
+	tries := fs.Int("confirm", 3, "how many times -against draws each candidate again before believing it; 0 to report candidates unchecked")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -111,6 +113,8 @@ func run(args []string, out, errOut io.Writer) int {
 						key:   key(name, filepath.Base(r.Path), fmt.Sprint(r.Page)),
 						ours:  r.Ours,
 						share: r.Share,
+						path:  r.Path,
+						page:  r.Page,
 					})
 				}
 				if tf != nil {
@@ -136,7 +140,21 @@ func run(args []string, out, errOut io.Writer) int {
 		report(out, name, compare.Summarise(rs, *slow))
 	}
 	if was != nil {
-		reportRegressions(out, regressions(was, timed, *factor, *atLeast), *factor)
+		found := regressions(was, timed, *factor, *atLeast, *slowerBy)
+		// Drawing a candidate again is what separates a regression from an
+		// accident, so it happens here rather than being left to a reader who
+		// will not do it. Only the candidates are redrawn, so the cost is a
+		// handful of pages and not the corpus.
+		found = confirm(found, *tries, func(path string, page int) (time.Duration, bool) {
+			for _, r := range compareOne(path, compare.Options{
+				DPI: *dpi, MaxDuration: *budget, Pages: *pages, Super: *super}) {
+				if r.Page == page {
+					return r.Ours, true
+				}
+			}
+			return 0, false
+		})
+		reportRegressions(out, found, *factor)
 	}
 	return 0
 }
