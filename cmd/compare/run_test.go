@@ -282,3 +282,35 @@ func TestATimingsFileThatCannotBeWrittenIsReported(t *testing.T) {
 		t.Errorf("it did not say why: %q", errOut.String())
 	}
 }
+
+// TestARunCanBeComparedWithAnEarlierOne covers the -against path end to end: a
+// run writes its timings, and a second run reads them back and says nothing got
+// slower. It is the second instrument the memo defect needed and did not have.
+func TestARunCanBeComparedWithAnEarlierOne(t *testing.T) {
+	dir := tinyCorpus(t)
+	first := filepath.Join(t.TempDir(), "first.tsv")
+	var out, errOut bytes.Buffer
+	if code := run([]string{"-dir", dir, "-timings", first}, &out, &errOut); code != 0 {
+		t.Fatalf("the first run exited %d: %s", code, errOut.String())
+	}
+	out.Reset()
+	if code := run([]string{"-dir", dir, "-against", first}, &out, &errOut); code != 0 {
+		t.Fatalf("the second run exited %d: %s", code, errOut.String())
+	}
+	// The same corpus against itself: the only honest verdict is that nothing
+	// crossed the threshold.
+	if !strings.Contains(out.String(), "no page is 2.0x slower") {
+		t.Errorf("the comparison said:\n%s", out.String())
+	}
+
+	// A file that cannot be read stops the run rather than comparing against
+	// nothing.
+	out.Reset()
+	errOut.Reset()
+	if code := run([]string{"-dir", dir, "-against", filepath.Join(t.TempDir(), "absent.tsv")}, &out, &errOut); code != 1 {
+		t.Errorf("exit %d, want 1", code)
+	}
+	if !strings.Contains(errOut.String(), "compare:") {
+		t.Errorf("it did not say why: %q", errOut.String())
+	}
+}

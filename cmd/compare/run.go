@@ -31,6 +31,9 @@ func run(args []string, out, errOut io.Writer) int {
 	judgeTimeout := fs.Duration("timeout", poppler.Timeout, "how long the judge may take on one page before it is called a hang")
 	limit := fs.Int("limit", 0, "judge no more than this many documents per population")
 	timings := fs.String("timings", "", "write one line per page: population, document, page, ours ns, theirs ns, share, hang")
+	against := fs.String("against", "", "a -timings file from an earlier run; report pages that got slower")
+	factor := fs.Float64("factor", 2, "how much slower a page must be to be reported by -against")
+	atLeast := fs.Duration("atleast", 10*time.Millisecond, "ignore pages faster than this when comparing with -against")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -60,6 +63,18 @@ func run(args []string, out, errOut io.Writer) int {
 		defer tf.Close()
 		fmt.Fprintln(tf, "population\tdocument\tpage\tours_ns\ttheirs_ns\tshare\thung")
 	}
+	// A byte-identity sweep cannot see a slowdown, so the timings of an earlier
+	// run are read back and compared. See against.go for what that cost once.
+	var was map[string]previous
+	if *against != "" {
+		var err error
+		was, err = readTimings(*against)
+		if err != nil {
+			fmt.Fprintf(errOut, "compare: %v\n", err)
+			return 1
+		}
+	}
+	var timed []timedPage
 	entries, err := corpus.Read(*dir)
 	if err != nil {
 		fmt.Fprintf(errOut, "compare: %v\n", err)
@@ -91,6 +106,13 @@ func run(args []string, out, errOut io.Writer) int {
 				DPI: *dpi, MaxDuration: *budget, Pages: *pages, Super: *super})
 			rs = append(rs, got...)
 			for _, r := range got {
+				if was != nil {
+					timed = append(timed, timedPage{
+						key:   key(name, filepath.Base(r.Path), fmt.Sprint(r.Page)),
+						ours:  r.Ours,
+						share: r.Share,
+					})
+				}
 				if tf != nil {
 					// "-" rather than an empty field: a row that ends in a tab
 					// is a row whose last column a reader cannot tell from a
@@ -112,6 +134,9 @@ func run(args []string, out, errOut io.Writer) int {
 			}
 		}
 		report(out, name, compare.Summarise(rs, *slow))
+	}
+	if was != nil {
+		reportRegressions(out, regressions(was, timed, *factor, *atLeast), *factor)
 	}
 	return 0
 }
