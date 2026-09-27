@@ -35,7 +35,7 @@ func run(args []string, out, errOut io.Writer) int {
 	factor := fs.Float64("factor", 2, "how much slower a page must be to be reported by -against")
 	atLeast := fs.Duration("atleast", 10*time.Millisecond, "ignore pages faster than this when comparing with -against")
 	slowerBy := fs.Duration("slower", 100*time.Millisecond, "how much longer a page must take, in absolute terms, to be reported by -against")
-	tries := fs.Int("confirm", 3, "how many times -against draws each candidate again before believing it; 0 to report candidates unchecked")
+	tries := fs.Int("confirm", 3, "how many times a named page is drawn again before it is believed -- both the worst-by-ratio rows and the -against candidates; 0 to report them unchecked")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -137,7 +137,22 @@ func run(args []string, out, errOut io.Writer) int {
 				}
 			}
 		}
-		report(out, name, compare.Summarise(rs, *slow))
+		sum := compare.Summarise(rs, *slow)
+		// The worst-by-ratio rows are drawn again before they are printed. They
+		// are selected on the maximum of one sample per page, and that selection
+		// is what makes them wrong: measured again, three of the eight pages this
+		// project had published as its worst were inflated by 1.75x to 2.66x.
+		sum.WorstRatio = confirmWorst(sum.WorstRatio, *tries, compare.WorstPrinted,
+			func(path string, page int) (time.Duration, time.Duration, bool) {
+				for _, r := range compareOne(path, compare.Options{
+					DPI: *dpi, MaxDuration: *budget, Pages: *pages, Super: *super}) {
+					if r.Page == page {
+						return r.Ours, r.Theirs, true
+					}
+				}
+				return 0, 0, false
+			})
+		report(out, name, sum)
 	}
 	if was != nil {
 		found := regressions(was, timed, *factor, *atLeast, *slowerBy)

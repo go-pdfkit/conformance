@@ -351,11 +351,17 @@ func TestTheRunDrawsItsCandidatesAgain(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			was := compareOne
 			t.Cleanup(func() { compareOne = was })
+			// Counted PER PATH rather than in total: the first time a document is
+			// asked for it is the corpus walk, and every time after that is
+			// something redrawing it. A total would break the moment anything else
+			// in the run redraws a page, which is exactly what happened.
+			seen := map[string]int{}
 			draws := 0
 			compareOne = func(p string, _ compare.Options) []compare.Result {
 				draws++
+				seen[p]++
 				ours, page := 400*time.Millisecond, 0
-				if draws > 2 { // past the walk: this is a confirmation
+				if seen[p] > 1 { // past the walk: this is a redraw
 					ours, page = tc.redraw, tc.redrawPage
 				}
 				return []compare.Result{{

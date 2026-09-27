@@ -494,6 +494,17 @@ type Summary struct {
 	// Largest is not the same as slower. On a population we win everywhere the
 	// worst ratio is still below one, and naming these pages "losses" said
 	// otherwise for as long as it took to read one report.
+	//
+	// It holds a POOL of worstRatioPool rows rather than the few a report prints,
+	// because a list selected on the maximum of one sample per page is biased and
+	// a caller cannot repair a selection that has already been truncated. Three
+	// of the eight pages this project published as its worst were inflated by
+	// 1.75x to 2.66x when drawn again, and the inflation was not bad luck: taking
+	// the top N by ratio from single samples preferentially picks the pages whose
+	// sample came out unluckily high, and leaves out the ones whose sample came
+	// out luckily low. A caller that redraws these (cmd/compare -confirm) fixes
+	// both halves; one that does not should print the first few and call them
+	// candidates.
 	WorstRatio []Result
 }
 
@@ -501,6 +512,18 @@ type Summary struct {
 // one document's doing or spread across a population, and few enough that a
 // report of a bad run stays readable.
 const slowKept = 5
+
+// worstRatioPool is how many worst-by-ratio pages Summarise hands back. It is a
+// multiple of slowKept rather than slowKept itself so that a caller which redraws
+// them has candidates to promote: a page whose one sample was luckily low belongs
+// in the printed list once it is measured properly, and it cannot get there from
+// a list that was cut to five before anyone looked.
+const worstRatioPool = 3 * slowKept
+
+// WorstPrinted is how many of WorstRatio a report should show. It is exported
+// because the pool above is deliberately larger than it, so a caller has to be
+// told where the line is rather than guess.
+const WorstPrinted = slowKept
 
 // worstKept is how many disagreeing pages are named. More than slowKept
 // because they are what gets looked at: a slow page is a symptom of one thing
@@ -575,8 +598,8 @@ func Summarise(rs []Result, slow time.Duration) Summary {
 			}
 			return s.WorstRatio[i].Page < s.WorstRatio[j].Page
 		})
-		if len(s.WorstRatio) > slowKept {
-			s.WorstRatio = s.WorstRatio[:slowKept]
+		if len(s.WorstRatio) > worstRatioPool {
+			s.WorstRatio = s.WorstRatio[:worstRatioPool]
 		}
 		sort.Float64s(ratios)
 		s.RatioMedian = ratios[int(0.5*float64(len(ratios)-1))]
