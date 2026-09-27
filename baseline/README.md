@@ -1992,15 +1992,15 @@ instrument that produced them. They can now.
 
 | | |
 |---|---|
-| taken | 2026-09-26T16:59Z .. 2026-09-26T17:20Z (UTC) |
+| taken | 2026-09-27T11:31Z .. 2026-09-27T11:53Z (UTC) *(first: 2026-09-26T16:59Z)* |
 | judge | pdftoppm version 26.04.0 |
-| `go-pdfkit/render` | **v0.47.0** |
-| `go-images/jpeg2000` | v0.7.0 |
+| `go-pdfkit/render` | **v0.51.0** *(first taken at v0.47.0; see the re-measurement below)* |
+| `go-images/jpeg2000` | v0.8.0 |
 | `go-gfx/gfx` | v0.34.0 |
 | resolution | 72 dpi, asked of both |
 | pages per document | 1 (the first page of each document) |
 | machine | Apple M4 Max, 16 cores |
-| load | 4.87 at the start, 7.48 at the end (one-minute average) |
+| load | 14.17 at the start, 5.07 at the end (one-minute average) |
 | corpora | `/Users/Shared/pdfscans`, `/Users/Shared/pdfforms` |
 | per-page rows | `compare -timings`, which is what makes the rest of this section checkable |
 
@@ -2011,33 +2011,33 @@ that were not are in *What this section had wrong* at the end, with what they co
 
 | corpus | population | pages | ours | theirs | total | median | p90 | faster |
 |---|---|---|---|---|---|---|---|---|
-| `pdfforms` | `ca-cra` | 84 | 2.2 s | 8.6 s | **0.255×** | 0.247× | 0.337× | 84/84 |
-| `pdfforms` | `fr-cerfa` | 450 | 12.3 s | 39.9 s | **0.309×** | 0.213× | 0.441× | 440/450 |
-| `pdfforms` | `fr-impots` | 50 | 4.4 s | 4.6 s | **0.962×** | 0.333× | 1.510× | 43/50 |
-| `pdfforms` | `gh-openpdf` | 42 | 0.2 s | 1.5 s | **0.103×** | 0.033× | 0.149× | 42/42 |
-| `pdfforms` | `gh-pdfbox` | 148 | 1.4 s | 6.6 s | **0.210×** | 0.071× | 0.270× | 146/148 |
-| `pdfforms` | `gh-pdfcpu` | 147 | 1.1 s | 9.5 s | **0.114×** | 0.105× | 0.176× | 147/147 |
-| `pdfforms` | `gh-pypdf` | 32 | 0.3 s | 1.6 s | **0.189×** | 0.066× | 0.353× | 32/32 |
-| `pdfforms` | `gh-qpdf` | 80 | 0.3 s | 4.7 s | **0.065×** | 0.047× | 0.142× | 80/80 |
-| `pdfforms` | `gh-safedocs` | 19 | 1.4 s | 0.9 s | **1.541×** | 0.042× | 0.088× | 18/19 |
-| `pdfforms` | `gh-verapdf` | 134 | 0.1 s | 3.4 s | **0.035×** | 0.024× | 0.049× | 134/134 |
-| `pdfforms` | `int-wipo` | 116 | 1.3 s | 8.2 s | **0.153×** | 0.142× | 0.209× | 116/116 |
-| `pdfforms` | `uk-govuk` | 302 | 15.4 s | 29.9 s | **0.514×** | 0.198× | 0.699× | 285/302 |
-| `pdfforms` | `us-dol` | 140 | 3.1 s | 12.0 s | **0.259×** | 0.257× | 0.378× | 140/140 |
-| `pdfforms` | `us-irs` | 69 | 1.6 s | 6.2 s | **0.261×** | 0.249× | 0.287× | 69/69 |
-| `pdfforms` | `us-opm` | 66 | 1.2 s | 6.2 s | **0.195×** | 0.165× | 0.269× | 66/66 |
-| `pdfforms` | `us-ssa` | 199 | 2.2 s | 17.3 s | **0.127×** | 0.113× | 0.167× | 199/199 |
-| `pdfforms` | `us-uscis` | 88 | 1.3 s | 7.8 s | **0.161×** | 0.158× | 0.198× | 88/88 |
-| `pdfforms` | `us-uscourts` | 68 | 0.7 s | 4.8 s | **0.136×** | 0.123× | 0.169× | 68/68 |
-| `pdfscans` | `ia-americana` | 218 | 120.5 s | 179.3 s | **0.672×** | 0.601× | 1.300× | 167/218 |
-| `pdfscans` | `ia-biodiversity` | 249 | 94.5 s | 107.5 s | **0.879×** | 1.015× | 1.285× | 120/249 |
-| `pdfscans` | `ia-medical` | 250 | 67.6 s | 144.3 s | **0.468×** | 0.425× | 0.956× | 228/250 |
-| `pdfscans` | `ia-texts` | 5 | 2.0 s | 2.8 s | **0.699×** | 0.587× | 0.848× | 4/5 |
-| `pdfscans` | `ia-uscourts` | 250 | 5.1 s | 19.6 s | **0.260×** | 0.161× | 0.521× | 250/250 |
-| | **all 23** | **3206** | **340.1 s** | **627.4 s** | **0.542×** | **0.199×** | 0.839× | **2966/3206** |
+| `pdfforms` | `ca-cra` | 84 | 2.1 s | 8.6 s | **0.247×** | 0.239× | 0.316× | 84/84 |
+| `pdfforms` | `fr-cerfa` | 450 | 12.5 s | 40.8 s | **0.307×** | 0.214× | 0.435× | 440/450 |
+| `pdfforms` | `fr-impots` | 50 | 4.6 s | 4.7 s | **0.976×** | 0.342× | 1.588× | 43/50 |
+| `pdfforms` | `gh-openpdf` | 42 | 0.2 s | 1.6 s | **0.103×** | 0.049× | 0.142× | 42/42 |
+| `pdfforms` | `gh-pdfbox` | 148 | 1.5 s | 18.1 s | **0.083×** | 0.064× | 0.260× | 146/148 |
+| `pdfforms` | `gh-pdfcpu` | 147 | 1.1 s | 10.3 s | **0.111×** | 0.107× | 0.175× | 147/147 |
+| `pdfforms` | `gh-pypdf` | 32 | 0.2 s | 1.2 s | **0.194×** | 0.076× | 0.287× | 32/32 |
+| `pdfforms` | `gh-qpdf` | 80 | 0.2 s | 3.3 s | **0.068×** | 0.058× | 0.107× | 80/80 |
+| `pdfforms` | `gh-safedocs` | 19 | 1.4 s | 0.9 s | **1.491×** | 0.050× | 0.096× | 18/19 |
+| `pdfforms` | `gh-verapdf` | 134 | 0.1 s | 3.4 s | **0.036×** | 0.026× | 0.059× | 134/134 |
+| `pdfforms` | `int-wipo` | 116 | 1.3 s | 8.4 s | **0.152×** | 0.138× | 0.214× | 116/116 |
+| `pdfforms` | `uk-govuk` | 302 | 16.2 s | 34.8 s | **0.465×** | 0.202× | 0.612× | 286/302 |
+| `pdfforms` | `us-dol` | 140 | 3.0 s | 11.9 s | **0.256×** | 0.257× | 0.354× | 140/140 |
+| `pdfforms` | `us-irs` | 69 | 1.7 s | 6.3 s | **0.270×** | 0.259× | 0.297× | 69/69 |
+| `pdfforms` | `us-opm` | 66 | 1.2 s | 6.3 s | **0.198×** | 0.166× | 0.279× | 66/66 |
+| `pdfforms` | `us-ssa` | 199 | 2.3 s | 17.8 s | **0.127×** | 0.116× | 0.168× | 199/199 |
+| `pdfforms` | `us-uscis` | 88 | 1.2 s | 7.7 s | **0.162×** | 0.159× | 0.182× | 88/88 |
+| `pdfforms` | `us-uscourts` | 68 | 0.7 s | 4.9 s | **0.141×** | 0.127× | 0.175× | 68/68 |
+| `pdfscans` | `ia-americana` | 220 | 117.1 s | 187.4 s | **0.625×** | 0.578× | 1.244× | 175/220 |
+| `pdfscans` | `ia-biodiversity` | 249 | 93.8 s | 119.1 s | **0.787×** | 0.935× | 1.246× | 166/249 |
+| `pdfscans` | `ia-medical` | 250 | 69.7 s | 161.8 s | **0.431×** | 0.415× | 0.913× | 230/250 |
+| `pdfscans` | `ia-texts` | 5 | 1.9 s | 2.8 s | **0.665×** | 0.600× | 0.795× | 4/5 |
+| `pdfscans` | `ia-uscourts` | 250 | 5.0 s | 19.7 s | **0.253×** | 0.160× | 0.504× | 250/250 |
+| | **all 23** | **3208** | **339.1 s** | **681.9 s** | **0.497×** | **0.201×** | 0.806× | **3023/3208** |
 
-**Over the whole corpus we take 0.542× of poppler's time -- 1.85× faster -- and on
-a typical page 0.199×, which is 5.03× faster. We are faster on 2 966 of 3 206
+**Over the whole corpus we take 0.497× of poppler's time -- 2.01× faster -- and on
+a typical page 0.201×, which is 4.98× faster. We are faster on 3 023 of 3 208
 pages.**
 
 The total and the median say different things and both are wanted. `gh-safedocs`
@@ -2182,3 +2182,42 @@ long way, and nothing in the method would have said so.
 
 `compare -timings` now writes `Result.Share` beside the two durations, so this
 table can be rebuilt with any threshold, or with none.
+
+### Re-measured at v0.51.0, and what the re-measurement found
+
+The figures above were first taken at `render` v0.47.0 and are now v0.51.0's. Four
+releases moved them:
+
+| | v0.47.0 | v0.51.0 |
+|---|---|---|
+| total | 0.542× | **0.497×** |
+| median page | 0.199× | 0.201× |
+| faster on | 2 966 of 3 206 | **3 023 of 3 208** |
+| slower than the judge | 240 pages | **185 pages** |
+
+The median barely moved and the total crossed below a half. Those are consistent:
+the releases took time off the heavy pages -- `ia-biodiversity`'s slower count fell
+from 128 to 83 -- and a total is carried by heavy pages while a median is not.
+
+**The re-measurement also found a defect the byte-identity proof could not.** Between
+v0.47.0 and v0.50.0 this document's per-page timings showed two French forms at
+**eleven times slower**, and `render` v0.49.0 was the cause: it had taken a 256-entry
+colour-conversion memo away from any single-component picture carrying a soft mask,
+so those pictures converted every pixel one at a time -- 3.93 million of them instead
+of 256. **86 pages of this corpus, across fourteen populations, ran two to twelve
+times slower with byte-identical output.** Three full byte-identity sweeps of 3 215
+documents had come back clean, because there was nothing wrong with the pixels.
+
+`render` v0.51.0 restores it (369.5 ms back to 31.2 ms on `cerfa_10832.pdf`), and
+`compare -against <earlier.tsv>` now reports pages that got slower, so the next one
+is a check rather than a coincidence. It excludes pages whose comparability changed,
+because a page that was blank and now draws is slower and is not a regression, and
+ignores pages under 10 ms, because 0.3 ms becoming 1.5 ms reads as five times slower
+and says nothing.
+
+**Two of its rows were chased and were noise**, which is why it calls them
+candidates: `cerfa_11055.pdf` was reported at 20.98× and takes 16 ms in every
+release, and `indianhealthcare00unit_3.pdf` at 3.85× is 5% FASTER than it was. One
+timing per page cannot distinguish a regression from a scheduling accident; it can
+only say where to look.
+
