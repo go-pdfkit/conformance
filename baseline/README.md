@@ -1992,15 +1992,16 @@ instrument that produced them. They can now.
 
 | | |
 |---|---|
-| taken | 2026-09-27T14:19Z .. 2026-09-27T14:51Z (UTC) *(first: 2026-09-26T16:59Z)* |
+| taken | 2026-09-27T19:05Z .. 2026-09-27T19:32Z (UTC) *(first: 2026-09-26T16:59Z)* |
 | judge | pdftoppm version 26.04.0 |
-| `go-pdfkit/render` | **v0.52.0** *(first taken at v0.47.0; see the re-measurements below. `go.mod` holds v0.53.0, which changed exactly one page of this table -- said plainly at the end of §24 rather than left for a reader to notice.)* |
+| `go-pdfkit/render` | **v0.56.0**, which is what `go.mod` holds *(first taken at v0.47.0; five releases later the same day, each re-measured -- see the end of §24)* |
+| every named row | **drawn again three times** and the minimum kept (`compare -confirm`), because a list selected on the maximum of one sample per page is biased upward by the act of selecting |
 | `go-images/jpeg2000` | v0.8.0 |
 | `go-gfx/gfx` | v0.34.0 |
 | resolution | 72 dpi, asked of both |
 | pages per document | 1 (the first page of each document) |
 | machine | Apple M4 Max, 16 cores |
-| load | 15.53 at the start, 11.09 at the end (one-minute average) |
+| load | 5.77 at the start, 9.22 at the end (one-minute average) |
 | corpora | `/Users/Shared/pdfscans`, `/Users/Shared/pdfforms` |
 | per-page rows | `compare -timings`, which is what makes the rest of this section checkable |
 
@@ -2011,34 +2012,35 @@ that were not are in *What this section had wrong* at the end, with what they co
 
 | corpus | population | pages | ours | theirs | total | median | p90 | faster |
 |---|---|---|---|---|---|---|---|---|
-| `pdfforms` | `ca-cra` | 84 | 2.4 s | 9.9 s | **0.239×** | 0.238× | 0.317× | 84/84 |
-| `pdfforms` | `fr-cerfa` | 450 | 11.9 s | 43.6 s | **0.272×** | 0.200× | 0.420× | 444/450 |
-| `pdfforms` | `fr-impots` | 50 | 1.8 s | 5.0 s | **0.357×** | 0.327× | 0.453× | 50/50 |
-| `pdfforms` | `gh-openpdf` | 42 | 0.2 s | 1.7 s | **0.102×** | 0.047× | 0.158× | 42/42 |
-| `pdfforms` | `gh-pdfbox` | 148 | 1.6 s | 7.3 s | **0.217×** | 0.061× | 0.287× | 146/148 |
-| `pdfforms` | `gh-pdfcpu` | 147 | 1.1 s | 9.5 s | **0.114×** | 0.106× | 0.168× | 147/147 |
-| `pdfforms` | `gh-pypdf` | 32 | 0.2 s | 1.2 s | **0.195×** | 0.073× | 0.272× | 32/32 |
-| `pdfforms` | `gh-qpdf` | 80 | 0.3 s | 3.7 s | **0.071×** | 0.057× | 0.118× | 80/80 |
-| `pdfforms` | `gh-safedocs` | 19 | 1.4 s | 0.9 s | **1.519×** | 0.048× | 0.087× | 18/19 |
-| `pdfforms` | `gh-verapdf` | 134 | 0.1 s | 3.5 s | **0.035×** | 0.024× | 0.064× | 134/134 |
-| `pdfforms` | `int-wipo` | 116 | 1.2 s | 8.4 s | **0.147×** | 0.137× | 0.217× | 116/116 |
-| `pdfforms` | `uk-govuk` | 302 | 16.7 s | 32.4 s | **0.515×** | 0.204× | 0.686× | 286/302 |
-| `pdfforms` | `us-dol` | 140 | 3.2 s | 12.3 s | **0.256×** | 0.263× | 0.358× | 140/140 |
-| `pdfforms` | `us-irs` | 69 | 2.0 s | 6.7 s | **0.304×** | 0.272× | 0.343× | 69/69 |
-| `pdfforms` | `us-opm` | 66 | 1.4 s | 6.6 s | **0.205×** | 0.170× | 0.288× | 66/66 |
-| `pdfforms` | `us-ssa` | 199 | 2.5 s | 18.3 s | **0.136×** | 0.119× | 0.184× | 199/199 |
-| `pdfforms` | `us-uscis` | 88 | 1.3 s | 7.8 s | **0.163×** | 0.162× | 0.177× | 88/88 |
-| `pdfforms` | `us-uscourts` | 68 | 0.7 s | 5.0 s | **0.143×** | 0.128× | 0.181× | 68/68 |
-| `pdfscans` | `ia-americana` | 220 | 115.9 s | 186.8 s | **0.620×** | 0.570× | 1.267× | 177/220 |
-| `pdfscans` | `ia-biodiversity` | 249 | 90.5 s | 111.8 s | **0.810×** | 0.914× | 1.202× | 172/249 |
-| `pdfscans` | `ia-medical` | 250 | 65.5 s | 146.8 s | **0.446×** | 0.410× | 0.911× | 231/250 |
-| `pdfscans` | `ia-texts` | 5 | 1.8 s | 2.8 s | **0.652×** | 0.522× | 0.794× | 4/5 |
-| `pdfscans` | `ia-uscourts` | 250 | 5.1 s | 19.9 s | **0.253×** | 0.163× | 0.506× | 250/250 |
-| | **all 23** | **3208** | **328.7 s** | **652.2 s** | **0.504×** | **0.196×** | 0.783× | **3043/3208** |
+| `pdfforms` | `ca-cra` | 84 | 2.1 s | 8.4 s | **0.247×** | 0.236× | 0.313× | 84/84 |
+| `pdfforms` | `fr-cerfa` | 450 | 11.0 s | 39.7 s | **0.278×** | 0.208× | 0.384× | 443/450 |
+| `pdfforms` | `fr-impots` | 50 | 1.6 s | 4.5 s | **0.344×** | 0.310× | 0.436× | 50/50 |
+| `pdfforms` | `gh-openpdf` | 42 | 0.2 s | 1.5 s | **0.100×** | 0.036× | 0.138× | 42/42 |
+| `pdfforms` | `gh-pdfbox` | 148 | 1.4 s | 7.8 s | **0.182×** | 0.067× | 0.270× | 146/148 |
+| `pdfforms` | `gh-pdfcpu` | 147 | 1.0 s | 9.0 s | **0.115×** | 0.105× | 0.163× | 147/147 |
+| `pdfforms` | `gh-pypdf` | 32 | 0.2 s | 1.2 s | **0.198×** | 0.078× | 0.300× | 32/32 |
+| `pdfforms` | `gh-qpdf` | 80 | 0.2 s | 3.1 s | **0.068×** | 0.056× | 0.109× | 80/80 |
+| `pdfforms` | `gh-safedocs` | 19 | 0.1 s | 0.9 s | **0.099×** | 0.043× | 0.094× | 19/19 |
+| `pdfforms` | `gh-verapdf` | 134 | 0.1 s | 4.8 s | **0.026×** | 0.025× | 0.076× | 134/134 |
+| `pdfscans` | `ia-americana` | 220 | 114.9 s | 181.4 s | **0.634×** | 0.576× | 1.234× | 173/220 |
+| `pdfscans` | `ia-biodiversity` | 249 | 88.3 s | 110.0 s | **0.803×** | 0.924× | 1.209× | 171/249 |
+| `pdfscans` | `ia-medical` | 250 | 67.1 s | 145.4 s | **0.462×** | 0.415× | 0.941× | 231/250 |
+| `pdfscans` | `ia-texts` | 5 | 1.8 s | 2.7 s | **0.663×** | 0.585× | 0.774× | 4/5 |
+| `pdfscans` | `ia-uscourts` | 250 | 5.1 s | 20.5 s | **0.251×** | 0.166× | 0.512× | 250/250 |
+| `pdfforms` | `int-wipo` | 116 | 1.2 s | 8.4 s | **0.146×** | 0.136× | 0.206× | 116/116 |
+| `pdfforms` | `uk-govuk` | 302 | 14.7 s | 30.4 s | **0.486×** | 0.197× | 0.588× | 288/302 |
+| `pdfforms` | `us-dol` | 140 | 3.2 s | 12.2 s | **0.260×** | 0.262× | 0.364× | 140/140 |
+| `pdfforms` | `us-irs` | 69 | 1.7 s | 6.3 s | **0.268×** | 0.258× | 0.290× | 69/69 |
+| `pdfforms` | `us-opm` | 66 | 1.3 s | 6.5 s | **0.201×** | 0.171× | 0.280× | 66/66 |
+| `pdfforms` | `us-ssa` | 199 | 2.4 s | 18.0 s | **0.131×** | 0.116× | 0.169× | 199/199 |
+| `pdfforms` | `us-uscis` | 88 | 1.3 s | 7.8 s | **0.164×** | 0.161× | 0.178× | 88/88 |
+| `pdfforms` | `us-uscourts` | 68 | 0.7 s | 4.9 s | **0.140×** | 0.126× | 0.166× | 68/68 |
+| | **all 23** | **3208** | **321.7 s** | **635.3 s** | **0.506×** | **0.198×** | 0.778× | **3040/3208** |
 
-**Over the whole corpus we take 0.504× of poppler's time -- 1.98× faster -- and on
-a typical page 0.196×, which is 5.10× faster. We are faster on 3 043 of 3 208
-pages.**
+**Over the whole corpus we take 0.506× of poppler's time -- 1.98× faster -- and on
+a typical page 0.198×, which is 5.05× faster. We are faster on 3 040 of 3 208
+pages, and NO page is more than 2.4× slower.** That last clause is new: the worst
+page of this corpus was 26.3× this morning.
 
 The total and the median say different things and both are wanted. `gh-safedocs`
 is the demonstration: its total is **1.519×**, its median is **0.048×**, and it is
@@ -2079,56 +2081,51 @@ which is what a floor means.
 
 ### Where we lose, named
 
-165 pages of 3 208 are slower than the judge, and they are not spread evenly:
+168 pages of 3 208 are slower than the judge, and they are not spread evenly:
 
 | population | slower | of |
 |---|---|---|
-| `ia-biodiversity` | **77** | 249 |
-| `ia-americana` | 43 | 220 |
+| `ia-biodiversity` | **78** | 249 |
+| `ia-americana` | 47 | 220 |
 | `ia-medical` | 19 | 250 |
-| `uk-govuk` | 16 | 302 |
-| `fr-cerfa` | 6 | 450 |
+| `uk-govuk` | 14 | 302 |
+| `fr-cerfa` | 7 | 450 |
 | `gh-pdfbox` | 2 | 148 |
 | `ia-texts` | 1 | 5 |
-| `gh-safedocs` | 1 | 19 |
 
-**`fr-impots` is no longer in this table at all**: it had 7 slower pages of 50 and
-now has none. `render` v0.52.0 reads an ICC profile once per object instead of once
-per use, and the five pages this section named as losing by five to eight times are
-what that was written for. `fr-cerfa` fell from 11 to 6 in the same release.
+**Two populations have left this table today**: `fr-impots`, which had 7 slower pages
+of 50 before an ICC profile was read once per object rather than once per use, and
+`gh-safedocs`, whose single slower page was a Type 3 content-stream cycle.
 
 `ia-biodiversity` is the one population where a typical page is close to a tie:
-median **0.914×**, slower on 77 pages. It is scanned material, which is where the
-JPEG 2000 path lives, and it is the population to measure against next.
+median **0.911×**, slower on 78 pages. It is scanned material, which is where the
+JPEG 2000 path lives, and it is the population to measure against next -- the two
+image paths that were fixed today were both JPEG.
 
 | ratio | ours | theirs | population | document |
 |---|---|---|---|---|
-| **26.28×** | 1339 ms | 51 ms | `gh-safedocs` | `Miscellaneous_Targeted_Test_PDFs_ContentStreamCycleType3insideType3.pdf` |
-| **4.14×** | 826 ms | 199 ms | `ia-americana` | `rg104entry21718631008NOUSflagsmadeforMint.pdf` |
-| **3.37×** | 455 ms | 135 ms | `uk-govuk` | `v55-5w-cais-am-dreth-cerbyd-cyntaf-a-chofrestru-cerbyd-mo.pdf` |
-| **3.31×** | 453 ms | 137 ms | `uk-govuk` | `register-a-used-vehicle-for-the-first-time-v55-5.pdf` |
-| **2.72×** | 1831 ms | 672 ms | `ia-americana` | `7thannualpikespe00pike_0.pdf` |
-| **2.51×** | 346 ms | 138 ms | `gh-pdfbox` | `AcroFormsBasicFields.pdf` |
-| **2.50×** | 253 ms | 101 ms | `uk-govuk` | `SA100_2024_Cymraeg.pdf` |
-| **2.49×** | 288 ms | 116 ms | `uk-govuk` | `SA100-Cymraeg-2025.pdf` |
+| **2.32×** | 308 ms | 133 ms | `gh-pdfbox` | `AcroFormsBasicFields.pdf` |
+| **2.02×** | 1040 ms | 514 ms | `ia-medical` | `b22329389.pdf` |
+| **2.01×** | 249 ms | 124 ms | `fr-cerfa` | `cerfa_10702.pdf` |
+| **1.88×** | 695 ms | 370 ms | `uk-govuk` | `v10-application-for-vehicle-tax.pdf` |
+| **1.86×** | 686 ms | 370 ms | `uk-govuk` | `v112-declaration-of-exemption-from-mot.pdf` |
+| **1.78×** | 1457 ms | 820 ms | `ia-americana` | `cricmt_001092.pdf` |
+| **1.77×** | 688 ms | 388 ms | `uk-govuk` | `v10w-cais-am-dreth-cerbyd.pdf` |
+| **1.76×** | 167 ms | 95 ms | `gh-pdfbox` | `tiger-as-form-xobject.pdf` |
 
-**The French tax cluster is gone and a `uk-govuk` one has taken its place.** Four
-of the eight are DVLA and HMRC forms, and they come in PAIRS: `v55-5` at 3.31x and
-its Welsh twin `v55-5w` at 3.37x, `SA100` in Welsh for two consecutive years at
-2.50x and 2.49x. The two `v55-5` versions cost the same within 2%, so **the language
-is not the variable** -- whatever they carry, both versions carry. The pairing is
-what makes this a cluster worth measuring rather than four unrelated pages, and it
-is the next one to take apart.
+**The worst page in this corpus is 2.32×.** It was 26.3× this morning, 4.09× after
+the Type 3 cycle was refused, and 2.36× after a three-component JPEG's colour
+conversion was cached. Every row above was drawn three times before it was printed.
 
-The single worst page is a content-stream **cycle**: a Type 3 font whose glyph
-procedure shows glyphs of the same Type 3 font. Bounding its DEPTH is the wrong
-instrument, because a depth bound is exponential in breadth -- three glyphs a level
-at a depth of twelve is 3^12 executions, and the page spent its whole operation
-budget repainting marks it had already made. poppler's own depth bound is **100**,
-eight times looser than ours, and it answers in 51 ms; what stops it is a set of
-the char procs it is currently drawing (`Gfx.cc`, `charProcDrawing`). `render`
-v0.53.0 refuses the re-entry the same way: **1 327 ms to 27 ms with a byte-identical
-picture**, which is 1.9× FASTER than the judge rather than 26× slower.
+**And a claim this section made yesterday was wrong.** It said of the `uk-govuk`
+cluster that "the language is not the variable", reasoning from one pair -- `v55-5`
+and its Welsh twin `v55-5w`, which cost the same within 2%. Measured properly, the
+three English `SA100` forms take 67, 68 and 66 ms and the three Welsh ones take 117,
+118 and 114: the language WAS the variable there, and poppler takes the same time on
+both, which is what proved the document was not heavier. Those pages are no longer in
+this table -- `v55-5` was a single 8.7 megapixel grey JPEG whose colour conversion is
+now memoised, and the `SA100` rows were inflated by single-sample selection -- but the
+sentence was still a conclusion drawn from a pair without measuring its other half.
 
 ### What this section does not say
 
@@ -2236,27 +2233,45 @@ a property of this version. The figures above use the second take of `pdfforms` 
 that reason, and the reason it was caught at all is that the population count moved
 — which is why the `pages` column is published beside every ratio.
 
-### What v0.53.0 changed, and why the table was not taken again
+### Five releases in one day, and what each one was worth
 
-`go.mod` holds `render` v0.53.0 and the figures above are v0.52.0's. That is the
-same mismatch this re-measurement existed to fix, so here is exactly what it
-covers.
+Every figure below is from a confirmed take: each named row drawn three times and the
+minimum kept. The takes are 25 to 65 minutes apart on a machine whose load ran between
+5 and 21, so **read the columns that moved by more than the run-to-run spread** -- which
+two takes of the same version put at 41% on one population.
 
-v0.53.0 changed **one page of 3 208**: the Type 3 content-stream cycle, from
-1 327 ms to 27 ms with a byte-identical picture. Every other document in both
-corpora is byte-identical too -- 3 281 of 3 281 -- and the page was measured
-directly, with a control page that the mechanism does not touch (`cerfa_10832.pdf`,
-28.3 ms before and 28.4 ms after, same pixels) and with the refusal ablated to show
-that it is what did it (the same fixture takes 232 506 times a witness's operations
-without it).
+| | v0.47.0 | v0.51.0 | v0.52.0 | v0.53.0 | v0.54.0 | v0.56.0 |
+|---|---|---|---|---|---|---|
+| total | 0.542× | 0.497× | 0.504× | 0.498× | 0.514× | **0.506×** |
+| median page | 0.199× | 0.201× | 0.196× | 0.198× | 0.198× | **0.198×** |
+| faster on, of 3 208 | 2 966 | 3 023 | 3 043 | 3 044 | 3 035 | **3 040** |
+| slower than the judge | 240 | 185 | 165 | 164 | 173 | **168** |
+| **worst page** | — | — | **26.3×** | 4.09× | 4.08× | **2.32×** |
 
-**The table was not taken again, and that is a decision rather than an omission.**
-The two `pdfforms` takes above differ by 41% on one population from load alone, so
-a fresh take would move 3 207 pages by noise in order to update one. What it would
-change, if taken: `gh-safedocs` leaves "Where we lose" (its one slower page was that
-page), the worst-ratio table loses its first row, and the slower count falls from
-165 to 164. Those three follow from the single measurement and are stated here
-rather than published as though they had been swept.
+**The total and the median did not move, and that is the finding.** Five releases took
+the worst page from 26.3× to 2.32× and moved the corpus total by less than the noise,
+because a total is carried by the many and these were the few. A report that gave only
+totals would have called this day empty.
+
+| release | what it did | measured |
+|---|---|---|
+| v0.52.0 | read an ICC profile once per object | `fr-impots` 0.976× → 0.357×, its 7 slower pages → none |
+| v0.53.0 | refuse a Type 3 glyph procedure already being drawn | 1 327 ms → 27 ms on a 2.4 KB file |
+| v0.54.0 | ask a colour space once per level for a one-component JPEG | 476 ms → 65 ms, 7.3× |
+| v0.55.0 | cache a three-component JPEG's conversion on its sample triple | 790 ms → 202 ms, a tie with the judge |
+| v0.56.0 | keep that cache on the page, not on each picture | **repaired a 10.5× regression v0.55.0 introduced** |
+
+All five are byte-identical over 3 281 documents of both corpora, each with a control
+page the mechanism does not touch and an ablation showing the mechanism is what did it.
+
+**v0.55.0's regression is the one worth reading about.** Its cache was 4 MB, sized for a
+6.8 megapixel scan, and it was allocated inside the loop that draws ONE picture.
+`cerfa_12626.pdf` carries 4 606 images on its first page, 2 112 of them eight pixels by
+one, and went from 34.0 ms to 346.9 ms with identical output. **The `-against` check
+added to `compare` that morning found it on its first real run** -- one candidate out of
+3 208 pages, at 7.88×, already drawn three times and marked confirmed. The take above,
+run against v0.55.0, proposed two candidates and dropped both by re-measurement at
+0.99×, which is the same machinery saying nothing is wrong.
 
 ### Re-measured at v0.51.0, and what the re-measurement found
 
