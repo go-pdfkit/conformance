@@ -2350,3 +2350,76 @@ cleared. So `compare -against` now draws each candidate again (`-confirm`, defau
 slower, `~` if it is not, and leaving it unmarked when nothing could redraw it --
 because an answer nobody obtained must not read as a negative one.
 
+
+## §25 — The memory a JPEG 2000 decode costs, which this document said it had not captured
+
+§16 says plainly that **peak memory was not captured**, and that carrying over a
+figure measured on a different build would be a number about something else. It
+is captured here, for one part of the whole: the JPEG 2000 decoder, measured
+**alone**.
+
+Alone, because a page is a composition and a composition hides its parts. A
+program that decodes one codestream and does nothing else has a peak that is the
+decoder's, and `GODEBUG=gctrace=1` gives the **live** heap after each collection
+— which a heap profile cannot, since `pprof`'s `inuse_space` is a snapshot taken
+at a GC and a short run that allocates fast has very few. A profile taken at what
+`ReadMemStats` called the peak reported 364 MB for a run whose peak was 918.
+
+Two codestreams out of the corpus, one of each shape it holds. Minimum of three
+runs, `/usr/bin/time -l`:
+
+| | grey, 5868×7885 (46.3 Mpx) | colour, 4559×6942 (31.6 Mpx) |
+|---|---|---|
+| jpeg2000 v0.10.0 | 917 MB / 19.8 B/px | — |
+| v0.10.1 — the tile's coefficients handed over, not copied | 751 MB | — |
+| v0.11.0 — 9/7 coefficients at float32 | 567 MB | 2416 MB / 76.4 B/px |
+| **v0.11.1 — the inverse ICT banded** | **567 MB / 12.2 B/px** | **990 MB / 31.3 B/px** |
+
+Live heap over the same releases, grey: 717 → 540 → 368 MB.
+
+### What each change was, and what the reference has
+
+OpenJPEG holds **one** buffer per tile-component, `OPJ_INT32 *data` (`tcd.h:210`),
+and reinterprets that same memory as `OPJ_FLOAT32` for the 9/7 synthesis —
+*"Where void\* is a OPJ_INT32\* for 5x3 and OPJ_FLOAT32\* for 9x7"* (`dwt.c:157`)
+— then **moves** it into the output image rather than copying
+(`opj_j2k_move_data_from_codec_to_output_image`, `j2k.c:12326`). We held four
+full-size buffers where it holds one and a half. Three of the four excesses are
+gone; the fourth remains, and needs the int32 plane and the float32 plane to
+share memory, which in Go means `unsafe`.
+
+**99.92% of this corpus's JPEG 2000 streams use the 9/7 filter** — 119 069 of
+119 164, read from each codestream's COD marker — and **45% are three-component**
+(54 130 against 65 034 one-component). Neither of these changes is a corner.
+
+### What is still not measured
+
+**The peak of a whole page render.** Every figure above is a decoder in
+isolation. A page also holds the renderer's own bitmap, its fonts and its
+graphics state, and nothing here says what the total is or which part dominates
+it for a page that is not a scan.
+
+**Speed, of any of it.** A float32 vector carries twice the lanes of a float64
+one, and a band of 64 rows fits a cache where a page does not, so three of these
+four changes could plausibly be faster as well. The machine was carrying two
+system daemons at 132% and 86% of a core throughout. A timing taken under that
+would describe the daemons, and the absence is the same decision §16 already
+made.
+
+### The fidelity of the one change that moved pixels
+
+Three of the four are byte-identical over all 3215 documents. The float32
+coefficients are not: **634 documents change**, by about 0.005 levels of 255.
+
+The aggregate of this document **cannot see that**. `mean |diff|` and the
+identical-pixel share came back the same to four figures, because they are
+percentages over hundreds of millions of pixels and the effect is far below
+their last digit. A number that does not move is not the same as a thing that
+does not move.
+
+Asked **per document** — for each page, which build lands closer to poppler —
+float32 is closer on **413 of 612** and further on 171, with 28 tied. Under a
+50/50 null over the 584 untied, 292 ± 12 would be expected. Poppler decodes
+JPEG 2000 through OpenJPEG, which works in float32, so carrying its precision
+carries its rounding: the direction is what the reference predicts, and the size
+is too small for anyone to see.
