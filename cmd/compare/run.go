@@ -160,7 +160,7 @@ func run(args []string, out, errOut io.Writer) int {
 		// accident, so it happens here rather than being left to a reader who
 		// will not do it. Only the candidates are redrawn, so the cost is a
 		// handful of pages and not the corpus.
-		found = confirm(found, *tries, func(path string, page int) (time.Duration, bool) {
+		found = confirm(found, *tries, *factor, *slowerBy, func(path string, page int) (time.Duration, bool) {
 			for _, r := range compareOne(path, compare.Options{
 				DPI: *dpi, MaxDuration: *budget, Pages: *pages, Super: *super}) {
 				if r.Page == page {
