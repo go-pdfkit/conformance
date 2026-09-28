@@ -190,7 +190,13 @@ func reportRegressions(out io.Writer, rs []slower, factor float64) {
 //
 // A page nothing could draw again is kept rather than dropped. An unread answer
 // must not read as a negative.
-func confirm(rs []slower, tries int, draw func(path string, page int) (time.Duration, bool)) []slower {
+// factor and slowerBy are the SAME bars that made these rows candidates, and a
+// re-measurement has to clear them again. Asking only whether the page is still a
+// little slower is not enough, and this is not hypothetical: at render v0.58.0 the
+// check drew a page again, got 358 ms against the reference's 350 ms, and marked it
+// CONFIRMED -- 1.02x, reported under a headline that said "at least 2.0x slower".
+// A row that comes back at 1.02x is noise by the same rule that selected it.
+func confirm(rs []slower, tries int, factor float64, slowerBy time.Duration, draw func(path string, page int) (time.Duration, bool)) []slower {
 	// No guard on tries: at zero the loop below does not run, the row keeps the
 	// reading it came in with, and nothing is drawn. An early return here would
 	// be a branch no test could tell from its absence, which is how a guard
@@ -214,7 +220,7 @@ func confirm(rs []slower, tries int, draw func(path string, page int) (time.Dura
 		}
 		r.is = best
 		r.factor = float64(best) / float64(r.was)
-		r.confirmed = best >= r.was
+		r.confirmed = r.factor >= factor && best-r.was >= slowerBy
 		r.dropped = !r.confirmed
 		out = append(out, r)
 	}

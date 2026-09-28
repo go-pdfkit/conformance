@@ -210,7 +210,7 @@ func TestAFactorWithoutAnIncreaseIsNoise(t *testing.T) {
 // arithmetic on the pair (was, is) could say so.
 func TestACandidateThatIsFasterWhenDrawnAgainIsDropped(t *testing.T) {
 	in := []slower{{key: key("a", "x.pdf", "1"), was: ms(100), is: ms(400), factor: 4, path: "x.pdf", page: 1}}
-	got := confirm(in, 2, func(string, int) (time.Duration, bool) { return ms(98), true })
+	got := confirm(in, 2, 2, 0, func(string, int) (time.Duration, bool) { return ms(98), true })
 	if len(got) != 1 {
 		t.Fatalf("confirm returned %d rows, want 1", len(got))
 	}
@@ -229,7 +229,7 @@ func TestACandidateThatIsFasterWhenDrawnAgainIsDropped(t *testing.T) {
 // TestACandidateStillSlowerWhenDrawnAgainIsConfirmed.
 func TestACandidateStillSlowerWhenDrawnAgainIsConfirmed(t *testing.T) {
 	in := []slower{{key: key("a", "x.pdf", "1"), was: ms(32), is: ms(369), factor: 11.5, path: "x.pdf", page: 1}}
-	got := confirm(in, 2, func(string, int) (time.Duration, bool) { return ms(360), true })
+	got := confirm(in, 2, 2, 0, func(string, int) (time.Duration, bool) { return ms(360), true })
 	if !got[0].confirmed || got[0].dropped {
 		t.Errorf("confirmed=%v dropped=%v, want confirmed", got[0].confirmed, got[0].dropped)
 	}
@@ -242,7 +242,7 @@ func TestConfirmTakesTheMinimumOfItsTries(t *testing.T) {
 	in := []slower{{key: key("a", "x.pdf", "1"), was: ms(100), is: ms(400), factor: 4}}
 	seq := []time.Duration{ms(700), ms(90), ms(650)}
 	i := 0
-	got := confirm(in, 3, func(string, int) (time.Duration, bool) {
+	got := confirm(in, 3, 2, 0, func(string, int) (time.Duration, bool) {
 		d := seq[i]
 		i++
 		return d, true
@@ -260,7 +260,7 @@ func TestConfirmTakesTheMinimumOfItsTries(t *testing.T) {
 // reader sees it and knows nothing confirmed it.
 func TestAPageNothingCouldDrawAgainIsKept(t *testing.T) {
 	in := []slower{{key: key("a", "x.pdf", "1"), was: ms(100), is: ms(400), factor: 4}}
-	got := confirm(in, 3, func(string, int) (time.Duration, bool) { return 0, false })
+	got := confirm(in, 3, 2, 0, func(string, int) (time.Duration, bool) { return 0, false })
 	if len(got) != 1 {
 		t.Fatalf("confirm returned %d rows, want the candidate kept", len(got))
 	}
@@ -276,7 +276,7 @@ func TestAPageNothingCouldDrawAgainIsKept(t *testing.T) {
 // that was not taken, and averaging it in would drop every candidate.
 func TestADrawThatReturnsZeroDoesNotCount(t *testing.T) {
 	in := []slower{{key: key("a", "x.pdf", "1"), was: ms(100), is: ms(400), factor: 4}}
-	got := confirm(in, 1, func(string, int) (time.Duration, bool) { return 0, true })
+	got := confirm(in, 1, 2, 0, func(string, int) (time.Duration, bool) { return 0, true })
 	if got[0].confirmed || got[0].dropped {
 		t.Error("a zero duration is not a measurement")
 	}
@@ -286,7 +286,7 @@ func TestADrawThatReturnsZeroDoesNotCount(t *testing.T) {
 // candidates unchecked, which is what the tool did before this existed.
 func TestConfirmWithNoTriesChangesNothing(t *testing.T) {
 	in := []slower{{key: key("a", "x.pdf", "1"), was: ms(100), is: ms(400), factor: 4}}
-	got := confirm(in, 0, func(string, int) (time.Duration, bool) {
+	got := confirm(in, 0, 2, 0, func(string, int) (time.Duration, bool) {
 		t.Error("confirm drew a page with tries = 0")
 		return 0, false
 	})
@@ -301,7 +301,7 @@ func TestConfirmPassesThePageItWasAskedAbout(t *testing.T) {
 	in := []slower{{key: key("a", "x.pdf", "7"), was: ms(100), is: ms(400), factor: 4, path: "/c/x.pdf", page: 7}}
 	var gotPath string
 	var gotPage int
-	confirm(in, 1, func(p string, n int) (time.Duration, bool) {
+	confirm(in, 1, 2, 0, func(p string, n int) (time.Duration, bool) {
 		gotPath, gotPage = p, n
 		return ms(500), true
 	})
@@ -326,5 +326,69 @@ func TestTheReportSaysWhichRowsSurvivedReMeasurement(t *testing.T) {
 	// The headline counts what survived, not what was proposed.
 	if !strings.Contains(got, "1 page(s) at least") {
 		t.Errorf("headline should count the 1 survivor, not 2 candidates:\n%s", got)
+	}
+}
+
+// TestARowThatComesBackAtTheSameSpeedIsNotAConfirmedRegression.
+//
+// The defect this pins was shipped and then found by the tool's own output: at
+// render v0.58.0 the check drew a page again, got 358ms against the reference's
+// 350ms, and marked it CONFIRMED -- under a headline that said "at least 2.0x
+// slower". `still a little slower` is not the question. The question is whether the
+// re-measurement clears the SAME bars that made the row a candidate.
+func TestARowThatComesBackAtTheSameSpeedIsNotAConfirmedRegression(t *testing.T) {
+	// Selected on a reading of 4x; drawn again it is 1.02x.
+	in := []slower{{key: key("a", "x.pdf", "1"), was: ms(350), is: ms(1400), factor: 4}}
+	got := confirm(in, 1, 2, 100*time.Millisecond, func(string, int) (time.Duration, bool) {
+		return ms(358), true
+	})
+	if got[0].confirmed {
+		t.Errorf("1.02x was reported as a confirmed regression (%v -> %v)", got[0].was, got[0].is)
+	}
+	if !got[0].dropped {
+		t.Error("it should be marked as noise")
+	}
+}
+
+// TestARowThatClearsTheRatioButNotTheIncreaseIsDropped. Both bars, not either: a
+// 12ms page at 3x has gained 8ms, which is the small-page accident -slower exists
+// for, and a confirmation that ignored the floor would let it back in.
+func TestARowThatClearsTheRatioButNotTheIncreaseIsDropped(t *testing.T) {
+	in := []slower{{key: key("a", "x.pdf", "1"), was: ms(4), is: ms(400), factor: 100}}
+	got := confirm(in, 1, 2, 100*time.Millisecond, func(string, int) (time.Duration, bool) {
+		return ms(12), true // 3x, but only +8ms
+	})
+	if got[0].confirmed {
+		t.Errorf("+8ms on a 4ms page was confirmed at %.2fx", got[0].factor)
+	}
+}
+
+// TestARealRegressionStillSurvivesConfirmation, so the stricter rule has not made
+// the check blind: the one real regression this project found was 32ms -> 369ms.
+func TestARealRegressionStillSurvivesConfirmation(t *testing.T) {
+	in := []slower{{key: key("a", "cerfa.pdf", "1"), was: ms(32), is: ms(369), factor: 11.5}}
+	got := confirm(in, 1, 2, 100*time.Millisecond, func(string, int) (time.Duration, bool) {
+		return ms(360), true
+	})
+	if !got[0].confirmed {
+		t.Errorf("32ms -> 360ms was dropped at %.2fx", got[0].factor)
+	}
+}
+
+// TestARowThatClearsTheIncreaseButNotTheRatioIsDropped. The other half of "both
+// bars": a page that already took a second and comes back 150ms slower has cleared
+// the absolute floor and is still only 1.15x, which is inside the spread two takes
+// of the SAME version show. The floor exists to remove small-page accidents, not to
+// admit large-page ones.
+func TestARowThatClearsTheIncreaseButNotTheRatioIsDropped(t *testing.T) {
+	in := []slower{{key: key("a", "big.pdf", "1"), was: ms(1000), is: ms(3000), factor: 3}}
+	got := confirm(in, 1, 2, 100*time.Millisecond, func(string, int) (time.Duration, bool) {
+		return ms(1150), true // +150ms, but 1.15x
+	})
+	if got[0].confirmed {
+		t.Errorf("+150ms at %.2fx was confirmed; the ratio bar is not being applied", got[0].factor)
+	}
+	if !got[0].dropped {
+		t.Error("it should be marked as noise")
 	}
 }

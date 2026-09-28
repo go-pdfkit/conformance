@@ -21,14 +21,15 @@ story; this directory is what stops it happening quietly again.
 
 | | |
 |---|---|
-| taken | 2026-09-27T19:05Z .. 2026-09-27T19:32Z (UTC) |
-| `go-pdfkit/render` | v0.56.0 |
-| `go-images/jpeg2000` | v0.8.0 |
+| taken | 2026-09-28T12:18Z .. 2026-09-28T12:44Z (UTC) |
+| `go-pdfkit/render` | v0.58.0 |
+| `go-images/jpeg2000` | v0.9.1 |
 | judge | pdftoppm 26.04.0 |
 | resolution | 72 dpi, first page of each document |
 | machine | Apple M4 Max, 16 cores |
-| load | 5.77 at the start, 9.22 at the end |
-| confirmed | `-confirm 3`: every page the report NAMED was drawn again three times and the minimum kept. The rows of this file are still one timing each -- confirmation applies to what a report selects, not to 3 208 pages. |
+| load | 5.91 at the start, 16.05 at the end |
+| cores | **ours uses up to eight on a JPEG 2000 page; the judge uses one.** These are wall-clock nanoseconds, and on the scanned populations they are no longer a CPU-time comparison. |
+| confirmed | `-confirm 3`: every page the report NAMED was drawn again three times and the minimum kept, and a re-measurement has to clear the SAME bars that made the row a candidate. The rows of this file are still one timing each. |
 
 ## What a row is not
 
