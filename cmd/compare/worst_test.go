@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -161,5 +163,64 @@ func TestTwoRowsOfTheSameRatioKeepAStableOrder(t *testing.T) {
 		if got[i].Path != w.path || got[i].Page != w.page {
 			t.Errorf("row %d is %s page %d, want %s page %d", i, got[i].Path, got[i].Page, w.path, w.page)
 		}
+	}
+}
+
+// TestTheTimingsFileCarriesTheConfirmedDuration.
+//
+// The file and the report disagreed, and the FILE was wrong: the walk records one
+// timing per page, confirmWorst draws the named rows again, and nothing carried the
+// second reading back. At render v0.60.0 the walk read bulletindedepart23dutc.pdf at
+// 1 219 ms -- 7.7 times what the page costs -- the report dropped it, and §24's
+// "Where we lose" table, which is built from the file, would have published it as the
+// corpus's worst page at 3.05x.
+func TestTheTimingsFileCarriesTheConfirmedDuration(t *testing.T) {
+	rs := []compare.Result{
+		{Path: "/c/noisy.pdf", Page: 1, Ours: ms(1219), Theirs: ms(399), Share: 0.000005},
+		{Path: "/c/plain.pdf", Page: 1, Ours: ms(100), Theirs: ms(200), Share: 0.001},
+	}
+	// The confirmation drew the noisy one again and found what it really costs.
+	confirmed := []compare.Result{
+		{Path: "/c/noisy.pdf", Page: 1, Ours: ms(158), Theirs: ms(399), Share: 0.000005},
+	}
+	var out strings.Builder
+	writeTimingRows(&out, "pop", rs, confirmed)
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("wrote %d rows, want 2:\n%s", len(lines), out.String())
+	}
+	if !strings.Contains(lines[0], fmt.Sprint(int64(ms(158)))) {
+		t.Errorf("the confirmed row kept the walk's reading:\n%s", lines[0])
+	}
+	if strings.Contains(lines[0], fmt.Sprint(int64(ms(1219)))) {
+		t.Errorf("the walk's 1219ms survived into the file:\n%s", lines[0])
+	}
+	// A row nothing confirmed keeps what the walk read, which is all there is.
+	if !strings.Contains(lines[1], fmt.Sprint(int64(ms(100)))) {
+		t.Errorf("an unconfirmed row lost its reading:\n%s", lines[1])
+	}
+	// The order of the walk is kept, so a file can be diffed against another.
+	if !strings.HasPrefix(lines[0], "pop\tnoisy.pdf\t1\t") {
+		t.Errorf("row 0 is %q", lines[0])
+	}
+}
+
+// TestAHungToolIsNamedInTheFile, because a page the judge did not finish has a
+// duration that is the bound rather than a measurement, and a reader has to be able
+// to tell.
+func TestAHungToolIsNamedInTheFile(t *testing.T) {
+	var out strings.Builder
+	writeTimingRows(&out, "pop", []compare.Result{
+		{Path: "/c/a.pdf", Page: 1, Ours: ms(1), Theirs: ms(2), Share: -1, Tool: "pdftoppm"},
+		{Path: "/c/b.pdf", Page: 1, Ours: ms(1), Theirs: ms(2), Share: 0},
+	}, nil)
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if !strings.HasSuffix(lines[0], "\tpdftoppm") {
+		t.Errorf("the hung tool is not named: %q", lines[0])
+	}
+	// "-" rather than an empty field, so the last column cannot be mistaken for a
+	// missing one.
+	if !strings.HasSuffix(lines[1], "\t-") {
+		t.Errorf("a row with no hang should end in a dash: %q", lines[1])
 	}
 }
