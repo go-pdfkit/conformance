@@ -21,15 +21,15 @@ story; this directory is what stops it happening quietly again.
 
 | | |
 |---|---|
-| taken | 2026-09-28T12:18Z .. 2026-09-28T12:44Z (UTC) |
-| `go-pdfkit/render` | v0.58.0 |
+| taken | 2026-09-28T14:49Z .. 2026-09-28T15:16Z (UTC) |
+| `go-pdfkit/render` | v0.60.0 |
 | `go-images/jpeg2000` | v0.9.1 |
 | judge | pdftoppm 26.04.0 |
 | resolution | 72 dpi, first page of each document |
 | machine | Apple M4 Max, 16 cores |
-| load | 5.91 at the start, 16.05 at the end |
+| load | 12.0 at the start, 13.3 at the end, peaking at 31 |
 | cores | **ours uses up to eight on a JPEG 2000 page; the judge uses one.** These are wall-clock nanoseconds, and on the scanned populations they are no longer a CPU-time comparison. |
-| confirmed | `-confirm 3`: every page the report NAMED was drawn again three times and the minimum kept, and a re-measurement has to clear the SAME bars that made the row a candidate. The rows of this file are still one timing each. |
+| confirmed | `-confirm 3`. The rows a report NAMES were drawn again three times and carry the MINIMUM; every other row is one timing. Which is which is not marked, because the named rows are few and the file is meant to be diffed as a whole -- see below. |
 
 ## What a row is not
 
@@ -67,6 +67,24 @@ Replace these files only from a run you would be willing to defend.
 ## Columns
 
 `population`, `document`, `page`, `ours_ns`, `theirs_ns`, `share`, `hung`.
+
+## Most rows are one timing, and some are not
+
+A row the report names -- the worst by ratio in its population -- was drawn again three
+times and carries the minimum of those. Every other row is a single reading.
+
+That mixture is deliberate and it is an improvement on what was here before, when the
+file carried the walk's reading for every row INCLUDING the ones the report had already
+re-measured and corrected. The two then disagreed, and the file was the wrong one: at
+v0.60.0 the walk read `bulletindedepart23dutc.pdf` at 1 219 ms, which is 7.7 times what
+that page costs, and anything built from this file would have published it as the
+corpus's worst page.
+
+Drawing all 3 208 pages three times more would cost an hour to improve numbers that a
+sum over 3 208 pages barely moves. The rows that get quoted individually are the ones
+that get re-measured.
+
+## Columns
 
 `share` is the fraction of pixels that differ materially, or `-1` when the two
 could not be compared. `-against` uses it to leave out pages whose comparability

@@ -117,24 +117,6 @@ func run(args []string, out, errOut io.Writer) int {
 						page:  r.Page,
 					})
 				}
-				if tf != nil {
-					// "-" rather than an empty field: a row that ends in a tab
-					// is a row whose last column a reader cannot tell from a
-					// missing one.
-					hung := r.Tool
-					if hung == "" {
-						hung = "-"
-					}
-					// SHARE, and it is not decoration. A page one side did not
-					// draw has Share -1, and its duration is the time taken to
-					// decline rather than to render: reading a timing without it
-					// counts a refusal as a very fast page. Three 12 MB scans in
-					// this corpus come back in 4 to 15 ms against poppler's 1.7
-					// to 2.8 SECONDS, and a table that cannot see Share calls
-					// each of them a 0.004x win.
-					fmt.Fprintf(tf, "%s\t%s\t%d\t%d\t%d\t%.6f\t%s\n",
-						name, filepath.Base(r.Path), r.Page, r.Ours, r.Theirs, r.Share, hung)
-				}
 			}
 		}
 		sum := compare.Summarise(rs, *slow)
@@ -152,6 +134,9 @@ func run(args []string, out, errOut io.Writer) int {
 				}
 				return 0, 0, false
 			})
+		if tf != nil {
+			writeTimingRows(tf, name, rs, sum.WorstRatio)
+		}
 		report(out, name, sum)
 	}
 	if was != nil {
