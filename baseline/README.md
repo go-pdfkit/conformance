@@ -2477,3 +2477,38 @@ rather than text (55), and 121 of the 137 are synthetic tests from one project.
 Those pages already sit at 0.08%–0.33% of pixels differing from poppler, among
 the closest in the corpus. The generator is **not built**, and that measurement
 is the reason.
+
+## §27 — The sixty-six documents that never appear in a proof
+
+Every byte-identity sweep in this document compares **3 215** documents while
+both corpora together hold **3 281**. The difference has been printed as a
+count and never explained: 66 documents that the renderer under test refuses to
+open, so there is nothing to compare.
+
+They are named here because a population that appears in every measurement and
+has never been looked at is a population nobody has decided anything about.
+`go-pdfkit/reader` refuses them for five distinct reasons:
+
+| | |
+|---|---|
+| 39 | `unsupported security handler` |
+| 23 | `the password does not open this file` |
+| 2 | no indirect objects, and no `startxref` either |
+| 1 | no document catalogue, and an unsupported `/Brotli` filter |
+| 1 | no document catalogue, and no `startxref` |
+
+They fall mostly in `ia-americana` (30), `gh-openpdf` (14) and `gh-pdfbox` (8) —
+the last two being test suites that collect awkward files on purpose.
+
+**poppler refuses all sixty-six as well.** Asked with the same `-cropbox` and
+the same page, `pdftoppm` produces nothing for any of them. So this is not a
+gap against the reference: it is 2% of the corpus that is encrypted beyond
+either reader, or structurally broken beyond both.
+
+Nothing follows from this except that it is now known. It is recorded so that
+the next person who notices 3 215 against 3 281 does not have to ask.
+
+**A caution about the phrase.** `identical4.py`, the sweep that produces these
+figures, prints them as "drawn by neither" — and that means neither of the two
+BUILDS being compared, not us and the judge. poppler is not in that comparison
+at all. The reading above required asking it separately.
