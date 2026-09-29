@@ -2373,9 +2373,13 @@ runs, `/usr/bin/time -l`:
 | jpeg2000 v0.10.0 | 917 MB / 19.8 B/px | — |
 | v0.10.1 — the tile's coefficients handed over, not copied | 751 MB | — |
 | v0.11.0 — 9/7 coefficients at float32 | 567 MB | 2416 MB / 76.4 B/px |
-| **v0.11.1 — the inverse ICT banded** | **567 MB / 12.2 B/px** | **990 MB / 31.3 B/px** |
+| v0.11.1 — the inverse ICT banded, 64 rows | 567 MB | 990 MB |
+| **v0.12.0 — one buffer for the int32 and float32 views** | **397 MB / 8.6 B/px** | **638 MB / 20.2 B/px** |
 
 Live heap over the same releases, grey: 717 → 540 → 368 MB.
+
+All four of the excesses the reference does not have are now closed. What
+remains is one buffer a component and the output, which is what OpenJPEG holds.
 
 ### What each change was, and what the reference has
 
@@ -2394,10 +2398,12 @@ share memory, which in Go means `unsafe`.
 
 ### What is still not measured
 
-**The peak of a whole page render.** Every figure above is a decoder in
-isolation. A page also holds the renderer's own bitmap, its fonts and its
-graphics state, and nothing here says what the total is or which part dominates
-it for a page that is not a scan.
+**The peak of a whole page render, in general.** The figures above are a decoder
+in isolation. Four whole pages were measured, to settle what this package
+already tolerates — `cabepcc_000084.pdf` 667 MB, `css_004595.pdf` 629 MB,
+`cdc_002360.pdf` 449 MB, `indianepalfield00klei.pdf` 387 MB — but nothing here
+says what the total is for a page that is not a scan, or which part dominates
+it.
 
 **Speed, of any of it.** A float32 vector carries twice the lanes of a float64
 one, and a band of 64 rows fits a cache where a page does not, so three of these
@@ -2423,3 +2429,51 @@ float32 is closer on **413 of 612** and further on 171, with 28 tied. Under a
 JPEG 2000 through OpenJPEG, which works in float32, so carrying its precision
 carries its rounding: the direction is what the reference predicts, and the size
 is too small for anyone to see.
+
+
+## §26 — A ceiling that refused pages cheaper than the pages it admitted
+
+`render` bounded a codec by a PIXEL count, `maxImageBytes / 4`, as though every
+codestream decoded to four bytes a pixel. §25 measures that none does: 6.8 to
+9.7 bytes a pixel for one component, 20.2 to 21.1 for three.
+
+The consequence was visible on this corpus, and it is not the one anybody would
+guess. The bound was not too generous or too mean; it was **inconsistent**:
+
+| page | peak | before |
+|---|---|---|
+| `cabepcc_000084.pdf` — 31.6 Mpx, colour | **667 MB** | **drawn** |
+| `sim_unitarian-…-1825-06-25_4_25.pdf` — 75.3 Mpx, grey | **516 MB** | refused |
+| `bulletinno38tasm.pdf` — 129.5 Mpx, grey | **881 MB** | refused |
+
+`render` v0.66.0 charges a decode by its shape, against a bound of 24 times the
+old pixel count — exactly 1.5 GB — so a codestream charged 24 bytes a pixel has
+the bound it had to the pixel. A JPEG's does not move. A three-component JPEG
+2000's does not move. **Nothing that was admitted is refused.**
+
+**Three pages of 3215 come back drawn where they came back blank**, and they are
+exactly the three a census of blank-for-us-drawn-by-them named. The other 3212
+are byte-identical. Of the three, the two that can be compared pixel to pixel
+both move CLOSER to poppler, by 43.5 and 19.7 levels of 255; the third cannot be
+compared by that instrument because poppler renders it **one column wider**,
+1356 against 1355, which is a page-size rounding difference that predates this.
+
+They are not drawn *well*: 14.7% and 19.2% of their pixels differ from poppler,
+against a corpus median near 0.2%. A blank page differs on all of its ink, which
+is 24% to 79% of these three. **Closer is the claim; close is not.**
+
+### Two things this measurement found that are not about the ceiling
+
+**poppler has no such bound at all.** The census that found these pages stalled
+for 46 minutes because `pdftoppm` sat on one qpdf test file at **13.8 GB
+resident**, and would have sat there indefinitely. A ceiling is a defence as
+well as a limit, and "the reference draws it and we do not" can mean "the
+reference will take the machine down for that page".
+
+**A widget annotation with no appearance stream draws nothing here**, where
+poppler synthesises one. Counted properly — valued fields only, PDF nulls
+excluded — that is **137 documents of 3215**, dominated by CHOICE fields (314)
+rather than text (55), and 121 of the 137 are synthetic tests from one project.
+Those pages already sit at 0.08%–0.33% of pixels differing from poppler, among
+the closest in the corpus. The generator is **not built**, and that measurement
+is the reason.
