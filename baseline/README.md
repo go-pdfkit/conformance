@@ -1961,6 +1961,15 @@ it is the only part where the answer is ground the references do not cover.
   cannot read and a page we decline to decode. Finding 6 shows all four of this
   run's refusals are the second kind. The counts are correct; the label is too
   coarse.
+
+  **Measured before acting on it, and not acted on.** `Ours` is set at two
+  places: a file that will not read, and a page that will not be got. It is the
+  `refused` column, and §28 shows that column is **zero in all twenty-three
+  populations** — a document ours refuses that poppler refuses too goes through
+  `blame()` and comes out `Neither`, not `Ours`, which is why §27's sixty-six
+  are not here. Splitting the label today would divide two empty buckets, and
+  the split changes a JSON field and every table that carries it. It is left
+  named, which is what this list is for.
 - ~~**The three `DCTDecode` rows that did not move are not diagnosed.**
   `fr-impots` at a median peak of 255, `gh-pypdf` at 233 and `gh-qpdf` at 171 are
   not chroma reconstruction and are not rounding.~~ **All three are at a peak of
