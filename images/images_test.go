@@ -1757,3 +1757,43 @@ func TestAPaletteInAStreamIsReadToo(t *testing.T) {
 		t.Errorf("a black-and-white palette in a stream was counted apart: %v", got)
 	}
 }
+
+func TestTheSizePairedShareIsCounted(t *testing.T) {
+	// PairedBy's own note says a run whose size share is large is a run whose
+	// numbers are worth less, "and that has to be visible". Until this counter
+	// it was in no report and no record.
+	//
+	// Both sides are asserted. A counter that increments on every picture reads
+	// exactly like one that works, until the run that is all object-paired says
+	// every picture is suspect.
+	rows := []Result{
+		{Name: "a", Filter: "DCTDecode", PairedBy: PairedBySize},
+		{Name: "b", Filter: "DCTDecode", PairedBy: PairedByObject},
+		{Name: "c", Filter: "DCTDecode", PairedBy: PairedBySize},
+		{Name: "d", Filter: "JPXDecode", PairedBy: PairedByObject},
+	}
+	by := Tally(rows)
+	if got := by["DCTDecode"].SizePaired; got != 2 {
+		t.Errorf("DCTDecode counted %d paired by size, want 2", got)
+	}
+	if got := by["JPXDecode"].SizePaired; got != 0 {
+		t.Errorf("JPXDecode counted %d paired by size, want 0 -- the counter "+
+			"fires on pictures it should not", got)
+	}
+	// And it reaches the two places anyone reads: the report and the record.
+	if rep := Report(by); !strings.Contains(rep, "2 paired by size") {
+		t.Errorf("the report does not carry the share:\n%s", rep)
+	}
+	var found bool
+	for _, f := range Summarize("p", 1, rows).Filters {
+		if f.Filter == "DCTDecode" {
+			found = true
+			if f.SizePaired != 2 {
+				t.Errorf("the record says %d paired by size, want 2", f.SizePaired)
+			}
+		}
+	}
+	if !found {
+		t.Error("the record has no DCTDecode line to carry it")
+	}
+}
