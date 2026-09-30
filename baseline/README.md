@@ -2560,3 +2560,47 @@ the writing of §25 and §26, into this same file, without being connected to th
 census that was then written to find exactly what it already counted. Before
 building an instrument to find a class of defect, read the columns this document
 already has — and read their definitions, not their headings.
+
+## §29 — The three rows that "stayed gross" are at three levels
+
+§1 of the v0.21.0 run ends:
+
+> **Three rows stayed gross** — `gh-qpdf` 171 → 171, `fr-impots` 255 → 255, and
+> `gh-pypdf` 244 → 233 […] They are the remaining `DCTDecode` finding, and this
+> run does not diagnose them.
+
+Measured at `render` v0.67.0, `go-images/jpeg2000` v0.13.2:
+
+| population | v0.20.0 | v0.21.0 | **now** | DCTDecode direct |
+|---|---:|---:|---:|---|
+| `gh-qpdf` | 171 | 171 | **3** | 19 of 22 exact |
+| `fr-impots` | 255 | 255 | **3** | 12 of 13 exact |
+| `gh-pypdf` | 244 | 233 | **3** | 0 of 2 exact |
+
+All three now sit where the other ten already sat: **one level above a gate of
+two**, which is the rounding disagreement §1 describes and not a decoder
+finding. `gh-pypdf` keeps a 71.4% agreement in the population table with two
+pictures differing by three levels — a rate over a denominator of seven, at a
+magnitude nobody can see.
+
+The document already contains the answer to where they went, eleven lines below
+the paragraph that names them: the `fr-impots` picture reached peak 11 at
+v0.27.0 and **exact** at v0.32.0, when the `ICCBased` alternate its tint
+transform names stopped being read as American ink (§19). What was missing was
+anyone going back to the other two.
+
+### The reading hazard, which is the reusable part
+
+**That paragraph is a comparison of two dated runs, and it reads as a statement
+about now.** The numbers beside it — `171 → 171` — are v0.20.0 against v0.21.0.
+Nothing in the sentence says so, because when it was written there was no
+"later".
+
+This file is written by accumulation: a section is true of the run that produced
+it, and later sections correct earlier ones explicitly where anyone noticed. It
+therefore has to be read **backwards** — most recent first — and any line quoted
+out of it has to be checked for a later section that supersedes it. Reading it
+forwards, as I did, produces a defect hunt for something fixed two months ago.
+
+The same hazard, in a smaller form, is in §27: a sweep's "drawn by neither" line
+counts the two builds it compares, not us and the judge.
