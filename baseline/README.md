@@ -2512,3 +2512,51 @@ the next person who notices 3 215 against 3 281 does not have to ask.
 figures, prints them as "drawn by neither" — and that means neither of the two
 BUILDS being compared, not us and the judge. poppler is not in that comparison
 at all. The reading above required asking it separately.
+
+## §28 — The one cell in this document that said "defect", and closing it
+
+The per-population tables carry a `refused` column, and `images/images.go`
+defines it without hedging:
+
+> `Refused` is how many documents ours would not open or draw, **and the judge
+> would**. This is the count that is a defect.
+
+Across all twenty-three populations it was non-zero exactly once:
+
+	ia-biodiversity | 250 | 0 | 1 | ...
+
+That one document is `bulletinno38tasm.pdf`, a 9 449 by 13 701 one-component
+scan. §26 explains why it was refused — a ceiling that counted pixels at four
+bytes each — and `render` v0.66.0 fixed it. Re-measured against v0.67.0 and
+`go-images/jpeg2000` v0.13.2:
+
+| `ia-biodiversity` | before | after |
+|---|---:|---:|
+| pictures | 754 | **755** |
+| direct | 705 | **706** |
+| compared | 650 | **651** |
+| exact | 650 | **651** |
+| agreement | 100.0% | 100.0% |
+| **refused** | **1** | **0** |
+
+The extra picture is the one that was refused, and it comes out exact. **The
+column is now zero in every population.**
+
+`ia-americana` was re-measured too, since it holds the other two pages §26
+names, and it is **unchanged in every column**. Its two pages were refused by
+the page RENDERER, not by picture extraction, and `refused` here counts the
+latter. A row that did not move is worth recording beside one that did.
+
+### Two cautions for whoever reads these tables next
+
+**`exact` is not `identical`.** `Exact is how many had no channel differ by more
+than Gate` — a tolerance. `identical` is the byte-for-byte count, and it is a
+separate column. The float32 change of §25 moves pixels by about 0.005 levels,
+which is why it moved neither: far below the gate, and these pictures were
+already not byte-identical.
+
+**This column had been pointing at the defect for weeks.** It was read during
+the writing of §25 and §26, into this same file, without being connected to the
+census that was then written to find exactly what it already counted. Before
+building an instrument to find a class of defect, read the columns this document
+already has — and read their definitions, not their headings.
