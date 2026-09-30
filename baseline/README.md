@@ -1961,12 +1961,27 @@ it is the only part where the answer is ground the references do not cover.
   cannot read and a page we decline to decode. Finding 6 shows all four of this
   run's refusals are the second kind. The counts are correct; the label is too
   coarse.
-- **The three `DCTDecode` rows that did not move are not diagnosed.**
+
+  **Measured before acting on it, and not acted on.** `Ours` is set at two
+  places: a file that will not read, and a page that will not be got. It is the
+  `refused` column, and §28 shows that column is **zero in all twenty-three
+  populations** — a document ours refuses that poppler refuses too goes through
+  `blame()` and comes out `Neither`, not `Ours`, which is why §27's sixty-six
+  are not here. Splitting the label today would divide two empty buckets, and
+  the split changes a JSON field and every table that carries it. It is left
+  named, which is what this list is for.
+- ~~**The three `DCTDecode` rows that did not move are not diagnosed.**
   `fr-impots` at a median peak of 255, `gh-pypdf` at 233 and `gh-qpdf` at 171 are
-  not chroma reconstruction and are not rounding.
-  [conformance#13](https://github.com/go-pdfkit/conformance/issues/13) shows
-  `match` manufactures disagreements when a page draws many pictures of one
-  size, and no per-picture pairing audit was run for this baseline.
+  not chroma reconstruction and are not rounding.~~ **All three are at a peak of
+  3 and §29 measures them.** They were fixed at v0.27.0 and v0.32.0, and this
+  entry stood for two months describing a state that had ended — which is the
+  hazard §29 is about. It is struck rather than deleted so the next reader can
+  see that an entry here can outlive its subject.
+  [conformance#13](https://github.com/go-pdfkit/conformance/issues/13), cited
+  beside it, is **closed**: the disagreements it found were this repository's
+  size matcher, and `match` now pairs by OBJECT first. Whether a per-picture
+  pairing audit has been run since is still not recorded, and that part of the
+  entry stands.
 - **No aggregate bound is applied.** `mse` and `mean` are recorded in FFmpeg's
   and pdfium's units and bounded by nothing, because no bound has been measured
   for pictures that were *extracted* rather than rendered. Choosing one from
