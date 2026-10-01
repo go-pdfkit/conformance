@@ -1979,9 +1979,31 @@ it is the only part where the answer is ground the references do not cover.
   see that an entry here can outlive its subject.
   [conformance#13](https://github.com/go-pdfkit/conformance/issues/13), cited
   beside it, is **closed**: the disagreements it found were this repository's
-  size matcher, and `match` now pairs by OBJECT first. Whether a per-picture
+  size matcher, and `match` now pairs by OBJECT first. ~~Whether a per-picture
   pairing audit has been run since is still not recorded, and that part of the
-  entry stands.
+  entry stands.~~ **It is recorded now, in every run.**
+
+  `PairedBy` already said what follows from itself -- *"a run whose size share
+  is large is a run whose numbers are worth less, and that has to be visible"*
+  -- and `Tally` dropped it, so the share reached no report line and no record.
+  It is counted as of
+  [conformance#92](https://github.com/go-pdfkit/conformance/pull/92):
+  `SizePaired` on the filter line and in the JSON. An audit is a one-off that
+  ages; a counter does not.
+
+  **First reading: ZERO, over 1 606 pictures.** Measured 2026-10-01 at the
+  `go.mod` of this run (`render` v0.60.0, `go-images/jpeg2000` v0.9.1): 330
+  pictures over the five `pdfscans` populations (`-limit 40`) and 1 276 over all
+  eighteen of `pdfforms` (`-limit 60`), 53 filter rows, not one paired by size.
+  Every picture both sides took out was matched by the one identity both
+  publish.
+
+  **A zero needs a control, because a counter that never fires reads exactly
+  like a fallback that never fires.** The object test was ablated -- `object`
+  forced to 0 inside `match`, which is the only input the first loop reads --
+  and the same sample came back with **every** picture paired by size (7 of 7
+  `DCTDecode`, 16 of 16 `JPXDecode`, and so on down the rows). The counter is
+  live; the zero is a property of the corpus.
 - **No aggregate bound is applied.** `mse` and `mean` are recorded in FFmpeg's
   and pdfium's units and bounded by nothing, because no bound has been measured
   for pictures that were *extracted* rather than rendered. Choosing one from
@@ -2619,3 +2641,53 @@ forwards, as I did, produces a defect hunt for something fixed two months ago.
 
 The same hazard, in a smaller form, is in §27: a sweep's "drawn by neither" line
 counts the two builds it compares, not us and the judge.
+
+## §30 — §29's hazard, in the half of this document a program reads
+
+§29 says this file has to be read backwards, because a section is true of the
+run that produced it. That is about the prose. The same thing has happened to
+the **records**, and there it is worse: a paragraph can be struck through, a
+`.json` either describes the code or it does not.
+
+Read off the files themselves, 2026-10-01:
+
+| what | render | `go-images/jpeg2000` | dated |
+|---|---|---|---|
+| the twenty-three `baseline/*.json` | **v0.35.0** | **v0.1.0** | 2026-09-24 |
+| `go.mod`, which is what the tool in this repository builds against | v0.60.0 | v0.9.1 | — |
+| §24, the timings | v0.60.0 | v0.9.1 | 2026-09-28 |
+| §29, measured in a tree with the modules upgraded | **v0.67.0** | **v0.13.2** | 2026-09-30 |
+
+**The document has four subjects at once and the machine-readable half is the
+oldest of them.** Every `taken` in `baseline/` is 2026-09-24T17:08Z..20:07Z, and
+`go-images/jpeg2000` has had **nineteen** releases since the version those
+records name (v0.2.0 through v0.13.2, counted off the tag list) — among them the whole 8.6-bytes-per-pixel decoder of §25 and the
+three pages of §26 that came back blank and now draw. Nothing in the records
+says they predate that work, because when they were written there was no later.
+
+### What this blocks, by name
+
+The entry above that reads *"No aggregate bound is applied … choosing one from
+these records is a job for a later run, and the records carry the terms"* cannot
+be done from these records. Their twenty-one buckets with `terms` put
+`mse.worst` at 0.654 and `|mean.worst|` at 0.579, with `peak.worst` at 4 in
+every bucket but one (`gh-openpdf DCTDecode converted`, at 20) -- a tight,
+inviting distribution, and **a bound fitted to it would be fitted to v0.35.0.**
+A gate borrowed from a measurement of code that no longer exists goes red on
+the first legitimate change and is then deleted, which costs more than never
+having had it.
+
+So the order is: land the `render` v0.67.0 bump that is open as
+[conformance#55](https://github.com/go-pdfkit/conformance/pull/55), re-take the
+twenty-three records at that `go.mod`, and read the distribution again. **The
+bound is not the next step. The records are.**
+
+### Why this is not a gate
+
+The obvious fix -- a test asserting every record names the `render` version in
+`go.mod` -- would redden CI on every dependency bump, including the ones that
+change no pixel, and a gate that reddens on routine upgrades is a gate someone
+removes. What is wanted is the move §28 and conformance#92 both make: make the
+number **visible**, and let a reader see for themselves that a record is six
+days and thirty-two releases behind the code it is cited for. This table is
+that, until the records are re-taken.
