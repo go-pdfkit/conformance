@@ -827,8 +827,54 @@ func TestAPageThatIsNotThereSaysSo(t *testing.T) {
 	if len(got) != 1 || got[0].Share != -1 || !strings.Contains(got[0].Note, "no page") {
 		t.Fatalf("page nine of a one-page document came back as %+v", got)
 	}
-	if got[0].Missing != Ours {
+	// NEITHER, not ours. This said Ours while the branch asserted the judge
+	// would have drawn it; asked, poppler cannot give page nine of a one-page
+	// document either, and a page that is not there is not a defect of ours.
+	if got[0].Missing != Neither {
 		t.Errorf("blamed %q", got[0].Missing)
+	}
+	if !strings.Contains(got[0].Note, "the judge drew nothing for it either") {
+		t.Errorf("the note does not say the judge was asked: %q", got[0].Note)
+	}
+}
+
+func TestAPageRefusalIsNotADefectUntilTheJudgeIsAsked(t *testing.T) {
+	// The three ways the question can come back, over the same refusal, since
+	// the column that carries the answer is the one this document calls the
+	// count that is a defect.
+	path := pageOfPictures(t, func(w *reader.Writer) reader.Dict {
+		return reader.Dict{"I": grey(w)}
+	})
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := reader.Open(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	was := popplerCommand
+	t.Cleanup(func() { popplerCommand = was })
+
+	popplerCommand = func(...string) (bool, error) { return true, os.ErrDeadlineExceeded }
+	got := judgePage(d, path, 9)
+	if len(got) != 1 || got[0].Missing != Hung || got[0].Tool != "pdfimages" {
+		t.Errorf("a judge that did not finish came back as %+v", got)
+	}
+
+	// A judge that runs and takes nothing out is NOT a defect of ours, and
+	// judgeShots reports that as an error, so it arrives as Neither like a
+	// refusal does. The two are not told apart and the vocabulary says so.
+	popplerCommand = func(...string) (bool, error) { return false, nil }
+	got = judgePage(d, path, 9)
+	if len(got) != 1 || got[0].Missing != Neither {
+		t.Errorf("a judge that took nothing out came back as %+v", got)
+	}
+	// What is left of Ours is the case that matters: ours refuses and the
+	// judge hands pictures back. That is the one bulletinno38tasm.pdf is in,
+	// and the whole corpus's only instance of it -- see baseline §31.
+	if got[0].Tool != "" {
+		t.Errorf("a judge that did not hang named a tool: %q", got[0].Tool)
 	}
 }
 
@@ -1755,5 +1801,45 @@ func TestAPaletteInAStreamIsReadToo(t *testing.T) {
 	})
 	if got := rawBitObjects(opened(t, path), 1); got[num(t, im)] {
 		t.Errorf("a black-and-white palette in a stream was counted apart: %v", got)
+	}
+}
+
+func TestTheSizePairedShareIsCounted(t *testing.T) {
+	// PairedBy's own note says a run whose size share is large is a run whose
+	// numbers are worth less, "and that has to be visible". Until this counter
+	// it was in no report and no record.
+	//
+	// Both sides are asserted. A counter that increments on every picture reads
+	// exactly like one that works, until the run that is all object-paired says
+	// every picture is suspect.
+	rows := []Result{
+		{Name: "a", Filter: "DCTDecode", PairedBy: PairedBySize},
+		{Name: "b", Filter: "DCTDecode", PairedBy: PairedByObject},
+		{Name: "c", Filter: "DCTDecode", PairedBy: PairedBySize},
+		{Name: "d", Filter: "JPXDecode", PairedBy: PairedByObject},
+	}
+	by := Tally(rows)
+	if got := by["DCTDecode"].SizePaired; got != 2 {
+		t.Errorf("DCTDecode counted %d paired by size, want 2", got)
+	}
+	if got := by["JPXDecode"].SizePaired; got != 0 {
+		t.Errorf("JPXDecode counted %d paired by size, want 0 -- the counter "+
+			"fires on pictures it should not", got)
+	}
+	// And it reaches the two places anyone reads: the report and the record.
+	if rep := Report(by); !strings.Contains(rep, "2 paired by size") {
+		t.Errorf("the report does not carry the share:\n%s", rep)
+	}
+	var found bool
+	for _, f := range Summarize("p", 1, rows).Filters {
+		if f.Filter == "DCTDecode" {
+			found = true
+			if f.SizePaired != 2 {
+				t.Errorf("the record says %d paired by size, want 2", f.SizePaired)
+			}
+		}
+	}
+	if !found {
+		t.Error("the record has no DCTDecode line to carry it")
 	}
 }

@@ -325,8 +325,11 @@ const (
 	// judge would. That is a defect and the only one of these that is: a
 	// document the field can read and we cannot.
 	Ours Missing = "ours"
-	// Neither means no implementation would open it — ours refused, and so
-	// did the judge, asked separately about the same file.
+	// Neither means no implementation produced a picture — ours refused, and
+	// so did the judge, asked separately about the same file, or for a page,
+	// about the same page. A judge that answers and takes nothing out of a
+	// page ours refused is here too: judgeShots reports that as an error, and
+	// the two are not told apart.
 	//
 	// This has to be told apart from Ours or the count misleads in the
 	// direction of comfort in one direction and panic in the other. Seven of
@@ -414,8 +417,35 @@ func Judge(path string, opt Options) []Result {
 func judgePage(d *reader.Document, path string, p int) []Result {
 	ours, err := render.Images(d, p)
 	if err != nil {
-		return []Result{{Path: path, Page: p, Difference: unjudged(),
-			Missing: Ours, Note: "no page: " + err.Error()}}
+		// Ours says "ours would not draw it AND THE JUDGE WOULD. That is a
+		// defect and the only one of these that is." This path used to assert
+		// the second half rather than ask it: the open path above goes through
+		// blame(), and a page refusal went straight into the defect column
+		// whatever poppler did with the same page.
+		//
+		// The question here is narrower than blame()'s -- not whether poppler
+		// opens the FILE but whether it gets this PAGE -- so it is asked the
+		// way the branch below asks it, of the same tool on the same page.
+		//
+		// judgeShots reports "no pictures came out" as an ERROR, so a judge
+		// that refuses the page and a judge that answers and takes nothing out
+		// of it arrive here the same way. Both become Neither, which is what
+		// that word means for a page: no implementation produced a picture for
+		// it. It is also symmetric with the branch below, where the judge
+		// taking nothing out of a page OURS drew for is Theirs rather than a
+		// disagreement.
+		r := Result{Path: path, Page: p, Difference: unjudged(),
+			Missing: Ours, Note: "no page: " + err.Error()}
+		if _, tool, jerr := judgeShots(path, p); jerr != nil {
+			if tool != "" {
+				r.Missing, r.Tool = Hung, tool
+				r.Note += "; " + tool + " hung, so whose refusal this is is not known"
+			} else {
+				r.Missing = Neither
+				r.Note += "; and the judge drew nothing for it either: " + jerr.Error()
+			}
+		}
+		return []Result{r}
 	}
 	if len(ours) == 0 {
 		return nil
@@ -1157,6 +1187,18 @@ type Bucket struct {
 type Counts struct {
 	// Pictures is how many were judged.
 	Pictures int
+	// SizePaired is how many were matched to the judge's picture by SIZE
+	// rather than by object number.
+	//
+	// PairedBy's own note says a run whose size share is large is a run whose
+	// numbers are worth less, "and that has to be visible". It was not: the
+	// field was recorded per picture and no report or record carried it, so
+	// the share could not be read from a run at all. conformance#13 found 144
+	// of 173 apparent inversions were this fallback pairing pictures that had
+	// nothing to do with each other, which is what makes the share worth
+	// printing beside the counts it qualifies rather than kept for whoever
+	// thinks to ask.
+	SizePaired int
 	// Unmatched is how many the other implementation had no picture for.
 	Unmatched int
 	// Remapped is how many carried a /Decode array, which we apply and
@@ -1199,6 +1241,9 @@ func Tally(rs []Result) map[string]*Counts {
 			by[key] = c
 		}
 		c.Pictures++
+		if r.PairedBy == PairedBySize {
+			c.SizePaired++
+		}
 		switch {
 		case r.RawBits:
 			c.RawBits++
@@ -1251,8 +1296,8 @@ func Report(by map[string]*Counts) string {
 	var sb strings.Builder
 	for _, key := range order(by) {
 		c := by[key]
-		fmt.Fprintf(&sb, "%-22s %5d pictures  %5d unmatched  %5d remapped\n",
-			key, c.Pictures, c.Unmatched, c.Remapped)
+		fmt.Fprintf(&sb, "%-22s %5d pictures  %5d unmatched  %5d remapped  %5d paired by size\n",
+			key, c.Pictures, c.Unmatched, c.Remapped, c.SizePaired)
 		reportBucket(&sb, "direct", &c.Direct)
 		reportBucket(&sb, "converted", &c.Converted)
 	}
@@ -1337,6 +1382,9 @@ type FilterCounts struct {
 	// Unmatched and Remapped are the pictures no comparison was made of.
 	Unmatched int `json:"unmatched"`
 	Remapped  int `json:"remapped"`
+	// SizePaired is how many were paired by size rather than by object. A
+	// large share here devalues every figure on the line beside it.
+	SizePaired int `json:"sizePaired,omitempty"`
 	// RawBits is the pictures the judge wrote as samples rather than as
 	// colour, which is a third way of not being asked the same question.
 	RawBits int `json:"rawBits,omitempty"`
@@ -1401,7 +1449,7 @@ func Summarize(population string, documents int, rs []Result) Summary {
 	by := Tally(rs)
 	for _, key := range order(by) {
 		c := by[key]
-		s.Filters = append(s.Filters, FilterCounts{Filter: key,
+		s.Filters = append(s.Filters, FilterCounts{Filter: key, SizePaired: c.SizePaired,
 			Pictures: c.Pictures, Unmatched: c.Unmatched, Remapped: c.Remapped,
 			RawBits: c.RawBits,
 			Direct:  bucketCounts(&c.Direct), Converted: bucketCounts(&c.Converted)})
