@@ -2850,3 +2850,16 @@ page nine of a one-page document and asserted `Ours`: the instrument called a
 page that does not exist a defect of ours. Asked, poppler cannot give page nine
 either, and it is now `Neither`. Checked by mutation — never asking the judge,
 and swapping `Hung` for `Neither`, each make the tests fail.
+
+**The fix was then checked against the corpus, not only against its tests.**
+`ia-biodiversity` re-taken a third time, with the asking in place: `refused`
+is still **1**, `unopenable` and `declined` still 0, and every filter row
+identical to the run before it. A classification that quietly moved a real
+defect into `Neither` would look exactly like a fix from the test suite alone;
+asked of the document it was written for, it leaves it where it belongs,
+because `pdfimages` does hand three pictures back.
+
+None of these three runs is committed to `baseline/`. They were taken at render
+v0.67.0 while `go.mod` holds v0.60.0, and a record whose modules disagree with
+the tree that reads it is the whole subject of §30. The bump is open as
+[conformance#55](https://github.com/go-pdfkit/conformance/pull/55).
