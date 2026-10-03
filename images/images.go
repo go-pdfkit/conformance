@@ -325,8 +325,11 @@ const (
 	// judge would. That is a defect and the only one of these that is: a
 	// document the field can read and we cannot.
 	Ours Missing = "ours"
-	// Neither means no implementation would open it — ours refused, and so
-	// did the judge, asked separately about the same file.
+	// Neither means no implementation produced a picture — ours refused, and
+	// so did the judge, asked separately about the same file, or for a page,
+	// about the same page. A judge that answers and takes nothing out of a
+	// page ours refused is here too: judgeShots reports that as an error, and
+	// the two are not told apart.
 	//
 	// This has to be told apart from Ours or the count misleads in the
 	// direction of comfort in one direction and panic in the other. Seven of
@@ -414,8 +417,35 @@ func Judge(path string, opt Options) []Result {
 func judgePage(d *reader.Document, path string, p int) []Result {
 	ours, err := render.Images(d, p)
 	if err != nil {
-		return []Result{{Path: path, Page: p, Difference: unjudged(),
-			Missing: Ours, Note: "no page: " + err.Error()}}
+		// Ours says "ours would not draw it AND THE JUDGE WOULD. That is a
+		// defect and the only one of these that is." This path used to assert
+		// the second half rather than ask it: the open path above goes through
+		// blame(), and a page refusal went straight into the defect column
+		// whatever poppler did with the same page.
+		//
+		// The question here is narrower than blame()'s -- not whether poppler
+		// opens the FILE but whether it gets this PAGE -- so it is asked the
+		// way the branch below asks it, of the same tool on the same page.
+		//
+		// judgeShots reports "no pictures came out" as an ERROR, so a judge
+		// that refuses the page and a judge that answers and takes nothing out
+		// of it arrive here the same way. Both become Neither, which is what
+		// that word means for a page: no implementation produced a picture for
+		// it. It is also symmetric with the branch below, where the judge
+		// taking nothing out of a page OURS drew for is Theirs rather than a
+		// disagreement.
+		r := Result{Path: path, Page: p, Difference: unjudged(),
+			Missing: Ours, Note: "no page: " + err.Error()}
+		if _, tool, jerr := judgeShots(path, p); jerr != nil {
+			if tool != "" {
+				r.Missing, r.Tool = Hung, tool
+				r.Note += "; " + tool + " hung, so whose refusal this is is not known"
+			} else {
+				r.Missing = Neither
+				r.Note += "; and the judge drew nothing for it either: " + jerr.Error()
+			}
+		}
+		return []Result{r}
 	}
 	if len(ours) == 0 {
 		return nil
