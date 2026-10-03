@@ -2671,8 +2671,9 @@ The entry above that reads *"No aggregate bound is applied … choosing one from
 these records is a job for a later run, and the records carry the terms"* cannot
 be done from these records. Their twenty-one buckets with `terms` put
 `mse.worst` at 0.654 and `|mean.worst|` at 0.579, with `peak.worst` at 4 in
-every bucket but one (`gh-openpdf DCTDecode converted`, at 20) -- a tight,
-inviting distribution, and **a bound fitted to it would be fitted to v0.35.0.**
+every bucket but one (`gh-openpdf DCTDecode converted`, at 20, which §17
+already accounts for) -- a tight, inviting distribution, and **a bound fitted to
+it would be fitted to v0.35.0.**
 A gate borrowed from a measurement of code that no longer exists goes red on
 the first legitimate change and is then deleted, which costs more than never
 having had it.
@@ -2691,3 +2692,31 @@ removes. What is wanted is the move §28 and conformance#92 both make: make the
 number **visible**, and let a reader see for themselves that a record is six
 days and thirty-two releases behind the code it is cited for. This table is
 that, until the records are re-taken.
+
+### How the twenty-three are re-taken
+
+§30 says the records are the next step. The top-level README shows a single
+invocation of `images -json`; neither file said how the **set** is taken, what
+it is named, or what it costs. One invocation per population, named after the corpus directory and the
+population, which is where the filenames in `baseline/` come from:
+
+```sh
+for pop in ia-americana ia-biodiversity ia-medical ia-texts ia-uscourts; do
+	images -dir /Users/Shared/pdfscans -only "$pop" -json > "baseline/pdfscans-$pop.json"
+done
+```
+
+and the eighteen of `/Users/Shared/pdfforms` the same way. Omitting `-only`
+writes **one** record carrying every population of that corpus, which is not
+the shape `baseline/` holds.
+
+**They are not interchangeable in cost.** Measured 2026-10-01 on an M4 Max, one
+at a time: `fr-cerfa` (450 forms) takes about two minutes, `ia-biodiversity`
+(250 scans) about **fifty**. The scans dominate, and the whole set is an
+afternoon.
+
+**Take them one at a time.** The judge is held to a wall-clock bound
+(`-timeout`, 2 minutes by default) and §22 is what it cost to learn that the
+bound is a property of the machine, not of the corpus: two runs in parallel can
+turn a document into a `hung` entry that neither would produce alone. A count
+measured beside another copy of itself is not a count of the corpus.
