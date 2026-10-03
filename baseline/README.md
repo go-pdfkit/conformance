@@ -1964,12 +1964,23 @@ it is the only part where the answer is ground the references do not cover.
 
   **Measured before acting on it, and not acted on.** `Ours` is set at two
   places: a file that will not read, and a page that will not be got. It is the
-  `refused` column, and §28 shows that column is **zero in all twenty-three
+  `refused` column, and ~~§28 shows that column is **zero in all twenty-three
   populations** — a document ours refuses that poppler refuses too goes through
   `blame()` and comes out `Neither`, not `Ours`, which is why §27's sixty-six
   are not here. Splitting the label today would divide two empty buckets, and
-  the split changes a JSON field and every table that carries it. It is left
-  named, which is what this list is for.
+  the split changes a JSON field and every table that carries it.~~ **§31
+  measures that column at 1, not 0, and the one document in it is the SECOND
+  kind** — `bulletinno38tasm.pdf`, a page that will not be got. So the two
+  buckets are not both empty and the reason given for not splitting them does
+  not hold.
+
+  Worse, the two paths do not test the same thing. The `reader.Open` path calls
+  `blame()`, so a file poppler cannot open either comes out `Neither`. The
+  page path at `judgePage` sets `Missing: Ours` **without asking poppler at
+  all** — so for a page-level refusal the column's own definition, *"and the
+  judge would"*, is asserted rather than measured. Here it happens to be true:
+  `pdfimages -list` takes out all three pictures of that page (§31). It was not
+  the instrument that established that.
 - ~~**The three `DCTDecode` rows that did not move are not diagnosed.**
   `fr-impots` at a median peak of 255, `gh-pypdf` at 233 and `gh-qpdf` at 171 are
   not chroma reconstruction and are not rounding.~~ **All three are at a peak of
@@ -2576,8 +2587,15 @@ bytes each — and `render` v0.66.0 fixed it. Re-measured against v0.67.0 and
 | agreement | 100.0% | 100.0% |
 | **refused** | **1** | **0** |
 
-The extra picture is the one that was refused, and it comes out exact. **The
-column is now zero in every population.**
+~~The extra picture is the one that was refused, and it comes out exact. **The
+column is now zero in every population.**~~
+
+> **Both sentences are wrong, and §31 has the measurement.** Re-taken
+> 2026-10-03 at the same versions, `refused` is **1**: `bulletinno38tasm.pdf` is
+> still refused, byte-identically to v0.60.0, because its page names three
+> 9 449 × 13 701 pictures and the `Images` path spends four bytes on every pixel
+> of each. The extra picture is real and is a different document's. Four cells
+> of this table reproduce; this one does not.
 
 `ia-americana` was re-measured too, since it holds the other two pages §26
 names, and it is **unchanged in every column**. Its two pages were refused by
@@ -2720,3 +2738,115 @@ afternoon.
 bound is a property of the machine, not of the corpus: two runs in parallel can
 turn a document into a `hung` entry that neither would produce alone. A count
 measured beside another copy of itself is not a count of the corpus.
+
+## §31 — §28 closed a cell that is still open, and §30 is why nobody saw
+
+§28 is titled *"The one cell in this document that said «defect», and closing
+it"*. Its table reports `ia-biodiversity` re-measured against `render` v0.67.0
+and `go-images/jpeg2000` v0.13.2:
+
+| `ia-biodiversity` | §28's before | §28's after | **re-measured 2026-10-03** |
+|---|---:|---:|---:|
+| pictures | 754 | 755 | **755** ✓ |
+| direct | 705 | 706 | **706** ✓ |
+| compared | 650 | 651 | **651** ✓ |
+| exact | 650 | 651 | **651** ✓ |
+| **refused** | **1** | **0** | **1** ✗ |
+
+**Four cells of five reproduce and the fifth does not — and the fifth is the
+one the section is about.** Taken with `images -only ia-biodiversity -json`
+against render v0.67.0 and jpeg2000 v0.13.2, one at a time, beside a v0.60.0 run
+of the same population for a control. The control reproduces §28's *before*
+column exactly, which is what makes the *after* column's single disagreement
+readable rather than arguable.
+
+### What is actually refused, and why it is not §26's ceiling
+
+The document is the one §28 names, `bulletinno38tasm.pdf`, and the refusal is
+byte-identical at v0.60.0 and at v0.67.0 — so the seven releases §28 credits
+changed nothing about it:
+
+```
+render: the page names more picture than may be decoded at once:
+a picture of 9449 by 13701 pixels, with 9513958 of the 268435456 pixels left
+```
+
+That is not one picture being too big. **It is the third of three.** Page 1
+names three pictures of the same 9 449 × 13 701 — two JPEG 2000 greys and a
+JBIG2 soft mask — and `pdfimages -list` takes out all three:
+
+```
+page  num type    width height color comp bpc enc    object size
+   1    0 image    9449 13701  gray    1   8 jpx          32 884K
+   1    1 image    9449 13701  gray    1   8 jpx          34 167K
+   1    2 smask    9449 13701  gray    1   1 jbig2        34 254K
+```
+
+Each is 129 460 749 pixels. Two of them are 258 921 498, and 268 435 456 −
+258 921 498 = **9 513 958**, which is the number the message prints. The budget
+is spent by the first two and the third cannot be afforded.
+
+**The cause is the hand-off, not the codec.** `afford` charges declared pixels,
+and `decodeBase` says why that is honest: `r.bounded` is true exactly on the
+`Images` path, which hands pictures out through `raster.Image` and therefore
+**expands every one of them to four bytes a pixel**. Three pictures of 129.5
+megapixels is **1.447 GiB** at four bytes, against a page budget of 268 435 456
+pixels — exactly 1.000 GiB. Handed out as the single-component greys they are,
+the same page is **0.362 GiB** and well inside it.
+
+So this is the mirror image of §26. §26 was a ceiling that *refused* pages by
+counting pixels at four bytes each when the decoder no longer spent that; this
+is a page refused because the `Images` path really does spend it, on a corpus
+whose pictures are all one component. §25 took the decoder from 19.8 to 8.6
+bytes a pixel and this last factor of four is downstream of it, in the type the
+pictures come back in.
+
+Tracked as [go-pdfkit/render#100](https://github.com/go-pdfkit/render/issues/100).
+**The `refused` column is not zero, and this document should stop saying it is.**
+
+### Why it took nine days
+
+§30 is the answer. §28's figures were taken in a tree with the modules upgraded
+by hand and were never written to `baseline/`, so the only copy of them was
+prose — and prose cannot be re-run. The committed record still said `refused: 1`
+the whole time, which is to say **the repository contained the refutation
+already** and nothing compared the two halves of its own document.
+
+That is the argument for re-taking the records rather than for writing another
+section.
+
+### And the column was asserting half of its own definition
+
+Looking for the document turned up a defect in the instrument rather than in
+the renderer. `Ours` is documented as *"ours would not open the document or
+draw the page **and the judge would**. That is a defect and the only one of
+these that is"* — and `Ours` is set at two places:
+
+| where | asked the judge? |
+|---|---|
+| `reader.Open` fails | yes — `blame()`, which runs `pdfinfo` |
+| `render.Images` fails on a page | **no** |
+
+So a page refusal went into the defect column whatever poppler did with the
+same page. Here it happens to be right — `pdfimages` takes out all three
+pictures — but it was not the instrument that established that; it was this
+section, by hand.
+
+`judgePage` now asks, of the same tool on the same page, the way the branch
+below it already asks when the judge takes nothing out of a page ours drew for:
+
+| what comes back | column |
+|---|---|
+| the judge hands pictures back | `Ours` — a defect, and `bulletinno38tasm.pdf` is the corpus's only one |
+| the judge does not finish | `Hung`, naming `pdfimages` |
+| the judge refuses, or runs and takes nothing out | `Neither` |
+
+The last row folds two cases that `judgeShots` does not tell apart — it reports
+"no pictures came out" as an error — and the vocabulary now says so instead of
+implying a distinction the code cannot make.
+
+**It changed an answer immediately.** `TestAPageThatIsNotThereSaysSo` asks for
+page nine of a one-page document and asserted `Ours`: the instrument called a
+page that does not exist a defect of ours. Asked, poppler cannot give page nine
+either, and it is now `Neither`. Checked by mutation — never asking the judge,
+and swapping `Hung` for `Neither`, each make the tests fail.
