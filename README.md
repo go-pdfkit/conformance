@@ -36,6 +36,40 @@ harvest -dir /Users/Shared/pdfscans -origin ia-americana \
 skipped, so an interrupted run is continued by running it again and a corpus is
 extended by asking for a larger `-want`.
 
+**And it checks, because the sentence above promised something nothing read
+back.** "What makes a number reproducible and lets a document that changed
+underneath be noticed" was true of what the manifest RECORDS and false of what
+anything here did with it: the hash was written and never compared, and a file
+in no row was invisible to every tool in this repository.
+
+```
+$ harvest -check -dir /Users/Shared/pdfscans
+ia-americana/calcflh_000254.pdf: on disk and in no manifest row
+ia-americana/epn11-1968countclip2restricted.pdf: on disk and in no manifest row
+ia-biodiversity/bidragtillknne38suom.pdf: on disk and in no manifest row
+ia-medical/b22346703.pdf: on disk and in no manifest row
+4 disagreement(s)
+```
+
+Four files, and **three of them are documents our reader refuses** — which is
+the whole of why `images` and `compare`, which walk the manifest, count 63
+refusals where a sweep that walks the directory counts 66. Two true numbers for
+one corpus and no way to tell which a figure came from. See
+[`baseline/README.md`](baseline/README.md) §33.
+
+It reports a row with no file, a file that will not open, a size or a digest
+that moved, and a file in no row; it exits non-zero when a corpus disagrees, so
+it can be the first line of a measuring script rather than something to
+remember. `/Users/Shared/pdfforms` comes back clean — all 2 268 rows — and so
+does every one of `pdfscans`'s 1 012, **so no document has changed underneath**.
+
+The digest is compared over **as many characters as the manifest recorded**. The
+forms corpus, gathered before this repository existed, keeps sixteen of them
+under the header `sha256-8`; the scans corpus keeps all sixty-four. Sixteen hex
+characters is sixty-four bits, which answers *did this file change* perfectly
+well — and a check that demanded all sixty-four would report every one of those
+2 268 rows as changed and be deleted by the first person who ran it.
+
 It records the population per document because **a prevalence is per population
 or it is not a prevalence**.
 

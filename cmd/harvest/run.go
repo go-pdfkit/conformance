@@ -27,8 +27,13 @@ func run(args []string, out, errOut io.Writer) int {
 	want := fs.Int("want", 100, "how many documents this origin should end up with")
 	maxBytes := fs.Int64("max-bytes", 40<<20, "refuse a document larger than this")
 	workers := fs.Int("workers", 4, "how many to fetch at once")
+	check := fs.Bool("check", false,
+		"fetch nothing: report every way the corpus and its manifest disagree")
 	if err := fs.Parse(args); err != nil {
 		return 2
+	}
+	if *check {
+		return checkCorpus(*dir, out, errOut)
 	}
 	if *dir == "" || *origin == "" || *query == "" {
 		fmt.Fprintln(errOut, "harvest: -dir, -origin and -query are all needed")
@@ -57,4 +62,37 @@ func run(args []string, out, errOut io.Writer) int {
 		fmt.Fprintf(out, "%s\t%d\n", name, counts[name])
 	}
 	return 0
+}
+
+// checkCorpus reports where the corpus and the manifest disagree, and is in
+// harvest because harvest is what writes the manifest.
+//
+// The package comment of corpus says the manifest is what makes a corpus a
+// measurement rather than a pile, "so a figure quoted from it can be reproduced
+// and a file that changed underneath can be noticed". Nothing noticed: the hash
+// was written and never read back. Four files of the scans corpus are on disk
+// and in no row, three of them documents our reader refuses, which is why one
+// instrument counts 63 refusals and another 66.
+//
+// It exits NON-ZERO when a corpus disagrees with its manifest, so it can be the
+// first line of a measuring script rather than something to remember to run.
+func checkCorpus(dir string, out, errOut io.Writer) int {
+	if dir == "" {
+		fmt.Fprintln(errOut, "harvest: -check needs -dir")
+		return 2
+	}
+	problems, err := corpus.Check(dir)
+	if err != nil {
+		fmt.Fprintf(errOut, "harvest: %v\n", err)
+		return 1
+	}
+	for _, p := range problems {
+		fmt.Fprintf(out, "%s\n", p)
+	}
+	if len(problems) == 0 {
+		fmt.Fprintf(out, "the corpus and its manifest agree\n")
+		return 0
+	}
+	fmt.Fprintf(out, "%d disagreement(s)\n", len(problems))
+	return 1
 }
