@@ -3005,23 +3005,76 @@ every fidelity figure in this file. What is NOT harmless is counting it as
 pictures we failed to get. `Repeated` is now a count of its own, and the report
 prints it beside `Unseen` so that the small number is read as small.
 
-### What is left in `Unseen` is a scope difference, and it is real
+### What is left in `Unseen` is INLINE IMAGES, and the first answer here was wrong
 
-In the same sixty documents, six rows remain, and they are a different thing.
-`cerfa_10011.pdf` is one: a 106×56 `DCTDecode` image, object 1865, reached as
+~~In the same sixty documents, six rows remain … a push button's **icon** …
+A tool written for the purpose agreed with the count **document by document on
+56 of 60**.~~
+
+**That was measured on a sample where the thing being counted was almost always
+zero, and it is wrong.** Taken over the whole population instead: `fr-cerfa` has
+**4 153** unseen rows after the repeat split, and a program that counts the
+pictures only an annotation reaches finds **25** of them in all 450 documents.
+Fifty-six of sixty agreeing was fifty-four pairs of noughts.
+
+Grouped by what the judge's own listing says:
+
+| of `fr-cerfa`'s 4 153 unseen rows | |
+|---|---:|
+| object **0** | **4 147** |
+| `stencil` type | 2 614 |
+| `image` type | 1 538 |
+| 16×16 | 2 592 |
+| documents carrying any | **13** of 450 |
+| `cerfa_12481.pdf` alone | **2 592** |
+
+An object of nought is what `pdfimages` prints for an **inline image**, and
+`render.Images` says plainly that it does not return those: *"Inline images --
+the ones written into the content stream with BI -- are not returned: they are
+named by no resource and are objects of nothing."* Read at the byte level, the
+first three of `cerfa_12481.pdf`'s eight content streams hold **751** `BI`…`ID`
+images, the first of them
+
+	/IM true /W 16 /H 16 /BPC 1 /D[1 0] /F /CCF /DP<</K -1 /Columns 16>>
+
+a 16×16 CCITT-fax image mask -- which is exactly the `stencil 16x16` row
+poppler lists.
+
+**So a class of 4 147 pictures in one population is decoded by `render.Page`
+and compared against the reference by nothing.** `drawInlineImage` draws them;
+no figure in this file touches them. A defect in inline-image handling would be
+invisible to every number here.
+
+And it explains a nought that stood unexplained two sections ago.
+**`SizePaired` is zero in every population** because the pairing falls back to
+size exactly when an object number is missing, and the one class whose object
+number is missing never reaches the pairing at all. The fallback was written for
+a case the harness cannot see.
+
+Tracked as [go-pdfkit/render#101](https://github.com/go-pdfkit/render/issues/101).
+
+The annotation case is real and small: 25 in 450, one of them
+`cerfa_10011.pdf`'s 106×56 `DCTDecode`, object 1865, reached as
 
 	/Annots → /Widget /FT /Btn → /MK /I → 1864 (Form /FRM) → /XObject /Im0 → 1865
 
-a push button's **icon**. `render.Images` walks the content stream, so it cannot
-see it; `pdfimages` renders the page with its annotations and takes it out.
-A tool written for the purpose agreed with the count **document by document on
-56 of 60**, and the four it missed are the repeat-draw case above.
+a push button's **icon**. Neither case is a decoder gap: `render.Page` draws
+annotations by default and draws inline images. Both are the extraction API's
+scope being narrower than the renderer's -- which is §31's finding, a third
+time, in a third place.
 
-**This is not a decoder gap.** `render.Page` draws annotations by default
-(`Options.NoAnnotations` turns them off), so our renderer shows these icons; it
-is the extraction API whose scope is narrower — the same shape as §31's finding
-about the page budget, in a different place.
+### The method, which is the part worth keeping
 
-Whether `Images` should also walk `/AP` and `/MK` is a question about what an
-extraction API is for, and it changes every count in this file. It is named
-here and not decided.
+Three times in one day a total was dominated by one document, and twice the
+first explanation fitted the sample and not the population:
+
+| | sample | population |
+|---|---|---|
+| first count | 316 in 60 documents | 7 614 in 18 populations |
+| after the repeat split | 12 | 4 243 |
+| cause offered | annotations, 56/60 agreeing | annotations explain **25 of 4 153** |
+| cause measured | — | inline images, **4 147 of 4 153** |
+
+**An agreement where both sides are mostly nought is not an agreement.** The
+control that would have caught it is the one this file keeps asking for: count
+the positives, and refuse to quote a rate whose denominator is six.

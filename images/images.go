@@ -361,15 +361,22 @@ const (
 	// one direction this harness could not see was the direction that matters
 	// most -- a picture the field gets out of a file and we do not.
 	//
-	// Two classes are known to land here by construction. Inline images:
-	// render.Images does not return the pictures written into a content
-	// stream with BI, because they are the objects of nothing, and pdfimages
-	// lists them with an object of 0. And pictures only an ANNOTATION
-	// reaches: Images walks the content stream, so a push button's icon
-	// (/MK /I) or a widget's appearance (/AP /N) is invisible to it, while
-	// pdfimages renders the page with its annotations. cerfa_10011.pdf is one
-	// picture of that second kind, and it is NOT a decoder gap -- render.Page
-	// draws annotations. See baseline/README.md §32.
+	// Measured over fr-cerfa's 450 forms, it is 4 153 rows and two classes,
+	// in proportions worth knowing before anyone reads the number as a gap:
+	//
+	//	4 147  object 0 -- INLINE IMAGES, which render.Images does not
+	//	       return at all. 2 614 of them are stencils, 2 592 of them
+	//	       16x16, and ONE document holds 2 592. go-pdfkit/render#101.
+	//	   25  pictures only an ANNOTATION reaches, counted over the whole
+	//	       population: a push button's icon (/MK /I) or a widget's
+	//	       appearance (/AP /N), which Images cannot see because it
+	//	       walks the content stream. cerfa_10011.pdf is one.
+	//
+	// Neither is a decoder gap: render.Page draws annotations and draws
+	// inline images. Both are the extraction API's scope being narrower than
+	// the renderer's. See baseline/README.md §32, which also records that
+	// the FIRST cause offered here was the small one, fitted to a sample
+	// where both sides were almost always nought.
 	Unseen Missing = "unseen"
 	// Repeated means the judge listed a row for a picture ours produced
 	// ONCE, under an object we did compare -- the same stream drawn again.
