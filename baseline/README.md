@@ -2015,6 +2015,18 @@ it is the only part where the answer is ground the references do not cover.
   and the same sample came back with **every** picture paired by size (7 of 7
   `DCTDecode`, 16 of 16 `JPXDecode`, and so on down the rows). The counter is
   live; the zero is a property of the corpus.
+- **`refused` does not ask the renderer, and now that the difference is known
+  it could.** §31 found that the corpus's one entry in that column is a document
+  `render.Page` draws and `render.Images` refuses. Asking `Page` as well, on the
+  few documents that reach this branch, would let the column separate "no
+  picture came out of the extraction" from "the field can read this and we
+  cannot" — which is what the column was described as meaning.
+
+  **Measured, named, not acted on**, because it is a question about what the
+  column should MEAN and not a defect: a third outcome changes a JSON field and
+  every table that carries it, and whether an extraction harness should hold an
+  opinion about the renderer is not ours to settle in a commit. The cost is one
+  `render.Page` per refusal, and refusals are one document in 3 281.
 - **No aggregate bound is applied.** `mse` and `mean` are recorded in FFmpeg's
   and pdfium's units and bounded by nothing, because no bound has been measured
   for pictures that were *extracted* rather than rendered. Choosing one from
@@ -2863,3 +2875,82 @@ None of these three runs is committed to `baseline/`. They were taken at render
 v0.67.0 while `go.mod` holds v0.60.0, and a record whose modules disagree with
 the tree that reads it is the whole subject of §30. The bump is open as
 [conformance#55](https://github.com/go-pdfkit/conformance/pull/55).
+
+### Correction, the same day: the page DRAWS. Only the extraction refuses.
+
+The two paragraphs above say the refusal is in the hand-off to `raster.Image`,
+and they are right about the arithmetic and wrong about the reach. `afford` and
+`r.budget` are reached from **`images.go` only**, and `bounded: true` is set at
+exactly one place in the whole module — inside `Images`. The page renderer
+neither budgets this way nor refuses for this reason.
+
+Asked directly, at render v0.67.0:
+
+```
+Images  REFUSED: ... with 9513958 of the 268435456 pixels left
+Page    ok: 411x596, 23659 dark pixels, 216735 light, 4562 between
+```
+
+It is not a blank page with a clean exit, either. Run through this repository's
+own `compare` on a one-document corpus, against `pdftoppm` at 72 dpi:
+
+| `bulletinno38tasm.pdf` page 1 | |
+|---|---|
+| pixels differing | 7.30% |
+| mean abs difference | 14.875 levels |
+| worst square mean | 55 levels |
+| ours | **795 ms** |
+| poppler | 2.992 s — we are 0.266× of it |
+
+7.3% on a 9 449 × 13 701 scan reduced to 411 × 596 is a **23× downscale**, which
+is the resampling disagreement §1 describes and the reason this baseline measures
+codecs through `images` rather than through a rasteriser at all. It is not a
+reading of the page being wrong; it is the reason the page is not the unit.
+
+**So `Ours`, whose comment says *"would not open the document or draw the page"*,
+is here neither.** Ours draws the page. What refuses is the extraction API the
+harness uses, under a budget the renderer does not share — and the one non-zero
+cell in the corpus's defect column is that, not a document the field can read
+and we cannot. `images.go` now says so where `Ours` is defined.
+
+That lowers [render#100](https://github.com/go-pdfkit/render/issues/100) from a
+gap against poppler to a limit of one API: no caller of `Page` is affected, and
+the issue says so now. **The measurement that found it was the renderer being
+asked the question the column's own words name**, which nothing in the harness
+had ever done — it only ever calls `Images`.
+
+### How many pages the budget refuses, over both corpora
+
+Before deciding what the budget is worth fixing, it was worth asking how often
+it fires. Every document of both corpora, page 1, at render v0.67.0, asking our
+side only — `reader.Open`, `PageCount`, `render.Images` — and never poppler, so
+this is a census and not a comparison:
+
+| | |
+|---|---:|
+| documents | **3 281** |
+| our side produced nothing for page 1 | **67** |
+| of those, `reader.Open` refused the file | **66** |
+| of those, the page budget refused | **1** |
+
+**One document in 3 281.** `bulletinno38tasm.pdf` and nothing else, which is
+what makes [render#100](https://github.com/go-pdfkit/render/issues/100) a limit
+worth recording rather than a campaign.
+
+And the sixty-six are §27's sixty-six, **recovered by a different instrument**:
+
+| count | `reader.Open` says | §27/§28's table |
+|---:|---|---:|
+| 39 | `unsupported security handler` | 39 |
+| 23 | `the password does not open this file` | 23 |
+| 2 | no indirect objects, and no `startxref` either | 2 |
+| 1 | no document catalogue, and an unsupported `/Brotli` filter | 1 |
+| 1 | no document catalogue, and no `startxref` | 1 |
+
+Their populations agree too — `ia-americana` 30, `gh-openpdf` 14, `gh-pdfbox` 8,
+`ia-texts` 7, `gh-safedocs` 5, `gh-pypdf` 1, `ia-medical` 1. §27's figures came
+out of a sweep that compares two builds and asks poppler separately; these came
+out of a program that asks neither. **Two instruments sharing no dependency
+agreeing on a census of sixty-six is the kind of control this file has been
+short of** — three of them agreed once before and all three were reading the
+same layer.

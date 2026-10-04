@@ -321,9 +321,19 @@ type Missing string
 const (
 	// Judged means there was a picture on both sides and they were compared.
 	Judged Missing = ""
-	// Ours means ours would not open the document or draw the page and the
-	// judge would. That is a defect and the only one of these that is: a
-	// document the field can read and we cannot.
+	// Ours means ours produced no picture for a page the judge did produce
+	// pictures for. That is the only one of these that can be a defect.
+	//
+	// It is NOT "would not draw the page", which this said for months. The
+	// two are different questions and the corpus has an instance of the
+	// difference: bulletinno38tasm.pdf is counted here, and render.Page draws
+	// it. What refuses it is render.Images, under a per-page pixel budget that
+	// the page renderer does not share -- afford() is reached from images.go
+	// alone. See baseline/README.md §31 and go-pdfkit/render#100.
+	//
+	// So a document in this column is worth reading and is not by itself a
+	// document the field can read and we cannot. Asking the renderer is a
+	// separate step, and this harness never takes it: it only calls Images.
 	Ours Missing = "ours"
 	// Neither means no implementation produced a picture — ours refused, and
 	// so did the judge, asked separately about the same file, or for a page,
