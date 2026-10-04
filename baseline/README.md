@@ -2716,10 +2716,11 @@ next step. The records are.**
 
 **[#55](https://github.com/go-pdfkit/conformance/pull/55) landed on
 2026-10-03**, so the first step is done and the table above has been amended --
-which is this section happening to itself, four days after it was written. What
-is left of §30 is the row it exists for: the twenty-three records are still at
-v0.35.0, and now they are **thirty-two** `render` releases behind the tree that
-reads them rather than twenty-five.
+which is this section happening to itself, four days after it was written.
+~~What is left of §30 is the row it exists for: the twenty-three records are
+still at v0.35.0.~~ **They were re-taken on 2026-10-04 and §33 says what
+moved: two cells of twenty-three populations, one of them a signed mean in its
+fifth decimal place.** §30's fact was right and the risk it implied was not.
 
 ### Why this is not a gate
 
@@ -3132,3 +3133,80 @@ first explanation fitted the sample and not the population:
 **An agreement where both sides are mostly nought is not an agreement.** The
 control that would have caught it is the one this file keeps asking for: count
 the positives, and refuse to quote a rate whose denominator is six.
+
+## §33 — The records re-taken, and the staleness was almost entirely immaterial
+
+§30 said the twenty-three records were thirty-two `render` releases and nineteen
+`go-images/jpeg2000` releases behind the tree that reads them, and that the next
+step was the records and not a bound. They are re-taken: **2026-10-04, render
+v0.67.0, `go-images/jpeg2000` v0.13.2**, one population at a time for §22's
+reason, against the same `pdfimages` 26.04.0.
+
+### What moved in thirty-two releases: two cells
+
+| population | cell | 2026-09-24, v0.35.0 | 2026-10-04, v0.67.0 |
+|---|---|---:|---:|
+| `ia-biodiversity` | `JPXDecode direct` pictures | 496 | **497** |
+| | …and `exact` | 496 | **497** |
+| `gh-pdfbox` | `JPXDecode converted` signed `mean` | −0.0020404 | **−0.0020666** |
+
+**And nothing else, in twenty-three populations.** Every other bucket of every
+other population is identical cell for cell: the same pictures, the same exact,
+identical, inverted and differing, the same `share`, `peak` and `mse` to every
+digit recorded.
+
+The first row is §26's page, and the picture it gained comes out exact — which
+is the one claim of §28's table that §31 did NOT refute, now standing on a
+record rather than on prose. The second is a signed mean moving by **0.000026 of
+a level** on one picture, with its share, peak and mse unchanged.
+
+So §30 was right about the fact and wrong about the risk it implied. **A record
+can be thirty-two releases stale in its metadata and current in its numbers**,
+and the only way to know which is to re-take it. What this does buy is that the
+prose and the records now describe the same code, which is the thing §31 found
+had failed.
+
+### What the fresh records carry that the old ones could not
+
+| over 23 populations, 3 280 documents, 8 067 pictures | |
+|---|---:|
+| `refused` | **1** — §31's, still open as [render#100](https://github.com/go-pdfkit/render/issues/100) |
+| `unopenable` | 63 |
+| `declined` | 0 |
+| `hung` | 0 |
+| **`sizePaired`** | **0** |
+| **`unseen`** | **4 277** |
+| **`repeated`** | **3 371** |
+
+`sizePaired` is zero for the reason §32 found: the pairing falls back to size
+when an object number is missing, and the one class whose number is missing —
+inline images — never reaches it.
+
+### The four files that are not in the corpus, and why 66 was not 63
+
+§27 counts **66** documents neither implementation draws. The records say
+`unopenable` **63**. Both are right, and the difference is enumeration:
+
+	/Users/Shared/pdfscans   MANIFEST.tsv 1012 rows, 1013 files on disk
+	/Users/Shared/pdfforms   MANIFEST.tsv 2268 rows, 2268 files on disk
+
+Four scans files are on disk and in no manifest row —
+`bidragtillknne38suom.pdf`, `calcflh_000254.pdf`,
+`epn11-1968countclip2restricted.pdf` and `b22346703.pdf` — and **three of those
+four are refusals**: two in `ia-americana`, one in `ia-medical`. 66 − 3 = 63,
+exactly.
+
+`images` and `compare` walk the MANIFEST; the sweep behind §27 and the census
+behind §31 walk the directory. **Neither is wrong and no count is transferable
+between them without saying which it walked**, which is why §24's totals read
+3 208 and §27's read 3 281 and this section's read 3 280. The fourth file opens
+normally, which is why it never showed up in a refusal count to be asked about.
+
+### One row of these records has a fix waiting
+
+[go-pdfkit/render#103](https://github.com/go-pdfkit/render/pull/103) is open and
+takes `gh-qpdf` from 63 pictures to 73 — ten pictures a form XObject's
+incomplete `/Resources` was hiding, all ten exact and byte-identical. These
+records are taken at the `go.mod` as it stands, so that row is **expected to
+move** the moment that lands, and this is the sentence that says so before it
+does.
