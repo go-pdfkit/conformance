@@ -3063,6 +3063,41 @@ annotations by default and draws inline images. Both are the extraction API's
 scope being narrower than the renderer's -- which is §31's finding, a third
 time, in a third place.
 
+### A third cause, and it was a real defect
+
+`gh-qpdf` has 13 unseen rows, of which 3 are inline images and **0** are
+annotation pictures. The remaining **ten** were a defect, and the fixture names
+itself: `form-xobjects-some-resources2.pdf`.
+
+Both of `render`'s paths had half a rule. `drawForm` and `imagesDrawn` each fell
+back to the parent when a form XObject's `/Resources` was **absent**, and a
+**present** one replaced it wholesale — so a name the form did not list resolved
+to nothing and the picture was silently not drawn. A form's resource dictionary
+is not required to be complete; a name it does not provide is resolved in the
+resources in force where the form was painted, which is what poppler does.
+
+| that page | |
+|---|---:|
+| images `pdfimages -list` takes out | 6 |
+| images `render.Images` returned | **2** |
+
+And it reached the page, not only the extraction: through this repository's own
+`compare` against `pdftoppm`, those fixtures were **8.54%** of pixels away at a
+worst square mean of **130 levels**. After the fix, **0.03%** and 8.80.
+
+Fixed in [go-pdfkit/render#103](https://github.com/go-pdfkit/render/pull/103),
+filed as [#102](https://github.com/go-pdfkit/render/issues/102). Checked in both
+directions over the whole forms corpus — 2 268 documents, eighteen populations —
+where **exactly one** population moves: `gh-qpdf`, pictures 63 → 73, the ten
+recovered landing in `(samples) direct` as **51 of 51 exact and 51 of 51
+byte-identical**. They are not merely present; they are right.
+
+**That is what the counter was for.** `Unseen` was added two sections ago as a
+field that documented a requirement, its first number was wrong twice, and what
+survived the two corrections found a rendering defect that every fidelity figure
+in this file had been blind to — because a picture nobody returns is a picture
+nobody compares.
+
 ### The method, which is the part worth keeping
 
 Three times in one day a total was dominated by one document, and twice the
@@ -3074,6 +3109,7 @@ first explanation fitted the sample and not the population:
 | after the repeat split | 12 | 4 243 |
 | cause offered | annotations, 56/60 agreeing | annotations explain **25 of 4 153** |
 | cause measured | — | inline images, **4 147 of 4 153** |
+| what the remainder held | — | a real defect: render#102, ten rows of `gh-qpdf` |
 
 **An agreement where both sides are mostly nought is not an agreement.** The
 control that would have caught it is the one this file keeps asking for: count
