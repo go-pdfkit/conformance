@@ -3401,3 +3401,73 @@ Both fixes are mutation-checked: accepting a `..` row fails two cases of
 `TestAPathThatWouldBeReadAsAFlag`. **Neither is a finding about a document in
 the corpus** — they are findings about the instrument, which is what an audit of
 an instrument should produce.
+
+## §35 — The count of §32 was an undercount, and the `hung` column was empty because nobody asked
+
+`judgePage` returned `nil` the moment `render.Images` handed back an empty
+slice. A page we produce no picture for produced **no row** — not a refusal, not
+an unseen picture, nothing — and it had done that since it was written.
+
+§34 found the consequence without looking for it. The page `compare` ranks
+**worst of 3 214**, at 19.23% of pixels differing, is one of those pages:
+
+```
+render.Images  ->  0 images, err == nil
+render.Page    ->  1269x1775, 154 055 dark pixels      (it draws)
+pdfimages      ->  3 pictures of 7048x9856
+```
+
+Each of those pictures is 69 465 088 pixels, **3.5% past** the per-picture
+ceiling, and `decodeBase` drops it by returning nil, which is not an error
+([render#108](https://github.com/go-pdfkit/render/issues/108)). The
+second-worst page, at 14.70%, is the same shape 5.5% past it. So **the two pages
+at the top of this corpus's page-level disagreement were the two pages the
+picture-level instrument could not see.**
+
+### What it cost, measured over all twenty-three populations
+
+The judge is now asked on such a page, and what it took out is counted as
+`Unseen`:
+
+| population | before | after | |
+|---|---:|---:|---:|
+| `fr-cerfa` | 4 153 | **5 351** | +1 198 |
+| `gh-safedocs` | 0 | **11** | +11 |
+| `ia-americana` | 24 | **32** | +8 |
+| `gh-pdfbox` | 4 | 10 | +6 |
+| `gh-qpdf` | 13 | 19 | +6 |
+| `gh-openpdf`, `gh-pypdf`, `us-uscis`, `ia-uscourts` | | | +1 each |
+| **23 populations** | **4 277** | **5 510** | **+1 233 — a 29% undercount** |
+
+Nine of twenty-three moved. `fr-cerfa`'s 1 198 come from **13 documents whose
+page 1 draws only inline images** — 1 197 of the 1 198 rows carry object 0,
+which is [render#101](https://github.com/go-pdfkit/render/issues/101) — so those
+pages did not merely lose a count, they vanished whole. `gh-safedocs` going from
+nought to eleven is the same thing in a test suite built out of inline images.
+
+**It was an undercount systematically for the heaviest pages**, which are the
+ones a reader would most want it for.
+
+### And one cell nobody expected: `hung` is no longer zero
+
+Everything else in all 23 records is identical, cell for cell. One thing is
+not, and it is not an `unseen`:
+
+	gh-qpdf   hung: qpdf_qtest_qpdf_shared-unnamed-field.pdf page 1, pdfimages
+
+This document draws no picture on page 1, so `images` **never asked poppler
+about it** — which is exactly what this file and the top-level README have both
+said for weeks to explain `hung: 0`:
+
+> The document that hangs draws no picture on its first page, so `images` never
+> asks poppler about it at all; `compare` does meet it and names it.
+
+The sentence was right and it was a description of the hole, not of the corpus.
+Asking the judge on a page we drew nothing for asks about that document for the
+first time, and `pdfimages` does not come back. §34's independent page
+comparison hit the same file, the same page, the same tool — **two instruments,
+neither looking for it, agreeing on the one document in 3 280 that stops a
+poppler tool.**
+
+So `hung` is 1 and the column has a worked example at last, which is better
+than a zero that meant "unasked".

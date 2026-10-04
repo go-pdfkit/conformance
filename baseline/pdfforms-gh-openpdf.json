@@ -1,6 +1,6 @@
 {
   "corpus": "/Users/Shared/pdfforms",
-  "taken": "2026-10-04T09:38:46Z",
+  "taken": "2026-10-04T15:52:11Z",
   "pages": 1,
   "gate": 2,
   "timeout": "2m0s",
@@ -70,6 +70,7 @@
       "refused": 0,
       "unopenable": 14,
       "declined": 0,
+      "unseen": 1,
       "repeated": 4,
       "filters": [
         {

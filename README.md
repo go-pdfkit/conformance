@@ -742,13 +742,18 @@ tool that will not finish is `Hung`, a refusal is `Neither` — and the first
 thing that changed was a test demanding `Ours` for page nine of a one-page
 document. See §31.
 
-**`hung` is 0 in all 23 populations, and that is not "nothing hangs".** The
-document that hangs draws no picture on its first page, so `images` never asks
-poppler about it at all; `compare` does meet it and names it. ~~The bound is
-unexercised by `images` on this corpus~~ — **§22 of the baseline strikes that:
-the bound fired three times, and it is a property of the MACHINE and not of the
-corpus.** What is true of the records beside this file is the narrower thing:
-none of these 23 has a `hung` entry.
+~~**`hung` is 0 in all 23 populations, and that is not "nothing hangs".**~~
+**`hung` is 1, and the reason it used to be 0 is the reason given here.** The
+document that hangs draws no picture on its first page, so `images` never asked
+poppler about it at all — and §35 made it ask, on exactly the pages we draw no
+picture for. `pdfimages` does not come back from
+`qpdf_qtest_qpdf_shared-unnamed-field.pdf`, and §34's page comparison reached
+the same file, page and tool independently. The sentence above was right and it
+described a hole rather than a corpus.
+
+~~The bound is unexercised by `images` on this corpus~~ — **§22 of the baseline
+strikes that too: the bound fired three times, and it is a property of the
+MACHINE and not of the corpus.**
 
 ## What it comes to today
 
@@ -776,7 +781,7 @@ instrument needed to say about ITSELF.
 | | |
 |---|---|
 | `sizePaired` | how many pictures were matched to the judge's by SIZE rather than by object number. The weaker matcher, so a large share is a run whose other numbers are worth less. It is **0** here, and §32 says why that zero was not the good news it looked like. |
-| `unseen` | how many pictures the judge took out that ours produced nothing for — **the one direction the pairing could not see at all**, because it walks our pictures and appends one result for each. **4 277** over 23 populations; §32 names the three causes and [render#101](https://github.com/go-pdfkit/render/issues/101) and [#104](https://github.com/go-pdfkit/render/issues/104) hold two of them. |
+| `unseen` | how many pictures the judge took out that ours produced nothing for — **the one direction the pairing could not see at all**, because it walks our pictures and appends one result for each. **5 510** over 23 populations; §32 names the three causes, §35 is the 29% of them that a page we draw NOTHING for used to hide, and [render#101](https://github.com/go-pdfkit/render/issues/101), [#104](https://github.com/go-pdfkit/render/issues/104) and [#108](https://github.com/go-pdfkit/render/issues/108) hold them. |
 | `repeated` | how many of the judge's rows name an object we returned once. `pdfimages` lists one row per DRAW and `Images` returns one entry per object, so this is a difference of **unit** and not of fidelity. **3 371**, and counting it apart is what keeps `unseen` meaningful. |
 
 All three are `omitempty`, so a record written before them keeps its shape.

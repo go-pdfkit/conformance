@@ -1,6 +1,6 @@
 {
   "corpus": "/Users/Shared/pdfscans",
-  "taken": "2026-10-04T10:08:26Z",
+  "taken": "2026-10-04T15:57:48Z",
   "pages": 1,
   "gate": 2,
   "timeout": "2m0s",
@@ -70,7 +70,7 @@
       "refused": 0,
       "unopenable": 28,
       "declined": 0,
-      "unseen": 24,
+      "unseen": 32,
       "filters": [
         {
           "filter": "DCTDecode",
