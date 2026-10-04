@@ -17,7 +17,7 @@ instrument.
 
 | | |
 |---|---|
-| taken | 2026-09-24T17:08:38Z .. 2026-09-24T20:07:32Z (UTC) |
+| taken | **2026-10-04T09:14Z .. 11:56Z (UTC)**, one population at a time (§33) *(the run these replace: 2026-09-24T17:08Z .. 20:07Z)* |
 | judge | pdfimages version 26.04.0 |
 | **measure** | **per channel, gate `D` = 2, count budget `N` = 0** ([conformance#16](https://github.com/go-pdfkit/conformance/issues/16)) |
 | **pairing** | **by object number, falling back to size only when one side published none** ([#30](https://github.com/go-pdfkit/conformance/pull/30)); a MASK by the object of the picture that names it ([#32](https://github.com/go-pdfkit/conformance/pull/32), [#34](https://github.com/go-pdfkit/conformance/pull/34)) |
@@ -25,16 +25,19 @@ instrument.
 | **walk** | **the page's CONTENT STREAM, not its /Resources** ([render#43](https://github.com/go-pdfkit/render/pull/43)) |
 | **bucketing** | the listing **and** the picture's own `/ColorSpace` ([conformance#20](https://github.com/go-pdfkit/conformance/issues/20)) |
 | **bound on the judge** | **2m0s per document, per tool** ([conformance#21](https://github.com/go-pdfkit/conformance/issues/21)) |
-| `go-pdfkit/render` | **v0.35.0** |
+| `go-pdfkit/render` | **v0.67.0** *(§33; these records replace a set taken at v0.35.0, and §33 says which two cells moved)* |
 | `go-pdfkit/reader` | v0.6.0 |
-| `go-gfx/gfx` | **v0.31.0** |
+| `go-gfx/gfx` | **v0.34.0** |
 | `tannevaled/gobig2` | **v0.2.0** |
-| `go-images/jpeg2000` | **v0.1.0** *(was `ajroetker/go-jpeg2000` v0.0.2; see §15)* |
+| `go-images/jpeg2000` | **v0.13.2** *(was `ajroetker/go-jpeg2000` v0.0.2, then the fork at v0.1.0; see §15 and §25)* |
 | `go-images/jpeg` | **v0.1.0** *(was the standard library's `image/jpeg`; see §18)* |
 | pages per document | 1 (the first page of each document) |
 | corpora | `/Users/Shared/pdfscans` (MANIFEST.tsv), `/Users/Shared/pdfforms` (MANIFEST.tsv) |
 
-**These figures still hold twelve releases later.** `render` has gone from
+~~**These figures still hold twelve releases later.**~~ **They held for
+thirty-two, and §33 is the re-take that says so: two cells of twenty-three
+populations moved, one of them a signed mean in its fifth decimal place.** What
+follows was written when `render` had gone from
 v0.35.0 to v0.47.0 since they were taken -- a real bold face where there was a
 faked one, and the rest changes made for speed -- and two populations re-measured
 at v0.43.0 came out **identical**: `ia-texts` and `fr-impots`, every bucket, every
@@ -958,7 +961,8 @@ else, so the fourth component was gone before `render` saw it, which left only
 "components out of a third-party module, or decoding JPEG 2000 here".
 
 **There was a third option, and it is the one that was taken: fork the
-module.** `github.com/go-images/jpeg2000` v0.1.0 is that fork, under the same
+module.** The fork is `github.com/go-images/jpeg2000` v0.13.2 today and was
+v0.1.0 when this section was written, under the same
 Apache-2.0 licence, with its one change stated in a `NOTICE` as section 4(b)
 requires and also offered upstream. A picture whose own JP2 header declares the
 enumerated colour space CMYK — EnumCS 12 of ITU-T T.800 Table I.1, which the
@@ -2727,7 +2731,19 @@ fifth decimal place.** §30's fact was right and the risk it implied was not.
 The obvious fix -- a test asserting every record names the `render` version in
 `go.mod` -- would redden CI on every dependency bump, including the ones that
 change no pixel, and a gate that reddens on routine upgrades is a gate someone
-removes. What is wanted is the move §28 and conformance#92 both make: make the
+removes.
+
+**There is already a gate here, and it is the better one.**
+`TestTheBaselineReadmeDescribesTheRecordsBesideIt` asserts that the version rows
+of THIS FILE match the versions in the records beside it, on the row's own line.
+It does not care what `go.mod` says, so a dependency bump alone cannot redden
+it; what reddens it is a re-take whose README was not amended. It caught §33's
+on the first run -- three rows, including one where the version had landed on
+the next line of a rewrapped sentence and so was not on the row the guard reads.
+That is the gate this section said it would not add, already written, and the
+distinction is worth keeping: a guard on AGREEMENT BETWEEN TWO THINGS THIS
+REPOSITORY HOLDS costs nothing to keep green, while a guard on agreement with
+the outside world is a tax on every upgrade. What is wanted is the move §28 and conformance#92 both make: make the
 number **visible**, and let a reader see for themselves that a record is six
 days and thirty-two releases behind the code it is cited for. This table is
 that, until the records are re-taken.
