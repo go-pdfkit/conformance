@@ -3396,9 +3396,42 @@ and by no tool that walks the directory, which is §33's disagreement.
 - Temporary files go through `os.MkdirTemp` and are removed with the directory,
   so nothing is written to a predictable path.
 
-Both fixes are mutation-checked: accepting a `..` row fails two cases of
-`TestAManifestRowThatLeavesTheCorpus`, and leaving a leading dash alone fails
-`TestAPathThatWouldBeReadAsAFlag`. **Neither is a finding about a document in
+### 4. The ceiling was one-sided: we bounded our own decode and not the judge's answer
+
+Found by continuing the same question past the inputs a file provides to the
+inputs a TOOL provides. `render` refuses to decode a page past a ceiling; three
+`png.Decode` calls read poppler's answer about the same page with no bound at
+all.
+
+Measured on the page of §35, where our own decoder refuses to spend 277 MB:
+
+| | |
+|---|---:|
+| PNGs `pdfimages` writes for page 1 | 3 × 7 048 × 9 856 |
+| on disk | 44 MB |
+| `png.Decode` → three `*image.Gray` | 69.5 MB each |
+| `raster.FromImage` → RGBA, which `raster.Image` always is | **278 MB each** |
+| **retained** | **834 MB** |
+
+**An instrument that refuses to spend what it asks the other side to spend is
+measuring two different things**, and nothing here limits what poppler is asked
+to write. `maxJudgePixels` is now the same number `render` bounds a page by, in
+the same unit, checked from `png.DecodeConfig` **before** a byte is decoded —
+for the reason `afford` gives: a limit noticed after the allocation has not
+helped. Today's corpus is inside it (that page is 3 × 69 465 088 = 208 395 264
+against 268 435 456), so **no figure in `baseline/` moves**; what changes is
+that an unbounded read is bounded.
+
+And the silence beside it is gone. A PNG that could not be read was **skipped**
+with `continue`, so the pairing saw fewer of the judge's pictures and said
+nothing — the same mistake as §35, three functions away. It is reported now,
+the way the hung listing beside it already was.
+
+Both of the first two fixes are mutation-checked: accepting a `..` row fails two
+cases of `TestAManifestRowThatLeavesTheCorpus`, and leaving a leading dash alone
+fails `TestAPathThatWouldBeReadAsAFlag`. So are these: dropping the bound lets a
+picture past the budget be read, and restoring the `continue` turns a page that
+should be reported into a page measured on nothing. **Neither is a finding about a document in
 the corpus** — they are findings about the instrument, which is what an audit of
 an instrument should produce.
 

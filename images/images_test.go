@@ -657,8 +657,66 @@ func TestAFileTheyWroteThatIsNotAPicture(t *testing.T) {
 }
 
 func TestAFileTheyWroteThatCannotBeOpened(t *testing.T) {
-	if _, err := readPNG(filepath.Join(t.TempDir(), "gone.png")); err == nil {
+	if _, _, err := readPNG(filepath.Join(t.TempDir(), "gone.png"), maxJudgePixels); err == nil {
 		t.Error("a file that is not there was read")
+	}
+}
+
+// TestTheJudgesOwnAnswerIsBoundedToo closes an asymmetry: render refuses to
+// decode a page past a ceiling, and nothing bounded what we read BACK from
+// poppler about the same page.
+//
+// Measured on page 1 of sim_unitarian-...-1825-06-25_4_25.pdf, where our own
+// decoder refuses to spend 277 MB: pdfimages writes three PNGs of 7 048 by
+// 9 856, 44 MB on disk, which png.Decode makes into three *image.Gray of
+// 69.5 MB and raster.FromImage turns into RGBA -- raster.Image is always four
+// bytes a pixel. 834 MB retained, for a page we declined to read ourselves.
+func TestTheJudgesOwnAnswerIsBoundedToo(t *testing.T) {
+	dir := t.TempDir()
+	name := filepath.Join(dir, "p-000.png")
+	f, err := os.Create(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := png.Encode(f, image.NewGray(image.Rect(0, 0, 40, 30))); err != nil {
+		f.Close()
+		t.Fatal(err)
+	}
+	f.Close()
+
+	// Inside the budget: read, and the budget comes back smaller by exactly
+	// what the picture holds.
+	im, left, err := readPNG(name, 10_000)
+	if err != nil {
+		t.Fatalf("a 40x30 picture was refused with 10 000 pixels left: %v", err)
+	}
+	if im.W != 40 || im.H != 30 {
+		t.Errorf("read it as %dx%d", im.W, im.H)
+	}
+	if left != 10_000-40*30 {
+		t.Errorf("%d pixels left, want %d", left, 10_000-40*30)
+	}
+
+	// Past it: refused, and refused BEFORE the decode -- the message is about
+	// the configuration, which is all that was read.
+	if _, _, err := readPNG(name, 40*30-1); err == nil {
+		t.Error("a picture past the budget was read")
+	} else if !strings.Contains(err.Error(), "40x30") {
+		t.Errorf("the refusal does not say what it refused: %v", err)
+	}
+
+	// And a page whose pictures do not fit is REPORTED, not quietly measured
+	// on the ones that did -- the mistake §35 is about.
+	was := maxJudge
+	t.Cleanup(func() { maxJudge = was })
+	maxJudge = 1
+	standIn(t, image.NewRGBA(image.Rect(0, 0, 2, 1)))
+	got := Judge(pageOfPictures(t, func(w *reader.Writer) reader.Dict {
+		return reader.Dict{"I": grey(w)}
+	}), Options{})
+	if len(got) != 1 || got[0].Missing != Theirs ||
+		!strings.Contains(got[0].Note, "could not be read") {
+		t.Fatalf("got %+v", got)
 	}
 }
 
@@ -2009,4 +2067,23 @@ func TestAPageWeDrewNoPictureForIsStillJudged(t *testing.T) {
 			t.Errorf("the note reads %q", got[0].Note)
 		}
 	})
+}
+
+func TestAPictureOfTheirsThatStopsHalfWay(t *testing.T) {
+	// The configuration is read before the bound is applied, so a file whose
+	// header parses and whose pixels do not is a distinct case from a file
+	// that is not a PNG at all.
+	dir := t.TempDir()
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, image.NewGray(image.Rect(0, 0, 40, 30))); err != nil {
+		t.Fatal(err)
+	}
+	b := buf.Bytes()
+	name := filepath.Join(dir, "half.png")
+	if err := os.WriteFile(name, b[:len(b)/2], 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := readPNG(name, maxJudgePixels); err == nil {
+		t.Error("half a PNG was read as a picture")
+	}
 }

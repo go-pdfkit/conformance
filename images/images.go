@@ -178,6 +178,7 @@
 package images
 
 import (
+	"bytes"
 	"fmt"
 	"image/png"
 	"os"
@@ -1175,11 +1176,17 @@ func judgeShots(path string, page int) ([]shot, string, error) {
 		return nil, "pdfimages -list", poppler.DidNotFinish("pdfimages -list")
 	}
 	out := make([]shot, 0, len(names))
+	left := maxJudge
 	for _, name := range names {
-		im, err := readPNG(name)
+		im, rest, err := readPNG(name, left)
 		if err != nil {
-			continue
+			// NOT skipped. A picture of the judge's that silently does not
+			// arrive makes the pairing see fewer of them, which is a real
+			// number in a real column -- the same argument the hung listing
+			// above is reported by, and the same mistake §35 is about.
+			return nil, "", fmt.Errorf("the judge's own picture could not be read: %w", err)
 		}
+		left = rest
 		n := number(name)
 		row := spaces[n]
 		out = append(out, shot{pic: im, num: n, space: row.space,
@@ -1259,17 +1266,60 @@ type listRow struct {
 }
 
 // readPNG reads one of the files pdfimages wrote.
-func readPNG(name string) (*raster.Image, error) {
-	f, err := os.Open(name)
+// maxJudgePixels bounds what the JUDGE's answer about one page may cost to
+// read back, and it is deliberately the same number render bounds its own
+// decode of a page by.
+//
+// The two were not symmetric and the asymmetry was large. Measured on page 1 of
+// sim_unitarian-...-1825-06-25_4_25.pdf: pdfimages writes three PNGs of
+// 7 048 by 9 856, 44 MB on disk; png.Decode makes three *image.Gray of 69.5 MB
+// and raster.FromImage turns each into RGBA, which raster.Image always is --
+// FOUR bytes a pixel. 834 MB RETAINED, on the one page where our own decoder
+// refuses to spend 277 MB (go-pdfkit/render#108).
+//
+// An instrument that refuses to spend what it asks the other side to spend is
+// measuring two different things, and the bound it does not have is the one a
+// hostile document reaches: nothing here limits what poppler is asked to write.
+//
+// Counted in PIXELS over the whole page, as render counts it, so the two sides
+// read the same arithmetic. Today's corpus is inside it -- that page is
+// 3 x 69 465 088 = 208 395 264 against 268 435 456 -- so no figure in
+// baseline/ moves. What changes is that an unbounded read is bounded.
+const maxJudgePixels = 256 << 20
+
+// maxJudge is a variable so a test can reach the refusal without writing a
+// 256-megapixel PNG, exactly as popplerCommand is one.
+var maxJudge = maxJudgePixels
+
+// readPNG reads one picture the judge wrote.
+//
+// The configuration is read FIRST and the bound applied before a byte is
+// decoded, for the reason render's own afford() gives: a limit noticed after
+// the allocation has not helped.
+func readPNG(name string, left int) (*raster.Image, int, error) {
+	// Read in full and decode from memory, twice over the same bytes. Seeking
+	// one open file back to the start would do it in one read and adds a
+	// branch nothing can reach on a regular file -- and a branch nothing can
+	// reach is a branch nobody can test. The file is on disk and bounded by
+	// what poppler wrote.
+	b, err := os.ReadFile(name)
 	if err != nil {
-		return nil, err
+		return nil, left, err
 	}
-	defer f.Close()
-	img, err := png.Decode(f)
+	cfg, err := png.DecodeConfig(bytes.NewReader(b))
 	if err != nil {
-		return nil, err
+		return nil, left, err
 	}
-	return raster.FromImage(img), nil
+	px := cfg.Width * cfg.Height
+	if cfg.Width <= 0 || cfg.Height <= 0 || px > left {
+		return nil, left, fmt.Errorf("%s is %dx%d and %d of %d pixels are left",
+			filepath.Base(name), cfg.Width, cfg.Height, left, maxJudge)
+	}
+	img, err := png.Decode(bytes.NewReader(b))
+	if err != nil {
+		return nil, left, err
+	}
+	return raster.FromImage(img), left - px, nil
 }
 
 // A Bucket is what one group of a filter's comparable pictures came to.
