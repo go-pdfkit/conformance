@@ -3226,3 +3226,108 @@ incomplete `/Resources` was hiding, all ten exact and byte-identical. These
 records are taken at the `go.mod` as it stands, so that row is **expected to
 move** the moment that lands, and this is the sentence that says so before it
 does.
+
+## §34 — The page compared against poppler, which this document had never recorded
+
+Everything above measures **extracted pictures**: `images` against `pdfimages`,
+23 records, every codec drilled to one picture. §24 measures **time**. The one
+thing missing was the page itself — and `baseline/pages/` held exactly one
+population, as a control of one binary against itself (§21).
+
+So the page is recorded now. `compare` against `pdftoppm` at 72 dpi with
+`-cropbox`, one population at a time, 2026-10-04, at the `go.mod` of the records
+beside it (`render` v0.67.0, `go-images/jpeg2000` v0.13.2) and the same
+`pdftoppm` 26.04.0. The raw output of all twenty-three runs is in
+`baseline/pages/`, unedited.
+
+| population | compared | not | median | worst | byte-identical | mean \|diff\| | under 1% | worst page |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| `ca-cra` | 84 | 0 | 0.200% | 4.00% | **84.51%** | 9.58 | 83 | `t2222-fill-21f.pdf` 4.00% |
+| `fr-cerfa` | 450 | 0 | 0.110% | 6.70% | **85.07%** | 6.60 | 391 | `cerfa_12468.pdf` 6.70% |
+| `fr-impots` | 50 | 0 | 0.000% | 1.09% | **65.22%** | 4.84 | 49 | `2735_2735_5088.pdf` 1.09% |
+| `gh-openpdf` | 42 | 14 | 0.000% | 2.17% | **97.19%** | 1.36 | 41 | `openpdf-core_src_test_resources_pdf-2-0_PDF_` 2.17% |
+| `gh-pdfbox` | 149 | 8 | 0.010% | 11.11% | **93.88%** | 2.56 | 144 | `PDFBOX-3127-RAU4G6QMOVRYBISJU7R6MOVZCRFUO7P4` 11.11% |
+| `gh-pdfcpu` | 147 | 0 | 0.240% | 7.41% | **83.62%** | 2.40 | 141 | `form_primitives_comboboxGroup.pdf` 7.41% |
+| `gh-pypdf` | 32 | 2 | 0.000% | 0.68% | **87.45%** | 3.57 | 32 | `019-grayscale-image_grayscale-image.pdf` 0.68% |
+| `gh-qpdf` | 80 | 1 | 0.030% | 8.54% | **93.19%** | 1.61 | 76 | `qpdf_qtest_qpdf_form-xobjects-some-resources` 8.54% |
+| `gh-safedocs` | 20 | 6 | 0.250% | 13.57% | **90.27%** | 4.32 | 14 | `Miscellaneous_Targeted_Test_PDFs_PatternText` 13.57% |
+| `gh-verapdf` | 134 | 0 | 0.000% | 0.56% | **99.60%** | 0.12 | 134 | `PDF_A-1b_6.9_Interactive_Forms_veraPDF_test_` 0.56% |
+| `int-wipo` | 116 | 0 | 0.010% | 0.34% | **89.83%** | 5.01 | 116 | `docs-fr-forms-ro-editable-ed-ro154.pdf` 0.34% |
+| `uk-govuk` | 302 | 0 | 0.110% | 1.03% | **84.39%** | 5.97 | 301 | `lasting-power-of-attorney-forms__20250821-LP` 1.03% |
+| `us-dol` | 140 | 0 | 0.350% | 1.95% | **84.03%** | 10.45 | 118 | `2025-form-5500-ez.pdf` 1.95% |
+| `us-irs` | 69 | 0 | 0.080% | 0.43% | **80.63%** | 13.04 | 69 | `f720.pdf` 0.43% |
+| `us-opm` | 66 | 0 | 0.120% | 5.64% | **83.97%** | 8.73 | 64 | `sf2820.pdf` 5.64% |
+| `us-ssa` | 199 | 0 | 0.130% | 0.70% | **83.98%** | 9.67 | 199 | `ssa-454-bk.pdf` 0.70% |
+| `us-uscis` | 88 | 0 | 0.150% | 0.44% | **85.29%** | 11.46 | 88 | `i-914.pdf` 0.44% |
+| `us-uscourts` | 69 | 0 | 0.340% | 10.49% | **92.12%** | 4.69 | 55 | `ao038.pdf` 10.49% |
+| `ia-americana` | 222 | 28 | 0.230% | 19.23% | **23.52%** | 11.74 | 179 | `sim_unitarian-register-and-the-universalist-` 19.23% |
+| `ia-biodiversity` | 250 | 0 | 0.200% | 9.90% | **32.18%** | 11.23 | 220 | `bidragtillknne00falc.pdf` 9.90% |
+| `ia-medical` | 250 | 0 | 0.000% | 3.30% | **15.69%** | 6.48 | 246 | `childrenwithorth00shar.pdf` 3.30% |
+| `ia-texts` | 5 | 7 | 0.010% | 2.02% | **22.82%** | 10.40 | 4 | `bdrc-W1KG4230.pdf` 2.02% |
+| `ia-uscourts` | 250 | 0 | 0.050% | 2.21% | **85.36%** | 5.21 | 237 | `gov.uscourts.casd.850253.pdf` 2.21% |
+| **all 23** | **3214** | **66** | — | — | — | — | **3001** | — |
+
+**93.4% of the 3214 pages compared differ from poppler on under 1% of their
+pixels**, and the MEDIAN is at or under 0.35% in every one of the twenty-three
+populations — 0.000% in five of them.
+
+### What the sixty-six not compared are, and why that number keeps appearing
+
+	63  refused -- neither implementation opens the file
+	 2  different sizes -- the two renderers produced different pixel dimensions
+	 1  hung -- pdftoppm did not finish within the bound
+
+The 63 are the records' `unopenable` 63, the same set, by an instrument that
+renders instead of extracting. §33 explains why §27 counts 66 of these and the
+records count 63: §27 walks the directory and the records walk the MANIFEST,
+which has four fewer files, three of them refusals. That this run's "not
+compared" is also 66 is a coincidence of three different causes, not the same
+66, and it is worth saying so plainly because the number invites the mistake.
+
+**The one `hung` is the paragraph the top-level README carries made concrete.**
+`qpdf_qtest_qpdf_shared-unnamed-field.pdf`: `images` reports `hung: 0` in all 23
+records because that document draws no picture on its first page, so the
+extraction harness never asks poppler about it at all. `compare` does meet it.
+Two instruments, two populations, and neither count is wrong.
+
+### Do not read a low byte-identical share as a defect
+
+`ia-medical` is **15.69%** byte-identical and `gh-verapdf` is **99.60%**, and
+the first is not twenty times worse: its median difference is **0.000%** of
+pixels against veraPDF's 0.000% too. The scans are 9 000-pixel-wide pages
+reduced to about 600 for the comparison — a 15× to 23× downscale, where any
+difference in resampling puts a level or two into most pixels and byte-identity
+collapses while the picture does not. §1 says the same thing about why this
+baseline measures codecs through extraction rather than through a rasteriser.
+**Byte-identity is a property of the scale asked for.** The median and the
+`under 1%` column are the figures to read.
+
+### What the worst pages are
+
+`ia-americana`'s 19.23% is the worst page in the corpus and is not diagnosed
+here. Below it: `gh-safedocs` 13.57% (`PatternTextInsideText.pdf` -- a pattern
+used as the fill of text inside text), `gh-pdfbox` 11.11%, `us-uscourts`
+10.49%, `ia-biodiversity` 9.90%, and then **`gh-qpdf` 8.54%, which
+[render#103](https://github.com/go-pdfkit/render/pull/103) takes to 0.03%** --
+it is in this table because these records are taken at the `go.mod` as it
+stands, and §33 says the same of the row it moves.
+
+### Two things these files are not
+
+**The timing columns are not to be read.** `compare` prints them and they are
+in the raw output, measured while the load average moved between 7 and 59.
+§24 is where timings live, with its own stated conditions; §22 is why a bound
+under load is a property of the machine. The fidelity columns are deterministic
+-- both rasterisers are -- so the load does not touch them, which is the only
+reason this run is usable at all.
+
+**And they are text, not a record.** `images` has `-json` and twenty-three
+machine-readable baselines; `compare` has neither, so this is a tabulation of
+prose, exactly as §21's control is. It should have a `-json` of its own -- *a
+number that is not written down cannot be regressed against* is this
+repository's own sentence, and these are not written down in a form a later run
+can subtract from. It was not built here because `judgeVersion`, `modules` and
+the `baseline` record type live in `cmd/images`, package `main`, so `compare`
+cannot import them; moving them to an internal package touches the very files
+an unmerged pull request is changing. Named, with the reason, rather than
+started.

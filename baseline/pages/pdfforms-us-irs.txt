@@ -1,0 +1,25 @@
+us-irs	69 compared	0 not
+	pixels differing: median 0.0008  p90 0.0024  p99 0.0034  worst 0.0043
+	under 1% 69  under 2% 69  under 5% 69  under 10% 69
+	identical byte for byte 80.63%   mean |diff| 13.039 levels
+	colour, levels of 255: worst square mean 17.76  max 21.98  worst pixel 128
+	worst   0.43%  f720.pdf page 1
+	worst   0.34%  f8962.pdf page 1
+	worst   0.31%  f1040.pdf page 1
+	worst   0.28%  f1040x.pdf page 1
+	worst   0.28%  f1065.pdf page 1
+	worst   0.26%  f990pf.pdf page 1
+	worst   0.25%  f940.pdf page 1
+	worst   0.24%  f4868.pdf page 1
+	worst   0.23%  f990ez.pdf page 1
+	worst   0.21%  f7004.pdf page 1
+	worst   0.21%  fw2.pdf page 1
+	worst   0.19%  f1120.pdf page 1
+	time, 69 pages both were timed on: ours 2.227s  theirs 10.736s  (0.207x)
+	per page ours/theirs: median 0.197x  p90 0.232x   faster on 69 of 69
+	worst   0.58x faster ours    200ms  theirs    346ms  f4868.pdf page 1
+	worst   0.29x faster ours     59ms  theirs    205ms  f1040.pdf page 1
+	worst   0.26x faster ours     33ms  theirs    124ms  f2848.pdf page 1
+	worst   0.25x faster ours     30ms  theirs    121ms  fw8ben.pdf page 1
+	worst   0.23x faster ours     31ms  theirs    134ms  fw9.pdf page 1
+	slowest page 200ms, 0 over the threshold

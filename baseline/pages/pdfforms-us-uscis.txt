@@ -1,0 +1,25 @@
+us-uscis	88 compared	0 not
+	pixels differing: median 0.0015  p90 0.0022  p99 0.0034  worst 0.0044
+	under 1% 88  under 2% 88  under 5% 88  under 10% 88
+	identical byte for byte 85.29%   mean |diff| 11.456 levels
+	colour, levels of 255: worst square mean 19.73  max 24.72  worst pixel 147
+	worst   0.44%  i-914.pdf page 1
+	worst   0.34%  i-129f.pdf page 1
+	worst   0.32%  i-687.pdf page 1
+	worst   0.27%  i-590.pdf page 1
+	worst   0.25%  g-1145.pdf page 1
+	worst   0.24%  i-589.pdf page 1
+	worst   0.23%  i-918.pdf page 1
+	worst   0.23%  i-821d.pdf page 1
+	worst   0.22%  i-800a.pdf page 1
+	worst   0.22%  i-130.pdf page 1
+	worst   0.21%  i-526.pdf page 1
+	worst   0.20%  i-956h.pdf page 1
+	time, 88 pages both were timed on: ours 2.13s  theirs 15.249s  (0.140x)
+	per page ours/theirs: median 0.141x  p90 0.175x   faster on 88 of 88
+	worst   0.28x faster ours     49ms  theirs    171ms  i-956.pdf page 1
+	worst   0.22x faster ours     34ms  theirs    154ms  i-9.pdf page 1
+	worst   0.20x faster ours     36ms  theirs    175ms  g-1450.pdf page 1
+	worst   0.19x faster ours     31ms  theirs    159ms  i-929.pdf page 1
+	worst   0.18x faster ours     21ms  theirs    113ms  i-694.pdf page 1
+	slowest page 49ms, 0 over the threshold

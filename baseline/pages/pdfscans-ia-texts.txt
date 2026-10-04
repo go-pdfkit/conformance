@@ -1,0 +1,19 @@
+ia-texts	5 compared	7 not
+	    7  refused
+	pixels differing: median 0.0001  p90 0.0026  p99 0.0026  worst 0.0202
+	under 1% 4  under 2% 4  under 5% 5  under 10% 5
+	identical byte for byte 22.82%   mean |diff| 10.402 levels
+	colour, levels of 255: worst square mean 16.10  max 36.67  worst pixel 159
+	worst   2.02%  bdrc-W1KG4230.pdf page 1
+	worst   0.26%  kpbc.umk.pl.KM_01052_1924_12_266929.pdf page 1
+	worst   0.01%  cricmt_001073.pdf page 1
+	worst   0.01%  jbc.bj.uj.edu.pl.NDIGCZAS049827_1938_026.pdf page 1
+	worst   0.00%  jbc.bj.uj.edu.pl.NDIGCZAS066260_1884_021.pdf page 1
+	time, 5 pages both were timed on: ours 1.122s  theirs 3.795s  (0.296x)
+	per page ours/theirs: median 0.424x  p90 0.491x   faster on 5 of 5
+	worst   0.53x faster ours    500ms  theirs    945ms  cricmt_001073.pdf page 1
+	worst   0.49x faster ours     36ms  theirs     74ms  bdrc-W1KG4230.pdf page 1
+	worst   0.42x faster ours    200ms  theirs    472ms  jbc.bj.uj.edu.pl.NDIGCZAS049827_1938_026.pdf page 1
+	worst   0.18x faster ours    234ms  theirs   1.304s  jbc.bj.uj.edu.pl.NDIGCZAS066260_1884_021.pdf page 1
+	worst   0.15x faster ours    151ms  theirs   1.001s  kpbc.umk.pl.KM_01052_1924_12_266929.pdf page 1
+	slowest page 500ms, 0 over the threshold

@@ -1,0 +1,25 @@
+int-wipo	116 compared	0 not
+	pixels differing: median 0.0001  p90 0.0011  p99 0.0022  worst 0.0034
+	under 1% 116  under 2% 116  under 5% 116  under 10% 116
+	identical byte for byte 89.83%   mean |diff|  5.014 levels
+	colour, levels of 255: worst square mean 11.73  max 21.26  worst pixel 177
+	worst   0.34%  docs-fr-forms-ro-editable-ed-ro154.pdf page 1
+	worst   0.27%  docs-fr-forms-ro-editable-ed-ro153.pdf page 1
+	worst   0.22%  docs-en-forms-ro-editable-ed-ro153.pdf page 1
+	worst   0.19%  docs-en-forms-ro-editable-ed-ro154.pdf page 1
+	worst   0.16%  docs-en-forms-ro-editable-ed-ro152.pdf page 1
+	worst   0.16%  docs-fr-forms-ro-editable-ed-ro140.pdf page 1
+	worst   0.15%  docs-fr-forms-ro-editable-ed-ro152.pdf page 1
+	worst   0.15%  docs-fr-forms-ro-editable-ed-ro131.pdf page 1
+	worst   0.14%  docs-fr-forms-ro-editable-ed-ro124.pdf page 1
+	worst   0.14%  docs-fr-forms-ro-editable-ed-ro155.pdf page 1
+	worst   0.13%  docs-fr-forms-ro-editable-ed-ro127.pdf page 1
+	worst   0.12%  docs-fr-forms-ro-editable-ed-ro148.pdf page 1
+	time, 116 pages both were timed on: ours 1.589s  theirs 13.394s  (0.119x)
+	per page ours/theirs: median 0.104x  p90 0.169x   faster on 116 of 116
+	worst   0.62x faster ours     64ms  theirs    103ms  docs-en-forms-ro-editable-ed-ro142.pdf page 1
+	worst   0.30x faster ours     55ms  theirs    184ms  docs-fr-forms-ro-editable-ed-ro136.pdf page 1
+	worst   0.26x faster ours     24ms  theirs     92ms  docs-en-forms-ro-editable-ed-ro133.pdf page 1
+	worst   0.23x faster ours     27ms  theirs    116ms  docs-en-forms-ro-editable-ed-ro148.pdf page 1
+	worst   0.21x faster ours     30ms  theirs    141ms  docs-fr-forms-ro-editable-ed-ro126.pdf page 1
+	slowest page 64ms, 0 over the threshold

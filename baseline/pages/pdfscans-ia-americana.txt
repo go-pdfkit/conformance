@@ -1,0 +1,26 @@
+ia-americana	222 compared	28 not
+	   28  refused
+	pixels differing: median 0.0023  p90 0.0165  p99 0.0394  worst 0.1923
+	under 1% 179  under 2% 206  under 5% 219  under 10% 220
+	identical byte for byte 23.52%   mean |diff| 11.743 levels
+	colour, levels of 255: worst square mean 26.99  max 149.65  worst pixel 212
+	worst  19.23%  sim_unitarian-register-and-the-universalist-leader_christian-register_1825-06-25_4_25.pdf page 1
+	worst  14.70%  sim_unitarian-register-and-the-universalist-leader_christian-register_1847-04-17_26_16.pdf page 1
+	worst   6.00%  19511011-Hancock_County_Eagle.pdf page 1
+	worst   3.94%  19530326-Hancock_County_Eagle.pdf page 1
+	worst   3.83%  19530213-Sea_Coast_Echo.pdf page 1
+	worst   3.71%  19951019-Sea_Coast_Echo.pdf page 1
+	worst   3.45%  19610928-Sea_Coast_Echo.pdf page 1
+	worst   3.28%  19900719-Sea_Coast_Echo.pdf page 1
+	worst   3.05%  19511012-Sea_Coast_Echo.pdf page 1
+	worst   2.69%  19890223-Sea_Coast_Echo.pdf page 1
+	worst   2.66%  19981105-Sea_Coast_Echo.pdf page 1
+	worst   2.49%  19920112-Sea_Coast_Echo.pdf page 1
+	time, 222 pages both were timed on: ours 1m43.11s  theirs 5m8.89s  (0.334x)
+	per page ours/theirs: median 0.322x  p90 0.718x   faster on 214 of 222
+	worst   1.50x SLOWER ours    307ms  theirs    204ms  20000809onehundredandfivedesignssubmittedforuscapitolvisitorcentercommemorativecoins.pdf page 1
+	worst   1.38x SLOWER ours    370ms  theirs    268ms  20070425bronzemedalshonoringgolferbyronnelsonavailableapril26fromtheunitedstatesmint.pdf page 1
+	worst   1.33x SLOWER ours    297ms  theirs    222ms  20030814unitedstatesminttakesfastactiontocorrectmisprintedcertificatesofauthenticity.pdf page 1
+	worst   1.30x SLOWER ours    303ms  theirs    232ms  200406082004unitedstatesmintuncirculatedcoinsetavailablejune22.pdf page 1
+	worst   1.09x SLOWER ours    257ms  theirs    237ms  calgrhs_000907.pdf page 1
+	slowest page 3.869s, 0 over the threshold
