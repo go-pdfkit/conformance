@@ -690,18 +690,31 @@ are `DCTDecode` — the four `/CalRGB` pictures the issue named — and one is
 `(samples)`. `calibrated`, at 1802, is a different quantity and is not that
 count.
 
-**And one thing the record says about itself.** `refused` is 4 across 3280
-documents, all in `ia-biodiversity`, and the same four documents as before:
-`render`'s own 256-megapixel decode budget declining a page rather than a
-document we cannot read. The instrument folds "cannot read" and "declined to
-decode" into one count and should not; the four are named in the baseline so
-nobody reads them as a coverage gap.
+**And one thing the record says about itself.** ~~`refused` is 4 across 3280
+documents, all in `ia-biodiversity`, and the same four documents as before~~ —
+**it is 1**, in the records re-taken 2026-10-04. One document of 3 280:
+`bulletinno38tasm.pdf`, whose page names three 9 449 × 13 701 pictures against
+a per-page budget the `Images` path spends four bytes a pixel of. `render.Page`
+**draws** that page; it is the extraction API that refuses it. The baseline's
+§31 has the measurement and
+[go-pdfkit/render#100](https://github.com/go-pdfkit/render/issues/100) holds the
+question.
+
+~~The instrument folds "cannot read" and "declined to decode" into one count and
+should not.~~ It no longer asserts the other half either: `Ours` is documented
+as "ours produced nothing and the judge did", and the page path used to set it
+**without asking poppler at all**. It asks now — pictures back is `Ours`, a
+tool that will not finish is `Hung`, a refusal is `Neither` — and the first
+thing that changed was a test demanding `Ours` for page nine of a one-page
+document. See §31.
 
 **`hung` is 0 in all 23 populations, and that is not "nothing hangs".** The
 document that hangs draws no picture on its first page, so `images` never asks
-poppler about it at all; `compare` does meet it and names it. The bound is
-unexercised by `images` on this corpus, and the baseline says so rather than
-letting a reader infer otherwise.
+poppler about it at all; `compare` does meet it and names it. ~~The bound is
+unexercised by `images` on this corpus~~ — **§22 of the baseline strikes that:
+the bound fired three times, and it is a property of the MACHINE and not of the
+corpus.** What is true of the records beside this file is the narrower thing:
+none of these 23 has a `hung` entry.
 
 ## What it comes to today
 
@@ -716,7 +729,23 @@ two runs means a regression only if everything else held.
 images -dir /Users/Shared/pdfscans -only ia-medical -json
 ```
 
-[`baseline/README.md`](baseline/README.md) reads it out.
+[`baseline/README.md`](baseline/README.md) reads it out, and
+[its §33](baseline/README.md) says how the whole set is re-taken and what it
+costs — one population at a time, because the judge is held to a wall-clock
+bound.
+
+### Three counts about the measurement rather than about a picture
+
+Added 2026-10-04 with the records above, and each of them is a number the
+instrument needed to say about ITSELF.
+
+| | |
+|---|---|
+| `sizePaired` | how many pictures were matched to the judge's by SIZE rather than by object number. The weaker matcher, so a large share is a run whose other numbers are worth less. It is **0** here, and §32 says why that zero was not the good news it looked like. |
+| `unseen` | how many pictures the judge took out that ours produced nothing for — **the one direction the pairing could not see at all**, because it walks our pictures and appends one result for each. **4 277** over 23 populations; §32 names the three causes and [render#101](https://github.com/go-pdfkit/render/issues/101) and [#104](https://github.com/go-pdfkit/render/issues/104) hold two of them. |
+| `repeated` | how many of the judge's rows name an object we returned once. `pdfimages` lists one row per DRAW and `Images` returns one entry per object, so this is a difference of **unit** and not of fidelity. **3 371**, and counting it apart is what keeps `unseen` meaningful. |
+
+All three are `omitempty`, so a record written before them keeps its shape.
 
 ### Every population runs, and has since v0.20.0
 
