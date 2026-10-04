@@ -1953,3 +1953,60 @@ func TestARowTheJudgeListedTwiceIsNotAPictureWeMissed(t *testing.T) {
 		t.Error("no result carried the repeat")
 	}
 }
+
+// TestAPageWeDrewNoPictureForIsStillJudged is the hole the corpus's worst page
+// fell through.
+//
+// page 1 of sim_unitarian-...-1825-06-25_4_25.pdf: pdfimages takes out three
+// pictures of 7 048 by 9 856, render.Page draws the page, and render.Images
+// hands back an empty slice and NO ERROR -- each picture is 3.5% past the
+// per-picture ceiling and is dropped in silence. compare measures that page at
+// 19.23% of pixels differing, the worst of 3 214 pages, and this instrument
+// measured it not at all: judgePage returned nil before the judge was asked.
+//
+// Which also made §32's count an UNDERCOUNT, and systematically so for the
+// heaviest pages -- the ones a reader would most want it for.
+func TestAPageWeDrewNoPictureForIsStillJudged(t *testing.T) {
+	empty := func(*reader.Writer) reader.Dict { return reader.Dict{} }
+
+	t.Run("the judge took pictures out", func(t *testing.T) {
+		standIn(t, image.NewRGBA(image.Rect(0, 0, 2, 1)), image.NewRGBA(image.Rect(0, 0, 2, 1)))
+		got := Judge(pageOfPictures(t, empty), Options{})
+		if len(got) != 2 {
+			t.Fatalf("got %+v", got)
+		}
+		for _, r := range got {
+			if r.Missing != Unseen {
+				t.Errorf("came back as %q", r.Missing)
+			}
+			if !strings.Contains(r.Note, "we drew no picture for this page") {
+				t.Errorf("the note reads %q", r.Note)
+			}
+		}
+		if s := Summarize("p", 1, got); s.Unseen != 2 {
+			t.Errorf("the record says %d unseen, want 2", s.Unseen)
+		}
+	})
+
+	t.Run("neither side did", func(t *testing.T) {
+		// Not a disagreement and not worth a row: it is what most pages of
+		// most documents look like, and a row each would bury the ones above.
+		standIn(t)
+		if got := Judge(pageOfPictures(t, empty), Options{}); len(got) != 0 {
+			t.Errorf("got %+v", got)
+		}
+	})
+
+	t.Run("the judge would not finish", func(t *testing.T) {
+		was := popplerCommand
+		t.Cleanup(func() { popplerCommand = was })
+		popplerCommand = func(...string) (bool, error) { return true, os.ErrDeadlineExceeded }
+		got := Judge(pageOfPictures(t, empty), Options{})
+		if len(got) != 1 || got[0].Missing != Hung || got[0].Tool != "pdfimages" {
+			t.Fatalf("got %+v", got)
+		}
+		if !strings.Contains(got[0].Note, "a page we drew no picture for") {
+			t.Errorf("the note reads %q", got[0].Note)
+		}
+	})
+}

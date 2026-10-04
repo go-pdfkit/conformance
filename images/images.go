@@ -506,7 +506,42 @@ func judgePage(d *reader.Document, path string, p int) []Result {
 		return []Result{r}
 	}
 	if len(ours) == 0 {
-		return nil
+		// A page we produced NO picture for is not nothing to say, and this
+		// returned nothing to say for as long as it has existed.
+		//
+		// The corpus's worst page is one: page 1 of
+		// sim_unitarian-...-1825-06-25_4_25.pdf, where pdfimages takes out
+		// three pictures of 7 048 by 9 856, render.Page draws the page, and
+		// render.Images hands back an empty slice and NO ERROR -- each picture
+		// is 69 465 088 pixels, 3.5% past the per-picture ceiling, and is
+		// dropped in silence. compare measures that page at 19.23% of pixels
+		// differing, the worst of 3 214, and this instrument measured it not
+		// at all. See go-pdfkit/render#108.
+		//
+		// So the judge is asked, and what it took out is counted as Unseen,
+		// which is exactly what that word means. It also makes the count added
+		// in §32 honest: it was an UNDERCOUNT, and systematically so for the
+		// heaviest pages, which are the ones a reader would most want it for.
+		shots, tool, jerr := judgeShots(path, p)
+		switch {
+		case jerr != nil && tool != "":
+			return []Result{{Path: path, Page: p, Difference: unjudged(),
+				Missing: Hung, Tool: tool,
+				Note: tool + " hung on a page we drew no picture for"}}
+		case jerr != nil:
+			// Neither side produced a picture for this page, which is not a
+			// disagreement and is not worth a row: it is what most pages of
+			// most documents look like.
+			return nil
+		}
+		out := make([]Result, 0, len(shots))
+		for _, t := range shots {
+			out = append(out, Result{Path: path, Page: p, Difference: unjudged(),
+				Missing: Unseen,
+				Note: fmt.Sprintf("we drew no picture for this page; the judge took out a %s of %dx%d (row %d, object %d)",
+					t.kind, t.pic.W, t.pic.H, t.num, t.object)})
+		}
+		return out
 	}
 	theirs, tool, err := judgeShots(path, p)
 	if err != nil {
