@@ -3053,7 +3053,25 @@ a case the harness cannot see.
 
 Tracked as [go-pdfkit/render#101](https://github.com/go-pdfkit/render/issues/101).
 
-The annotation case is real and small: 25 in 450, one of them
+### The annotation case is small HERE and dominates another population
+
+Which is the same mistake in miniature, so it is worth the table. Counted over
+two whole populations rather than one sample:
+
+| population | documents | unseen rows | of which object 0 | pictures an annotation reaches |
+|---|---:|---:|---:|---:|
+| `fr-cerfa` | 450 | 4 153 | **4 147** | 25 |
+| `us-uscis` | 88 | **73** | **0** | **74** |
+
+In `us-uscis` it is **one picture per document, in 73 of 88**, and not one of
+them is inline: `g-1041.pdf`'s is a 1125×75 one-bit strip, which is a barcode.
+On a population of government forms, **the barcode or logo that identifies the
+form is the one picture per page nothing ever compares.** Filed as
+[go-pdfkit/render#104](https://github.com/go-pdfkit/render/issues/104).
+
+So neither cause ranks above the other; each dominates a different population,
+and a single ordering of them would have been wrong whichever way round it was
+written. In `fr-cerfa` the annotation case is 25 in 450, one of them
 `cerfa_10011.pdf`'s 106×56 `DCTDecode`, object 1865, reached as
 
 	/Annots → /Widget /FT /Btn → /MK /I → 1864 (Form /FRM) → /XObject /Im0 → 1865
