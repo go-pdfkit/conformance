@@ -1080,7 +1080,7 @@ func calibratedSpace(d *reader.Document, v reader.Object, res reader.Dict) bool 
 // read perfectly well and one it could not read at all, and those are the two
 // things that must not be confused here.
 var infoCommand = func(path string) (bool, error) {
-	_, hung, err := poppler.Run("pdfinfo", path)
+	_, hung, err := poppler.Run("pdfinfo", poppler.Document(path))
 	return hung, err
 }
 
@@ -1154,7 +1154,7 @@ func judgeShots(path string, page int) ([]shot, string, error) {
 	defer os.RemoveAll(dir)
 	stem := filepath.Join(dir, "i")
 	hung, err := popplerCommand("-png", "-f", fmt.Sprint(page), "-l", fmt.Sprint(page),
-		path, stem)
+		poppler.Document(path), stem)
 	if hung {
 		return nil, "pdfimages", poppler.DidNotFinish("pdfimages")
 	}
@@ -1219,7 +1219,8 @@ func number(name string) int {
 // that could not be taken at all leaves every picture unclassified, which the
 // package comment explains is deliberately loud.
 func listing(path string, page int) (map[int]listRow, bool) {
-	out, hung, err := listCommand("-list", "-f", fmt.Sprint(page), "-l", fmt.Sprint(page), path)
+	out, hung, err := listCommand("-list", "-f", fmt.Sprint(page), "-l", fmt.Sprint(page),
+		poppler.Document(path))
 	if hung {
 		return nil, true
 	}

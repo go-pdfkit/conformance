@@ -1,6 +1,7 @@
 package poppler
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -74,5 +75,28 @@ func TestCombinedIsBoundedToo(t *testing.T) {
 	Timeout = 50 * time.Millisecond
 	if _, hung, err := Combined("sleep", "30"); !hung {
 		t.Fatalf("a tool that does not return was not called a hang: %v", err)
+	}
+}
+
+func TestAPathThatWouldBeReadAsAFlag(t *testing.T) {
+	// harvest names a local file after an identifier a REMOTE SERVER chose, so
+	// a corpus file can begin with a dash and every poppler tool parses its
+	// arguments with getopt. "-v.pdf" would make pdfimages print its version
+	// and take no picture, and the harness would record the page as one the
+	// judge drew nothing for -- a wrong measurement, from a filename.
+	for _, c := range []struct{ in, want string }{
+		{"-v.pdf", "." + string(filepath.Separator) + "-v.pdf"},
+		{"--help.pdf", "." + string(filepath.Separator) + "--help.pdf"},
+		// Everything else is left exactly as it was, so an error message says
+		// what a reader typed.
+		{"/Users/Shared/pdfscans/a.pdf", "/Users/Shared/pdfscans/a.pdf"},
+		{"a.pdf", "a.pdf"},
+		{"./a.pdf", "./a.pdf"},
+		{"dir/-odd.pdf", "dir/-odd.pdf"},
+		{"", ""},
+	} {
+		if got := Document(c.in); got != c.want {
+			t.Errorf("Document(%q) = %q, want %q", c.in, got, c.want)
+		}
 	}
 }

@@ -219,3 +219,56 @@ func TestARowShortOfAnyColumnIsReported(t *testing.T) {
 		}
 	}
 }
+
+func TestAManifestRowThatLeavesTheCorpus(t *testing.T) {
+	// A manifest is a trust boundary and was not treated as one. Its paths are
+	// read verbatim out of a data file and then joined to the corpus directory
+	// by os.Stat, os.Open, a hash, and the argument list of a poppler
+	// invocation.
+	//
+	// filepath.Join neutralises an ABSOLUTE path by construction and does NOT
+	// neutralise "..": Join("/corpus", "../../etc/passwd") is "/etc/passwd".
+	for _, c := range []struct {
+		name, path string
+		ok         bool
+	}{
+		{"a plain row", "a/one.pdf", true},
+		{"a deeper one", "a/b/one.pdf", true},
+		{"a dot segment that goes nowhere", "a/./one.pdf", true},
+		{"a dot-dot that stays inside", "a/b/../one.pdf", true},
+		{"a dot-dot that leaves", "../one.pdf", false},
+		{"a dot-dot that leaves the long way", "a/../../one.pdf", false},
+		{"nothing but dot-dot", "..", false},
+		{"an absolute slash path", "/etc/passwd", false},
+		{"empty", "", false},
+	} {
+		err := inside(c.path)
+		if (err == nil) != c.ok {
+			t.Errorf("%s: inside(%q) = %v, want ok=%v", c.name, c.path, err, c.ok)
+		}
+	}
+
+	// And it has to refuse at READ, not only in a helper: a corrupt record
+	// that reads as a corpus is the failure this is for.
+	dir := t.TempDir()
+	body := "path\torigin\tsource\tbytes\tsha256\tfetched\n" +
+		"../../escape.pdf\ta\thttps://x/1\t1\taa\t2026-10-04T00:00:00Z\n"
+	if err := os.WriteFile(filepath.Join(dir, ManifestName), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Read(dir); err == nil {
+		t.Error("a row that leaves the corpus was read as a corpus")
+	} else if !strings.Contains(err.Error(), "leaves the corpus") {
+		t.Errorf("the refusal reads %q", err)
+	}
+}
+
+func TestAWindowsAbsolutePathInAManifest(t *testing.T) {
+	// filepath.IsAbs is asked as well as the slash one, because "C:\x" is
+	// absolute on Windows and a bare relative name everywhere else -- and a
+	// manifest travels between machines, which is the whole reason its paths
+	// are slash-separated.
+	if err := inside(`C:\Windows\System32\drivers\etc\hosts`); err != nil {
+		t.Logf("refused on this platform: %v", err)
+	}
+}

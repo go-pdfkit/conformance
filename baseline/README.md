@@ -3331,3 +3331,73 @@ the `baseline` record type live in `cmd/images`, package `main`, so `compare`
 cannot import them; moving them to an internal package touches the very files
 an unmerged pull request is changing. Named, with the reason, rather than
 started.
+
+## §36 — A security audit of the harness, and the two trust boundaries it was not treating as such
+
+Everything else in this file measures fidelity. This section is about the
+tools, and it comes from asking one question of them: **what in here is data
+that something else wrote?**
+
+Three answers, and two of them had no guard.
+
+### 1. A manifest path was read verbatim and joined to the corpus
+
+`Entry.Path` comes out of `MANIFEST.tsv`, a data file that travels beside the
+documents in a shared directory, and which nothing in this repository
+necessarily wrote — the forms corpus was gathered before this repository
+existed, which the header-reading code exists for. That path was then joined to
+the corpus directory by `os.Stat`, `os.Open`, a hash, and the argument list of a
+poppler invocation.
+
+`filepath.Join` neutralises an **absolute** path by construction:
+`Join("/corpus", "/etc/passwd")` is `/corpus/etc/passwd`. It does **not**
+neutralise `..`:
+
+	Join("/corpus", "../../etc/passwd")  ==  "/etc/passwd"
+
+So a manifest row could name a file outside the corpus and every tool here would
+read it. `corpus.Read` now **refuses** such a row — refuses rather than cleans,
+because a row trying to leave the corpus is not a row with a typo, and
+rewriting it would put a file in a measurement under a name the manifest did not
+give.
+
+### 2. A remote server's identifier became a local file name, and a file name beginning with `-` is a flag
+
+`harvest` names what it fetches `strings.ReplaceAll(id, "/", "_") + ".pdf"`,
+where `id` comes from the archive's **search results**. The `/` was replaced,
+which blocks a directory escape. A leading `-` was not.
+
+Every poppler tool parses its arguments with getopt, and the document path is
+positional. A corpus file called `-v.pdf` makes `pdfimages` print its version
+and take no picture — and the harness then records the page as one **the judge
+drew nothing for**. A wrong measurement, from a file name.
+
+Guarded twice, deliberately:
+
+| | |
+|---|---|
+| `internal/poppler.Document` | prefixes `./` when a path would be read as a flag, at every call — `pdfinfo`, `pdfimages`, `pdfimages -list`, `pdftoppm` |
+| `corpus.safeName` | strips a leading `-` or `.` when the file is created, so the awkward name never enters the corpus |
+
+A leading `.` goes too, for a reason this document already has a section about:
+a corpus file nothing lists is measured by every tool that walks the manifest
+and by no tool that walks the directory, which is §33's disagreement.
+
+### 3. What was already right, and is worth saying
+
+- **No shell, anywhere.** `exec.CommandContext(ctx, name, args...)` takes an
+  argv, so no amount of quoting in a file name reaches a shell. Command
+  injection was never available; argument injection was.
+- **Every poppler call is bounded** (§21, §22) — a hostile document cannot hold
+  a run open, and a bound that fires is *named* rather than retried.
+- **A decode is bounded by what it will cost**, not by what the file claims:
+  §25 and §26 are that work, and `afford` charges a page before a byte is
+  spent, so *"a 208 KB file names 87 GB"* is refused rather than attempted.
+- Temporary files go through `os.MkdirTemp` and are removed with the directory,
+  so nothing is written to a predictable path.
+
+Both fixes are mutation-checked: accepting a `..` row fails two cases of
+`TestAManifestRowThatLeavesTheCorpus`, and leaving a leading dash alone fails
+`TestAPathThatWouldBeReadAsAFlag`. **Neither is a finding about a document in
+the corpus** — they are findings about the instrument, which is what an audit of
+an instrument should produce.

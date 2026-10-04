@@ -22,6 +22,8 @@ package poppler
 import (
 	"context"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -87,4 +89,30 @@ type hang struct{ tool string }
 
 func (h *hang) Error() string {
 	return h.tool + " did not finish within " + Timeout.String()
+}
+
+// Document makes a path safe to hand a poppler tool as a POSITIONAL argument.
+//
+// Every one of these tools parses its arguments with getopt, so a path that
+// begins with "-" is read as a flag and not as a file. None of them is given a
+// "--" terminator here because the flags and the file are interleaved
+// differently by each one, and a terminator in the wrong place is worse than
+// none.
+//
+// It is reachable, which is why it exists. harvest names a local file after an
+// identifier a REMOTE SERVER chose -- strings.ReplaceAll(id, "/", "_") + ".pdf"
+// -- so an identifier beginning with a dash becomes a corpus file beginning
+// with a dash, and every later invocation hands poppler a flag. "-v.pdf" would
+// make pdfimages print its version and take no picture; the harness would then
+// record the page as one the judge drew nothing for.
+//
+// "./" is the fix getopt itself prescribes and it changes nothing else: the
+// path still names the same file, and a path that is already absolute or
+// already relative-explicit is left alone so that an error message says what a
+// reader typed.
+func Document(path string) string {
+	if strings.HasPrefix(path, "-") {
+		return "." + string(filepath.Separator) + path
+	}
+	return path
 }

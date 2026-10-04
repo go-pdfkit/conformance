@@ -169,7 +169,7 @@ func fetchOne(ctx context.Context, a *Archive, p Plan, into, id string) (Entry, 
 	if p.MaxBytes > 0 && f.Bytes > p.MaxBytes {
 		return Entry{}, fmt.Errorf("%d bytes, over the %d limit", f.Bytes, p.MaxBytes)
 	}
-	name := strings.ReplaceAll(id, "/", "_") + ".pdf"
+	name := safeName(id)
 	path := filepath.Join(into, name)
 	w, err := os.Create(path)
 	if err != nil {
@@ -214,4 +214,32 @@ func looksLikePDF(path string) bool {
 		return false
 	}
 	return string(head[:]) == "%PDF-"
+}
+
+// safeName turns an archive identifier into a local file name.
+//
+// The identifier comes out of a REMOTE SERVER's search results, and this is
+// where it becomes a path on disk and a row in a manifest. Two characters have
+// to go:
+//
+//	"/"  because it would make a directory, which is why it was already
+//	     replaced, and because a manifest path is one segment under an origin.
+//	"-"  at the START, because every poppler tool parses its arguments with
+//	     getopt and a positional path beginning with a dash is read as a FLAG.
+//	     internal/poppler.Document also guards that at the call, which is the
+//	     belt; this is the braces, and it keeps the awkward name out of the
+//	     corpus rather than working around it at one consumer.
+//
+// A leading dot goes too: a corpus file nothing lists is a document that is
+// measured by no tool that walks the directory and by every tool that walks
+// the manifest, which is exactly the disagreement §33 of the baseline is about.
+func safeName(id string) string {
+	name := strings.ReplaceAll(id, "/", "_")
+	name = strings.TrimLeft(name, "-.")
+	if name == "" {
+		// An identifier of nothing but dashes and dots. Keep something: a
+		// refusal here would drop a document for its name.
+		name = "document"
+	}
+	return name + ".pdf"
 }
