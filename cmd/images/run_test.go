@@ -219,6 +219,7 @@ func TestWhatCouldNotBeComparedReachesTheRecord(t *testing.T) {
 		images.Result{Difference: images.Difference{Share: -1}, Missing: images.Neither, Note: "refused: y"},
 		images.Result{Difference: images.Difference{Share: -1}, Missing: images.Theirs, Note: "they took nothing out"},
 		images.Result{Difference: images.Difference{Share: -1}, Missing: images.Unseen, Note: "the judge took out a image of 9x9 (row 0, object 0) we have no picture for"},
+		images.Result{Difference: images.Difference{Share: -1}, Missing: images.Repeated, Note: "the judge listed object 7 again as a image of 2x1 (row 1); we return it once"},
 	)
 	atTime(t, "2026-08-30T15:04:05Z")
 	var out, errOut bytes.Buffer
@@ -237,6 +238,10 @@ func TestWhatCouldNotBeComparedReachesTheRecord(t *testing.T) {
 	}
 	if p.Unseen != 1 {
 		t.Errorf("unseen %d, want 1 -- the one direction the pairing cannot see", p.Unseen)
+	}
+	// Apart, because one is a fidelity question and the other is a unit.
+	if p.Repeated != 1 {
+		t.Errorf("repeated %d, want 1", p.Repeated)
 	}
 	// Nothing was comparable, so nothing may be reported as a filter that
 	// agreed or disagreed.
@@ -258,6 +263,22 @@ func TestTheReportNamesWhatTheJudgeGotAndWeDidNot(t *testing.T) {
 		t.Fatalf("exit %d: %s", code, errOut.String())
 	}
 	if !strings.Contains(out.String(), "1 the judge took out and we did not") {
+		t.Errorf("the report is silent about it:\n%s", out.String())
+	}
+}
+
+func TestTheReportSeparatesARepeatedRowFromAMissingPicture(t *testing.T) {
+	// Printed beside the line above so that the line above is read as the
+	// small number it is: on one real page the two are 6 and 304.
+	judge(t,
+		images.Result{Difference: images.Difference{Share: -1}, Missing: images.Repeated,
+			Note: "the judge listed object 7 again as a image of 2x1 (row 1); we return it once"},
+	)
+	var out, errOut bytes.Buffer
+	if code := run([]string{"-dir", tinyCorpus(t), "-only", "alpha"}, &out, &errOut); code != 0 {
+		t.Fatalf("exit %d: %s", code, errOut.String())
+	}
+	if !strings.Contains(out.String(), "1 rows the judge listed again") {
 		t.Errorf("the report is silent about it:\n%s", out.String())
 	}
 }

@@ -2962,3 +2962,66 @@ out of a program that asks neither. **Two instruments sharing no dependency
 agreeing on a census of sixty-six is the kind of control this file has been
 short of** — three of them agreed once before and all three were reading the
 same layer.
+
+## §32 — The direction the pairing could not see, and why its first number was wrong
+
+The pairing walks OUR pictures and appends one result for each. A row of the
+judge's that nothing claimed left no trace in any count, so **the one direction
+this harness could not see was the direction that matters most**: a picture the
+field gets out of a file and we do not.
+
+Its own test suite had already set the case up and recorded the blind spot as
+the expected answer. `TestAPictureTheOtherSideDoesNotHave` stands a judge with
+a 9×9 against a page holding a 2×1: ours is unmatched **and** theirs is, the
+first has been reported since the day it was written, the second was dropped,
+and the test asserted `len == 1`.
+
+### The first number was 7 614, and it was not a gap
+
+Counted over the eighteen `pdfforms` populations at render v0.67.0:
+**7 614**, of which `fr-cerfa` alone had 7 480. A number that size would mean
+poppler extracts thousands of pictures we cannot. It does not, and **one
+document carried 304 of the 316 in the first sixty of `fr-cerfa`** — which is
+the shape a dominating artefact has, not a population.
+
+That document is one this file already names: `cerfa_10074.pdf`, the page of
+211 uniform 2×2 swatches under `/SMask`s. Asked directly:
+
+| page 1 of `cerfa_10074.pdf` | |
+|---|---:|
+| rows `pdfimages -list` prints | **729** |
+| distinct objects among them | **214** |
+| rows for object 147 alone | **62** |
+| pictures `render.Images` returns | **425** |
+| 729 − 425 | **304**, the unseen count exactly |
+
+**`pdfimages` lists one row PER DRAW.** The `judgePage` comment in
+`images/images.go` said a repeated draw came back "against pdfimages's one";
+that was never measured and is wrong. It is corrected there, citing this.
+
+Ours is one entry per object on purpose — decoding the same stream a second
+time says nothing about a codec — so the asymmetry is expected and harmless to
+every fidelity figure in this file. What is NOT harmless is counting it as
+pictures we failed to get. `Repeated` is now a count of its own, and the report
+prints it beside `Unseen` so that the small number is read as small.
+
+### What is left in `Unseen` is a scope difference, and it is real
+
+In the same sixty documents, six rows remain, and they are a different thing.
+`cerfa_10011.pdf` is one: a 106×56 `DCTDecode` image, object 1865, reached as
+
+	/Annots → /Widget /FT /Btn → /MK /I → 1864 (Form /FRM) → /XObject /Im0 → 1865
+
+a push button's **icon**. `render.Images` walks the content stream, so it cannot
+see it; `pdfimages` renders the page with its annotations and takes it out.
+A tool written for the purpose agreed with the count **document by document on
+56 of 60**, and the four it missed are the repeat-draw case above.
+
+**This is not a decoder gap.** `render.Page` draws annotations by default
+(`Options.NoAnnotations` turns them off), so our renderer shows these icons; it
+is the extraction API whose scope is narrower — the same shape as §31's finding
+about the page budget, in a different place.
+
+Whether `Images` should also walk `/AP` and `/MK` is a question about what an
+extraction API is for, and it changes every count in this file. It is named
+here and not decided.

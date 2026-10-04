@@ -136,6 +136,12 @@ func run(args []string, out, errOut io.Writer) int {
 		if summary.Unseen > 0 {
 			fmt.Fprintf(out, "  %5d the judge took out and we did not\n", summary.Unseen)
 		}
+		// And beside it the rows that are only a difference of unit, so that
+		// the one above is read as the small number it is.
+		if summary.Repeated > 0 {
+			fmt.Fprintf(out, "  %5d rows the judge listed again for a picture we return once\n",
+				summary.Repeated)
+		}
 	}
 	if *asJSON {
 		// Marshal fails only on a value it cannot encode, and this one is

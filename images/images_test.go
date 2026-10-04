@@ -1890,3 +1890,66 @@ func TestOnlyTheJudgePicturesNothingClaimedAreCounted(t *testing.T) {
 			"being counted as well", s.Unseen)
 	}
 }
+
+// TestARowTheJudgeListedTwiceIsNotAPictureWeMissed is the measurement that
+// made Repeated necessary. pdfimages lists one row PER DRAW: page 1 of
+// cerfa_10074.pdf gives it 729 rows over 214 distinct objects -- object 147
+// sixty-two times -- against the 425 pictures Images returns, and all 304
+// leftovers were being counted as pictures the field gets out and we do not.
+func TestARowTheJudgeListedTwiceIsNotAPictureWeMissed(t *testing.T) {
+	path := pageOfPictures(t, func(w *reader.Writer) reader.Dict {
+		return reader.Dict{"I": grey(w)}
+	})
+	obj := imageObjects(path)
+	if len(obj) != 1 {
+		t.Fatalf("the fixture has %d image objects, want 1", len(obj))
+	}
+	// A judge that drew the one picture twice, and one row for a picture that
+	// is not ours at all, so both branches are exercised at once.
+	wasPictures, wasList := popplerCommand, listCommand
+	t.Cleanup(func() { popplerCommand, listCommand = wasPictures, wasList })
+	popplerCommand = func(args ...string) (bool, error) {
+		stem := args[len(args)-1]
+		for i := 0; i < 3; i++ {
+			f, err := os.Create(fmt.Sprintf("%s-%03d.png", stem, i))
+			if err != nil {
+				return false, err
+			}
+			err = png.Encode(f, image.NewRGBA(image.Rect(0, 0, 2, 1)))
+			f.Close()
+			if err != nil {
+				return false, err
+			}
+		}
+		return false, nil
+	}
+	listCommand = func(...string) ([]byte, bool, error) {
+		var sb strings.Builder
+		sb.WriteString("page   num  type   width height color comp bpc  enc interp  object ID x-ppi y-ppi size ratio\n")
+		sb.WriteString("------\n")
+		for i, o := range []int{obj[0], obj[0], 9999} {
+			fmt.Fprintf(&sb, "   1  %4d image      2     1  gray    1   8  image  no  %2d  0  72  72 9B 50%%\n", i, o)
+		}
+		return []byte(sb.String()), false, nil
+	}
+	got := Judge(path, Options{})
+	s := Summarize("p", 1, got)
+	if s.Repeated != 1 {
+		t.Errorf("repeated %d, want 1 -- the second row of our own object", s.Repeated)
+	}
+	if s.Unseen != 1 {
+		t.Errorf("unseen %d, want 1 -- object 9999 is nobody's picture of ours", s.Unseen)
+	}
+	var sawRepeat bool
+	for _, r := range got {
+		if r.Missing == Repeated {
+			sawRepeat = true
+			if !strings.Contains(r.Note, "we return it once") {
+				t.Errorf("the note does not say why: %q", r.Note)
+			}
+		}
+	}
+	if !sawRepeat {
+		t.Error("no result carried the repeat")
+	}
+}
