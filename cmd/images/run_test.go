@@ -218,6 +218,7 @@ func TestWhatCouldNotBeComparedReachesTheRecord(t *testing.T) {
 		images.Result{Difference: images.Difference{Share: -1}, Missing: images.Ours, Note: "refused: x"},
 		images.Result{Difference: images.Difference{Share: -1}, Missing: images.Neither, Note: "refused: y"},
 		images.Result{Difference: images.Difference{Share: -1}, Missing: images.Theirs, Note: "they took nothing out"},
+		images.Result{Difference: images.Difference{Share: -1}, Missing: images.Unseen, Note: "the judge took out a image of 9x9 (row 0, object 0) we have no picture for"},
 	)
 	atTime(t, "2026-08-30T15:04:05Z")
 	var out, errOut bytes.Buffer
@@ -234,10 +235,30 @@ func TestWhatCouldNotBeComparedReachesTheRecord(t *testing.T) {
 		t.Errorf("refused %d, unopenable %d, declined %d; want one of each",
 			p.Refused, p.Unopenable, p.Declined)
 	}
+	if p.Unseen != 1 {
+		t.Errorf("unseen %d, want 1 -- the one direction the pairing cannot see", p.Unseen)
+	}
 	// Nothing was comparable, so nothing may be reported as a filter that
 	// agreed or disagreed.
 	if len(p.Filters) != 0 {
 		t.Errorf("it invented filters out of what it could not compare: %+v", p.Filters)
+	}
+}
+
+func TestTheReportNamesWhatTheJudgeGotAndWeDidNot(t *testing.T) {
+	// For the reason the hangs are named: a report that leaves it out cannot
+	// be told from one that has none, and this is the only direction of
+	// disagreement that says the field reads something we do not.
+	judge(t,
+		images.Result{Difference: images.Difference{Share: -1}, Missing: images.Unseen,
+			Note: "the judge took out a image of 9x9 (row 0, object 0) we have no picture for"},
+	)
+	var out, errOut bytes.Buffer
+	if code := run([]string{"-dir", tinyCorpus(t), "-only", "alpha"}, &out, &errOut); code != 0 {
+		t.Fatalf("exit %d: %s", code, errOut.String())
+	}
+	if !strings.Contains(out.String(), "1 the judge took out and we did not") {
+		t.Errorf("the report is silent about it:\n%s", out.String())
 	}
 }
 

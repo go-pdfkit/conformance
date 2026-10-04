@@ -500,13 +500,35 @@ func TestPicturesAreOrderedByTheirNumberAndNotTheirName(t *testing.T) {
 
 func TestAPictureTheOtherSideDoesNotHave(t *testing.T) {
 	// Nothing exact to pair on, and nothing of our size to fall back to.
+	//
+	// This case is SYMMETRIC and the test only ever asserted one half of it.
+	// Ours has a 2x1 nothing of theirs matches; theirs has a 9x9 nothing of
+	// ours matches. The first was reported from the day this was written; the
+	// second left no trace in any count, because the pairing walks our
+	// pictures and appends one result for each. The test asserted len == 1
+	// and so recorded the blind spot as the expected answer.
 	standInWithoutObjects(t, image.NewRGBA(image.Rect(0, 0, 9, 9)))
 	got := Judge(pageOfPictures(t, func(w *reader.Writer) reader.Dict {
 		return reader.Dict{"I": grey(w)}
 	}), Options{})
-	if len(got) != 1 || got[0].Share != -1 || got[0].PairedBy != "" ||
-		got[0].Note != "they took out nothing this size" {
+	if len(got) != 2 {
 		t.Fatalf("got %+v", got)
+	}
+	if got[0].Share != -1 || got[0].PairedBy != "" ||
+		got[0].Note != "they took out nothing this size" {
+		t.Errorf("our unmatched picture came back as %+v", got[0])
+	}
+	if got[1].Missing != Unseen || got[1].Name != "" ||
+		got[1].Note != "the judge took out a image of 9x9 (row 0, object 0) we have no picture for" {
+		t.Errorf("their unmatched picture came back as %+v", got[1])
+	}
+	// Name is empty on purpose: there is no filter of OURS to group it under,
+	// so Tally must skip it and Summarize must still count it.
+	if by := Tally(got); len(by) != 1 {
+		t.Errorf("the tally grouped the judge's own picture under a filter: %v", by)
+	}
+	if s := Summarize("p", 1, got); s.Unseen != 1 {
+		t.Errorf("the record says %d unseen, want 1", s.Unseen)
 	}
 }
 
@@ -1841,5 +1863,30 @@ func TestTheSizePairedShareIsCounted(t *testing.T) {
 	}
 	if !found {
 		t.Error("the record has no DCTDecode line to carry it")
+	}
+}
+
+func TestOnlyTheJudgePicturesNothingClaimedAreCounted(t *testing.T) {
+	// The other side of the counter, and the side a test is easy to leave
+	// out: a judge that took out TWO pictures, one of which ours matched.
+	// Counting both would read exactly like counting the right one, until a
+	// run where every picture paired reported every picture as missing from
+	// our side.
+	standIn(t, image.NewRGBA(image.Rect(0, 0, 2, 1)), image.NewRGBA(image.Rect(0, 0, 2, 1)))
+	got := Judge(pageOfPictures(t, func(w *reader.Writer) reader.Dict {
+		return reader.Dict{"I": grey(w)}
+	}), Options{})
+	if len(got) != 2 {
+		t.Fatalf("got %+v", got)
+	}
+	if got[0].Missing != Judged || got[0].PairedBy != PairedByObject {
+		t.Errorf("our picture did not pair: %+v", got[0])
+	}
+	if got[1].Missing != Unseen {
+		t.Errorf("the second judge row came back as %+v", got[1])
+	}
+	if s := Summarize("p", 1, got); s.Unseen != 1 {
+		t.Errorf("the record says %d unseen, want 1 -- the claimed row is "+
+			"being counted as well", s.Unseen)
 	}
 }

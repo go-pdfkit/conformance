@@ -2003,7 +2003,9 @@ it is the only part where the answer is ground the references do not cover.
   ages; a counter does not.
 
   **First reading: ZERO, over 1 606 pictures.** Measured 2026-10-01 at the
-  `go.mod` of this run (`render` v0.60.0, `go-images/jpeg2000` v0.9.1): 330
+  `go.mod` of this run (`render` v0.60.0, `go-images/jpeg2000` v0.9.1 -- what
+  it held before #55; the count is a pairing property and does not depend on
+  either version): 330
   pictures over the five `pdfscans` populations (`-limit 40`) and 1 276 over all
   eighteen of `pdfforms` (`-limit 60`), 53 filter rows, not one paired by size.
   Every picture both sides took out was matched by the one identity both
@@ -2054,7 +2056,7 @@ instrument that produced them. They can now.
 |---|---|
 | taken | 2026-09-28T14:49Z .. 2026-09-28T15:16Z (UTC) *(first: 2026-09-26T16:59Z)* |
 | judge | pdftoppm version 26.04.0 |
-| `go-pdfkit/render` | **v0.60.0**, which is what `go.mod` holds *(first taken at v0.47.0; nine releases later, each re-measured -- see the end of §24)* |
+| `go-pdfkit/render` | **v0.60.0**, which is what `go.mod` held when this was taken -- [#55](https://github.com/go-pdfkit/conformance/pull/55) has since moved it to **v0.67.0**, and these timings have NOT been re-taken against it *(first taken at v0.47.0; nine releases later, each re-measured -- see the end of §24)* |
 | `go-images/jpeg2000` | **v0.9.1** |
 | **cores** | **we use up to eight on a JPEG 2000 page; the judge uses one.** See *What this section does not say*. |
 | every named row | **drawn again three times** and the minimum kept (`compare -confirm`), because a list selected on the maximum of one sample per page is biased upward by the act of selecting |
@@ -2684,7 +2686,7 @@ Read off the files themselves, 2026-10-01:
 | what | render | `go-images/jpeg2000` | dated |
 |---|---|---|---|
 | the twenty-three `baseline/*.json` | **v0.35.0** | **v0.1.0** | 2026-09-24 |
-| `go.mod`, which is what the tool in this repository builds against | v0.60.0 | v0.9.1 | — |
+| `go.mod`, which is what the tool in this repository builds against | ~~v0.60.0~~ **v0.67.0** | ~~v0.9.1~~ **v0.13.2** | since #55, 2026-10-03 |
 | §24, the timings | v0.60.0 | v0.9.1 | 2026-09-28 |
 | §29, measured in a tree with the modules upgraded | **v0.67.0** | **v0.13.2** | 2026-09-30 |
 
@@ -2708,10 +2710,16 @@ A gate borrowed from a measurement of code that no longer exists goes red on
 the first legitimate change and is then deleted, which costs more than never
 having had it.
 
-So the order is: land the `render` v0.67.0 bump that is open as
-[conformance#55](https://github.com/go-pdfkit/conformance/pull/55), re-take the
-twenty-three records at that `go.mod`, and read the distribution again. **The
-bound is not the next step. The records are.**
+So the order was: land the `render` v0.67.0 bump, re-take the twenty-three
+records at that `go.mod`, and read the distribution again. **The bound is not the
+next step. The records are.**
+
+**[#55](https://github.com/go-pdfkit/conformance/pull/55) landed on
+2026-10-03**, so the first step is done and the table above has been amended --
+which is this section happening to itself, four days after it was written. What
+is left of §30 is the row it exists for: the twenty-three records are still at
+v0.35.0, and now they are **thirty-two** `render` releases behind the tree that
+reads them rather than twenty-five.
 
 ### Why this is not a gate
 

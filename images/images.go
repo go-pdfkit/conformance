@@ -354,6 +354,19 @@ const (
 	// this cannot get an answer about, and one that must be counted so that a
 	// corpus getting harder is not read as a decoder getting worse.
 	Theirs Missing = "theirs"
+	// Unseen means the JUDGE took a picture out that ours produced nothing
+	// for. It is the mirror of Unmatched and it had no name, because the
+	// pairing walks OUR pictures and appends one result for each: a row of
+	// the judge's that nothing claimed left no trace in any count, so the one
+	// direction this harness could not see was the direction that matters
+	// most -- a picture the field gets out of a file and we do not.
+	//
+	// It is known to be non-empty by construction for one class: inline
+	// images. render.Images does not return the pictures written into a
+	// content stream with BI, because they are the objects of nothing, and
+	// pdfimages lists them with an object of 0. Whether this corpus holds any
+	// is what the count is for.
+	Unseen Missing = "unseen"
 	// Hung means a poppler tool did not finish within Timeout.
 	//
 	// It is its own value rather than a kind of Theirs because a judge that
@@ -517,6 +530,21 @@ func judgePage(d *reader.Document, path string, p int) []Result {
 				theirs[j].pic.W, theirs[j].pic.H, im.Pic.W, im.Pic.H)
 		}
 		out = append(out, r)
+	}
+	// The judge's rows nothing claimed. Name is left empty so that Tally
+	// skips these -- there is no filter of OURS to group them under, because
+	// there is no picture of ours -- and Summarize counts them from Missing
+	// like the other asymmetries. They are reported for the reason the hangs
+	// are: a report that leaves them out cannot be told from one that has
+	// none.
+	for j, t := range theirs {
+		if claimed[j] {
+			continue
+		}
+		out = append(out, Result{Path: path, Page: p, Difference: unjudged(),
+			Missing: Unseen,
+			Note: fmt.Sprintf("the judge took out a %s of %dx%d (row %d, object %d) we have no picture for",
+				t.kind, t.pic.W, t.pic.H, t.num, t.object)})
 	}
 	return out
 }
@@ -1369,6 +1397,10 @@ type Summary struct {
 	// Declined is how many pages ours drew pictures for and the judge took
 	// none out of, so there was nothing to compare them with.
 	Declined int `json:"declined"`
+	// Unseen is how many pictures the judge took out that ours produced
+	// nothing for -- the direction the pairing could not see at all until it
+	// was counted. omitempty, so records written before it keep their shape.
+	Unseen int `json:"unseen,omitempty"`
 	// Hung names the documents a poppler tool would not finish on, with the
 	// tool. A document that was skipped because the judge hung is not a
 	// document that scored badly, and the two are indistinguishable in a
@@ -1452,6 +1484,8 @@ func Summarize(population string, documents int, rs []Result) Summary {
 			s.Unopenable++
 		case Theirs:
 			s.Declined++
+		case Unseen:
+			s.Unseen++
 		case Hung:
 			s.Hung = append(s.Hung, Hang{Path: r.Path, Page: r.Page, Tool: r.Tool})
 		}
