@@ -116,7 +116,14 @@ func Check(dir string) ([]Problem, error) {
 		// begin with the root it was given, so there is no case where Rel
 		// fails and an error branch nothing can reach is a branch nobody can
 		// test.
-		rel := strings.TrimPrefix(p, dir+string(filepath.Separator))
+		//
+		// ToSlash because Entry.Path is slash-separated -- deliberately, so a
+		// corpus can be moved -- and WalkDir is separated by the host's. On
+		// Windows the first version of this compared "a\one.pdf" against the
+		// manifest's "a/one.pdf" and reported EVERY file of the corpus as
+		// being in no row. Caught by the windows-latest lane, which is what
+		// that lane is for.
+		rel := filepath.ToSlash(strings.TrimPrefix(p, dir+string(filepath.Separator)))
 		if !recorded[rel] {
 			out = append(out, Problem{Path: rel, Kind: "unrecorded"})
 		}

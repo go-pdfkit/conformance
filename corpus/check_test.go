@@ -3,6 +3,7 @@ package corpus
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -142,6 +143,10 @@ func TestAFileThatWillNotOpenIsNotReportedAsMissing(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root reads a mode-0 file, so there is nothing to see")
 	}
+	if runtime.GOOS == "windows" {
+		// Chmod(0) does not deny a read there, so the case cannot be built.
+		t.Skip("a mode-0 file is still readable on Windows")
+	}
 	got, err := Check(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -225,6 +230,9 @@ func TestADirectoryTheWalkCannotEnter(t *testing.T) {
 	// directory is the worst answer available.
 	if os.Geteuid() == 0 {
 		t.Skip("root enters a mode-0 directory, so there is nothing to see")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("a mode-0 directory is still listable on Windows")
 	}
 	dir := t.TempDir()
 	e := put(t, dir, "a/kept.pdf", "untouched", 0)
