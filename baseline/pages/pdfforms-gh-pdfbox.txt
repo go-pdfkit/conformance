@@ -1,0 +1,26 @@
+gh-pdfbox	149 compared	8 not
+	    8  refused
+	pixels differing: median 0.0001  p90 0.0040  p99 0.0247  worst 0.1111
+	under 1% 144  under 2% 146  under 5% 147  under 10% 148
+	identical byte for byte 93.88%   mean |diff|  2.565 levels
+	colour, levels of 255: worst square mean 12.43  max 89.26  worst pixel 255
+	worst  11.11%  PDFBOX-3127-RAU4G6QMOVRYBISJU7R6MOVZCRFUO7P4-VFont.pdf page 1
+	worst   6.80%  JBIG2Image.pdf page 1
+	worst   2.47%  raw_image_demo.pdf page 1
+	worst   1.29%  tiger-as-form-xobject.pdf page 1
+	worst   1.11%  jpegrgb.pdf page 1
+	worst   0.99%  PDFBOX-5840-410609.pdf page 1
+	worst   0.71%  PDFBOX-3656-SF1199AEG__Complete_.pdf page 1
+	worst   0.69%  PDFBOX-3123-ADSFWTRB3HBZBZKEVESVTBRZC2MNKZF5_reduced.pdf page 1
+	worst   0.53%  data-000001.pdf page 1
+	worst   0.51%  jpeg_demo.pdf page 1
+	worst   0.50%  PDFBOX-2984-rotations.pdf page 1
+	worst   0.49%  PDFBOX-6049-Source.pdf page 1
+	time, 149 pages both were timed on: ours 2.195s  theirs 14.219s  (0.154x)
+	per page ours/theirs: median 0.061x  p90 0.264x   faster on 147 of 149
+	worst   1.80x SLOWER ours    275ms  theirs    153ms  tiger-as-form-xobject.pdf page 1
+	worst   1.54x SLOWER ours    392ms  theirs    254ms  AcroFormsBasicFields.pdf page 1
+	worst   0.42x faster ours     55ms  theirs    131ms  JPXTestCMYK.pdf page 1
+	worst   0.41x faster ours     40ms  theirs     98ms  PDFBOX-5838-0024320-reduced.pdf page 1
+	worst   0.40x faster ours     38ms  theirs     93ms  ccitt4-cib-test.pdf page 1
+	slowest page 392ms, 0 over the threshold

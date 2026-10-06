@@ -36,6 +36,40 @@ harvest -dir /Users/Shared/pdfscans -origin ia-americana \
 skipped, so an interrupted run is continued by running it again and a corpus is
 extended by asking for a larger `-want`.
 
+**And it checks, because the sentence above promised something nothing read
+back.** "What makes a number reproducible and lets a document that changed
+underneath be noticed" was true of what the manifest RECORDS and false of what
+anything here did with it: the hash was written and never compared, and a file
+in no row was invisible to every tool in this repository.
+
+```
+$ harvest -check -dir /Users/Shared/pdfscans
+ia-americana/calcflh_000254.pdf: on disk and in no manifest row
+ia-americana/epn11-1968countclip2restricted.pdf: on disk and in no manifest row
+ia-biodiversity/bidragtillknne38suom.pdf: on disk and in no manifest row
+ia-medical/b22346703.pdf: on disk and in no manifest row
+4 disagreement(s)
+```
+
+Four files, and **three of them are documents our reader refuses** — which is
+the whole of why `images` and `compare`, which walk the manifest, count 63
+refusals where a sweep that walks the directory counts 66. Two true numbers for
+one corpus and no way to tell which a figure came from. See
+[`baseline/README.md`](baseline/README.md) §33.
+
+It reports a row with no file, a file that will not open, a size or a digest
+that moved, and a file in no row; it exits non-zero when a corpus disagrees, so
+it can be the first line of a measuring script rather than something to
+remember. `/Users/Shared/pdfforms` comes back clean — all 2 268 rows — and so
+does every one of `pdfscans`'s 1 012, **so no document has changed underneath**.
+
+The digest is compared over **as many characters as the manifest recorded**. The
+forms corpus, gathered before this repository existed, keeps sixteen of them
+under the header `sha256-8`; the scans corpus keeps all sixty-four. Sixteen hex
+characters is sixty-four bits, which answers *did this file change* perfectly
+well — and a check that demanded all sixty-four would report every one of those
+2 268 rows as changed and be deleted by the first person who ran it.
+
 It records the population per document because **a prevalence is per population
 or it is not a prevalence**.
 
@@ -690,18 +724,36 @@ are `DCTDecode` — the four `/CalRGB` pictures the issue named — and one is
 `(samples)`. `calibrated`, at 1802, is a different quantity and is not that
 count.
 
-**And one thing the record says about itself.** `refused` is 4 across 3280
-documents, all in `ia-biodiversity`, and the same four documents as before:
-`render`'s own 256-megapixel decode budget declining a page rather than a
-document we cannot read. The instrument folds "cannot read" and "declined to
-decode" into one count and should not; the four are named in the baseline so
-nobody reads them as a coverage gap.
+**And one thing the record says about itself.** ~~`refused` is 4 across 3280
+documents, all in `ia-biodiversity`, and the same four documents as before~~ —
+**it is 1**, in the records re-taken 2026-10-04. One document of 3 280:
+`bulletinno38tasm.pdf`, whose page names three 9 449 × 13 701 pictures against
+a per-page budget the `Images` path spends four bytes a pixel of. `render.Page`
+**draws** that page; it is the extraction API that refuses it. The baseline's
+§31 has the measurement and
+[go-pdfkit/render#100](https://github.com/go-pdfkit/render/issues/100) holds the
+question.
 
-**`hung` is 0 in all 23 populations, and that is not "nothing hangs".** The
-document that hangs draws no picture on its first page, so `images` never asks
-poppler about it at all; `compare` does meet it and names it. The bound is
-unexercised by `images` on this corpus, and the baseline says so rather than
-letting a reader infer otherwise.
+~~The instrument folds "cannot read" and "declined to decode" into one count and
+should not.~~ It no longer asserts the other half either: `Ours` is documented
+as "ours produced nothing and the judge did", and the page path used to set it
+**without asking poppler at all**. It asks now — pictures back is `Ours`, a
+tool that will not finish is `Hung`, a refusal is `Neither` — and the first
+thing that changed was a test demanding `Ours` for page nine of a one-page
+document. See §31.
+
+~~**`hung` is 0 in all 23 populations, and that is not "nothing hangs".**~~
+**`hung` is 1, and the reason it used to be 0 is the reason given here.** The
+document that hangs draws no picture on its first page, so `images` never asked
+poppler about it at all — and §35 made it ask, on exactly the pages we draw no
+picture for. `pdfimages` does not come back from
+`qpdf_qtest_qpdf_shared-unnamed-field.pdf`, and §34's page comparison reached
+the same file, page and tool independently. The sentence above was right and it
+described a hole rather than a corpus.
+
+~~The bound is unexercised by `images` on this corpus~~ — **§22 of the baseline
+strikes that too: the bound fired three times, and it is a property of the
+MACHINE and not of the corpus.**
 
 ## What it comes to today
 
@@ -716,7 +768,23 @@ two runs means a regression only if everything else held.
 images -dir /Users/Shared/pdfscans -only ia-medical -json
 ```
 
-[`baseline/README.md`](baseline/README.md) reads it out.
+[`baseline/README.md`](baseline/README.md) reads it out, and
+[its §33](baseline/README.md) says how the whole set is re-taken and what it
+costs — one population at a time, because the judge is held to a wall-clock
+bound.
+
+### Three counts about the measurement rather than about a picture
+
+Added 2026-10-04 with the records above, and each of them is a number the
+instrument needed to say about ITSELF.
+
+| | |
+|---|---|
+| `sizePaired` | how many pictures were matched to the judge's by SIZE rather than by object number. The weaker matcher, so a large share is a run whose other numbers are worth less. It is **0** here, and §32 says why that zero was not the good news it looked like. |
+| `unseen` | how many pictures the judge took out that ours produced nothing for — **the one direction the pairing could not see at all**, because it walks our pictures and appends one result for each. **5 510** over 23 populations; §32 names the three causes, §35 is the 29% of them that a page we draw NOTHING for used to hide, and [render#101](https://github.com/go-pdfkit/render/issues/101), [#104](https://github.com/go-pdfkit/render/issues/104) and [#108](https://github.com/go-pdfkit/render/issues/108) hold them. |
+| `repeated` | how many of the judge's rows name an object we returned once. `pdfimages` lists one row per DRAW and `Images` returns one entry per object, so this is a difference of **unit** and not of fidelity. **3 371**, and counting it apart is what keeps `unseen` meaningful. |
+
+All three are `omitempty`, so a record written before them keeps its shape.
 
 ### Every population runs, and has since v0.20.0
 

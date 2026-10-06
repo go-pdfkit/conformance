@@ -1,0 +1,25 @@
+ia-biodiversity	250 compared	0 not
+	pixels differing: median 0.0020  p90 0.0110  p99 0.0586  worst 0.0990
+	under 1% 220  under 2% 237  under 5% 245  under 10% 250
+	identical byte for byte 32.18%   mean |diff| 11.227 levels
+	colour, levels of 255: worst square mean 21.09  max 95.69  worst pixel 254
+	worst   9.90%  bidragtillknne00falc.pdf page 1
+	worst   7.30%  bulletinno38tasm.pdf page 1
+	worst   5.89%  checklistoffishi88alma.pdf page 1
+	worst   5.86%  bulletinsocit08pyre.pdf page 1
+	worst   5.19%  charlespickerin00pick.pdf page 1
+	worst   3.36%  injuryrecoveryde00oste.pdf page 1
+	worst   3.31%  bulletinofgeolo30geol.pdf page 1
+	worst   3.19%  bulletinofdepart03jama.pdf page 1
+	worst   2.88%  invertebrata00queeo.pdf page 1
+	worst   2.76%  infield883chic.pdf page 1
+	worst   2.70%  iterhelveticuman1740hall.pdf page 1
+	worst   2.18%  bidragtillkn35suom.pdf page 1
+	time, 250 pages both were timed on: ours 1m20.014s  theirs 2m43.041s  (0.491x)
+	per page ours/theirs: median 0.528x  p90 0.764x   faster on 248 of 250
+	worst   1.17x SLOWER ours    853ms  theirs    730ms  bulletin1901964smit.pdf page 1
+	worst   1.10x SLOWER ours    714ms  theirs    646ms  interactiontrac510hilk.pdf page 1
+	worst   0.92x faster ours    577ms  theirs    626ms  indigoferavalli199liuj.pdf page 1
+	worst   0.92x faster ours    638ms  theirs    693ms  bulletin1021932smit.pdf page 1
+	worst   0.91x faster ours    255ms  theirs    281ms  bulletindelasocif06soci.pdf page 1
+	slowest page 1.07s, 0 over the threshold

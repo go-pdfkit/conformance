@@ -1,0 +1,27 @@
+gh-safedocs	20 compared	6 not
+	    1  different sizes
+	    5  refused
+	pixels differing: median 0.0025  p90 0.0154  p99 0.0856  worst 0.1357
+	under 1% 14  under 2% 18  under 5% 18  under 10% 19
+	identical byte for byte 90.27%   mean |diff|  4.317 levels
+	colour, levels of 255: worst square mean 36.88  max 245.48  worst pixel 255
+	worst  13.57%  Miscellaneous_Targeted_Test_PDFs_PatternTextInsideText.pdf page 1
+	worst   8.56%  Inline_Image_Abbreviations_InlineAbbreviations.pdf page 1
+	worst   1.54%  Dialects_Dialect-ContentStreams.pdf page 1
+	worst   1.54%  Dialects_Dialect-ContentStreamsViaResourceNames.pdf page 1
+	worst   1.54%  Dialects_Dialect-ContentStreamsWithIndirectRefs.pdf page 1
+	worst   1.09%  CompactedSyntax_CompactedPDFSyntaxMatrix.pdf page 1
+	worst   0.84%  CompactedSyntax_CompactedPDFSyntaxTest.pdf page 1
+	worst   0.82%  Miscellaneous_Targeted_Test_PDFs_uri-ismap-test.pdf page 1
+	worst   0.38%  Miscellaneous_Targeted_Test_PDFs_list-of-uri-actions.pdf page 1
+	worst   0.38%  Miscellaneous_Targeted_Test_PDFs_list-of-uri-actions-with-base.pdf page 1
+	worst   0.25%  Miscellaneous_Targeted_Test_PDFs_LinkAnnot-appearances.pdf page 1
+	worst   0.20%  Unicode_passwords_baseline_unicode-test-actualtext.pdf page 1
+	time, 20 pages both were timed on: ours 123ms  theirs 1.438s  (0.086x)
+	per page ours/theirs: median 0.041x  p90 0.140x   faster on 20 of 20
+	worst   0.53x faster ours     38ms  theirs     71ms  Miscellaneous_Targeted_Test_PDFs_ContentStreamCycleType3insideType3.pdf page 1
+	worst   0.17x faster ours      8ms  theirs     48ms  Miscellaneous_Targeted_Test_PDFs_PatternTextInsideText.pdf page 1
+	worst   0.14x faster ours     25ms  theirs    177ms  CompactedSyntax_CompactedPDFSyntaxMatrix.pdf page 1
+	worst   0.08x faster ours      6ms  theirs     73ms  CompactedSyntax_CompactedPDFSyntaxTest.pdf page 1
+	worst   0.08x faster ours      5ms  theirs     61ms  Miscellaneous_Targeted_Test_PDFs_ContentStreamNoCycleType3insideType3.pdf page 1
+	slowest page 38ms, 0 over the threshold

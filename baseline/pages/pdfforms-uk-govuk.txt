@@ -1,0 +1,25 @@
+uk-govuk	302 compared	0 not
+	pixels differing: median 0.0011  p90 0.0049  p99 0.0089  worst 0.0103
+	under 1% 301  under 2% 302  under 5% 302  under 10% 302
+	identical byte for byte 84.39%   mean |diff|  5.969 levels
+	colour, levels of 255: worst square mean 17.33  max 40.89  worst pixel 254
+	worst   1.03%  lasting-power-of-attorney-forms__20250821-LP12-Make-and-register-your-lasting-power-of-attorney-a-guide.pdf page 1
+	worst   0.95%  challenge-a-decision-made-by-the-department-for-__crmr1a.pdf page 1
+	worst   0.92%  lasting-power-of-attorney-forms__20250821-LP12-Gwneud-a-chofrestru-eich-atwrneiaeth-arhosol-canllawiau.pdf page 1
+	worst   0.90%  form-n245-application-for-suspension-of-a-warran__n245-largeprint-eng.pdf page 1
+	worst   0.89%  challenge-a-decision-made-by-the-department-for-__crmr1a_w.pdf page 1
+	worst   0.86%  general-register-office-gro-certificate-applicat__5__-_Overseas_Civil_Partnership_1_25.pdf page 1
+	worst   0.77%  health-adjustment-passport__health-adjustment-passport-easy-read-form.pdf page 1
+	worst   0.75%  applying-for-a-passport-from-outside-the-uk-appl__CCS0226120416-001_PN10604791_Online_Overseas_Passport_Ap.pdf page 1
+	worst   0.73%  search-public-guardian-registers__20250901-print-bras-OPG100-canfod-a-oes-gan-rywun.pdf page 1
+	worst   0.72%  keep-a-record-of-your-pupils-driving-lessons__learning-to-drive-record-overall-progress.pdf page 1
+	worst   0.72%  apply-for-a-non-molestation-or-occupation-order-__FL401_template_statement_-_22pt.pdf page 1
+	worst   0.70%  apply-for-a-non-molestation-or-occupation-order-__FL401_ER.pdf page 1
+	time, 302 pages both were timed on: ours 11.917s  theirs 44.143s  (0.270x)
+	per page ours/theirs: median 0.163x  p90 0.520x   faster on 302 of 302
+	worst   0.94x faster ours    127ms  theirs    136ms  complete-your-self-assessment-tax-return-for-5-a__SA100_2024_Cymraeg.pdf page 1
+	worst   0.94x faster ours    128ms  theirs    137ms  complete-your-self-assessment-tax-return-for-5-a__SA100-Cymraeg-2025.pdf page 1
+	worst   0.92x faster ours    126ms  theirs    136ms  complete-your-self-assessment-tax-return-for-5-a__SA100_2023_Cymraeg.pdf page 1
+	worst   0.92x faster ours    100ms  theirs    110ms  search-public-guardian-registers__20250901-OPG100-canfod-a-oes-gan-rywun.pdf page 1
+	worst   0.88x faster ours    103ms  theirs    117ms  lasting-power-of-attorney-forms__20251117_lpc-dalenni-parhad.pdf page 1
+	slowest page 448ms, 0 over the threshold

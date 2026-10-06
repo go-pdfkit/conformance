@@ -1,0 +1,25 @@
+ia-medical	250 compared	0 not
+	pixels differing: median 0.0000  p90 0.0031  p99 0.0108  worst 0.0330
+	under 1% 246  under 2% 248  under 5% 250  under 10% 250
+	identical byte for byte 15.69%   mean |diff|  6.480 levels
+	colour, levels of 255: worst square mean 14.82  max 97.67  worst pixel 186
+	worst   3.30%  childrenwithorth00shar.pdf page 1
+	worst   3.03%  childrenwithhear00rita.pdf page 1
+	worst   1.75%  insaneinforeignc00letcuoft.pdf page 1
+	worst   1.08%  insanityitsdepen00gray.pdf page 1
+	worst   0.95%  buildinglibraryc00nati.pdf page 1
+	worst   0.93%  inflammationintr00adamuoft.pdf page 1
+	worst   0.87%  b22324392.pdf page 1
+	worst   0.73%  b2232916x.pdf page 1
+	worst   0.71%  b22349431.pdf page 1
+	worst   0.66%  b21963927.pdf page 1
+	worst   0.64%  introductiontoco1816lawr.pdf page 1
+	worst   0.58%  b22006370_0001.pdf page 1
+	time, 250 pages both were timed on: ours 1m2.145s  theirs 3m22.035s  (0.308x)
+	per page ours/theirs: median 0.291x  p90 0.671x   faster on 249 of 250
+	worst   1.47x SLOWER ours    970ms  theirs    661ms  b2232916x.pdf page 1
+	worst   0.86x faster ours    296ms  theirs    345ms  inquiryintoprinc00fluh.pdf page 1
+	worst   0.81x faster ours    236ms  theirs    291ms  b28132233.pdf page 1
+	worst   0.79x faster ours    438ms  theirs    557ms  industrialcoloni00wooduoft.pdf page 1
+	worst   0.78x faster ours    206ms  theirs    266ms  insanityitsdepen00gray.pdf page 1
+	slowest page 970ms, 0 over the threshold

@@ -1,0 +1,25 @@
+gh-verapdf	134 compared	0 not
+	pixels differing: median 0.0000  p90 0.0000  p99 0.0033  worst 0.0056
+	under 1% 134  under 2% 134  under 5% 134  under 10% 134
+	identical byte for byte 99.60%   mean |diff|  0.115 levels
+	colour, levels of 255: worst square mean 4.68  max 79.83  worst pixel 255
+	worst   0.56%  PDF_A-1b_6.9_Interactive_Forms_veraPDF_test_suite_6-9-t01-fail-b.pdf page 1
+	worst   0.52%  PDF_A-1b_6.9_Interactive_Forms_veraPDF_test_suite_6-9-t01-fail-a.pdf page 1
+	worst   0.33%  Isartor_test_files_PDFA-1b_6.9_Interactive_Forms_isartor-6-9-t01-fail-a.pdf page 1
+	worst   0.06%  Isartor_test_files_PDFA-1b_6.9_Interactive_Forms_isartor-6-9-t02-fail-a.pdf page 1
+	worst   0.06%  Isartor_test_files_PDFA-1b_6.9_Interactive_Forms_isartor-6-9-t02-fail-b.pdf page 1
+	worst   0.02%  PDF_A-2b_6.4_Interactive_forms_6.4.2_XFA_forms_veraPDF_test_suite_6-4-2-t01-fail-b.pdf page 1
+	worst   0.01%  PDF_A-2u_6.2_Graphics_6.2.11_Fonts_6.2.11.7_Unicode_character_maps_6.2.11.7.2_Level_A_and_Level_U_conformance_veraPDF_test_suite_6-2-11-7-2-t01-fail-d.pdf page 1
+	worst   0.00%  PDF_A-2u_6.2_Graphics_6.2.11_Fonts_6.2.11.7_Unicode_character_maps_6.2.11.7.2_Level_A_and_Level_U_conformance_veraPDF_test_suite_6-2-11-7-2-t01-pass-e.pdf page 1
+	worst   0.00%  PDF_A-2u_6.2_Graphics_6.2.11_Fonts_6.2.11.7_Unicode_character_maps_6.2.11.7.2_Level_A_and_Level_U_conformance_veraPDF_test_suite_6-2-11-7-2-t01-pass-a.pdf page 1
+	worst   0.00%  PDF_A-2b_6.4_Interactive_forms_6.4.2_XFA_forms_veraPDF_test_suite_6-4-2-t01-fail-a.pdf page 1
+	worst   0.00%  PDF_A-4_6.4_Interactive_forms_6.4.2_XFA_forms_veraPDF_test_suite_6-4-2-t01-fail-a.pdf page 1
+	worst   0.00%  PDF_A-4_6.4_Interactive_forms_6.4.2_XFA_forms_veraPDF_test_suite_6-4-2-t01-fail-b.pdf page 1
+	time, 134 pages both were timed on: ours 138ms  theirs 4.884s  (0.028x)
+	per page ours/theirs: median 0.022x  p90 0.043x   faster on 134 of 134
+	worst   0.15x faster ours      7ms  theirs     48ms  PDF_A-4_6.4_Interactive_forms_6.4.2_XFA_forms_veraPDF_test_suite_6-4-2-t01-fail-b.pdf page 1
+	worst   0.15x faster ours      8ms  theirs     53ms  PDF_A-4_6.4_Interactive_forms_6.4.2_XFA_forms_veraPDF_test_suite_6-4-2-t01-fail-a.pdf page 1
+	worst   0.14x faster ours      7ms  theirs     54ms  PDF_A-2b_6.4_Interactive_forms_6.4.2_XFA_forms_veraPDF_test_suite_6-4-2-t01-fail-a.pdf page 1
+	worst   0.12x faster ours      3ms  theirs     30ms  PDF_A-2u_6.2_Graphics_6.2.11_Fonts_6.2.11.7_Unicode_character_maps_6.2.11.7.2_Level_A_and_Level_U_conformance_veraPDF_test_suite_6-2-11-7-2-t01-fail-b.pdf page 1
+	worst   0.11x faster ours      3ms  theirs     27ms  PDF_A-2u_6.2_Graphics_6.2.11_Fonts_6.2.11.7_Unicode_character_maps_6.2.11.7.2_Level_A_and_Level_U_conformance_veraPDF_test_suite_6-2-11-7-2-t01-pass-e.pdf page 1
+	slowest page 8ms, 0 over the threshold

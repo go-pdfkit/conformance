@@ -1,0 +1,27 @@
+gh-pypdf	32 compared	2 not
+	    1  refused
+	    1  different sizes
+	pixels differing: median 0.0000  p90 0.0012  p99 0.0065  worst 0.0068
+	under 1% 32  under 2% 32  under 5% 32  under 10% 32
+	identical byte for byte 87.45%   mean |diff|  3.574 levels
+	colour, levels of 255: worst square mean 13.99  max 48.00  worst pixel 255
+	worst   0.68%  019-grayscale-image_grayscale-image.pdf page 1
+	worst   0.65%  027-cropped-rotated-scaled_cropped-rotated-scaled.pdf page 1
+	worst   0.57%  028-image-references-deduplication_wrong-references.pdf page 1
+	worst   0.18%  008-reportlab-inline-image_inline-image.pdf page 1
+	worst   0.12%  018-base64-image_base64image.pdf page 1
+	worst   0.10%  024-annotations_annotated_pdf.pdf page 1
+	worst   0.08%  003-pdflatex-image_pdflatex-image.pdf page 1
+	worst   0.06%  006-pdflatex-outline_pdflatex-outline.pdf page 1
+	worst   0.06%  014-outlines_mistitled_outlines_example.pdf page 1
+	worst   0.04%  022-pdfkit_pdfkit.pdf page 1
+	worst   0.04%  012-libreoffice-form_libreoffice-form.pdf page 1
+	worst   0.03%  011-google-doc-document_google-doc-document.pdf page 1
+	time, 32 pages both were timed on: ours 435ms  theirs 2.548s  (0.171x)
+	per page ours/theirs: median 0.076x  p90 0.296x   faster on 32 of 32
+	worst   0.52x faster ours     36ms  theirs     69ms  027-cropped-rotated-scaled_cropped-rotated-scaled.pdf page 1
+	worst   0.49x faster ours     61ms  theirs    125ms  012-libreoffice-form_libreoffice-form.pdf page 1
+	worst   0.38x faster ours     58ms  theirs    152ms  004-pdflatex-4-pages_pdflatex-4-pages.pdf page 1
+	worst   0.35x faster ours     49ms  theirs    141ms  026-latex-multicolumn_multicolumn.pdf page 1
+	worst   0.30x faster ours     15ms  theirs     51ms  022-pdfkit_pdfkit.pdf page 1
+	slowest page 61ms, 0 over the threshold

@@ -17,7 +17,7 @@ instrument.
 
 | | |
 |---|---|
-| taken | 2026-09-24T17:08:38Z .. 2026-09-24T20:07:32Z (UTC) |
+| taken | **2026-10-04T09:14Z .. 11:56Z (UTC)**, one population at a time (§33) *(the run these replace: 2026-09-24T17:08Z .. 20:07Z)* |
 | judge | pdfimages version 26.04.0 |
 | **measure** | **per channel, gate `D` = 2, count budget `N` = 0** ([conformance#16](https://github.com/go-pdfkit/conformance/issues/16)) |
 | **pairing** | **by object number, falling back to size only when one side published none** ([#30](https://github.com/go-pdfkit/conformance/pull/30)); a MASK by the object of the picture that names it ([#32](https://github.com/go-pdfkit/conformance/pull/32), [#34](https://github.com/go-pdfkit/conformance/pull/34)) |
@@ -25,16 +25,19 @@ instrument.
 | **walk** | **the page's CONTENT STREAM, not its /Resources** ([render#43](https://github.com/go-pdfkit/render/pull/43)) |
 | **bucketing** | the listing **and** the picture's own `/ColorSpace` ([conformance#20](https://github.com/go-pdfkit/conformance/issues/20)) |
 | **bound on the judge** | **2m0s per document, per tool** ([conformance#21](https://github.com/go-pdfkit/conformance/issues/21)) |
-| `go-pdfkit/render` | **v0.35.0** |
+| `go-pdfkit/render` | **v0.67.0** *(§33; these records replace a set taken at v0.35.0, and §33 says which two cells moved)* |
 | `go-pdfkit/reader` | v0.6.0 |
-| `go-gfx/gfx` | **v0.31.0** |
+| `go-gfx/gfx` | **v0.34.0** |
 | `tannevaled/gobig2` | **v0.2.0** |
-| `go-images/jpeg2000` | **v0.1.0** *(was `ajroetker/go-jpeg2000` v0.0.2; see §15)* |
+| `go-images/jpeg2000` | **v0.13.2** *(was `ajroetker/go-jpeg2000` v0.0.2, then the fork at v0.1.0; see §15 and §25)* |
 | `go-images/jpeg` | **v0.1.0** *(was the standard library's `image/jpeg`; see §18)* |
 | pages per document | 1 (the first page of each document) |
 | corpora | `/Users/Shared/pdfscans` (MANIFEST.tsv), `/Users/Shared/pdfforms` (MANIFEST.tsv) |
 
-**These figures still hold twelve releases later.** `render` has gone from
+~~**These figures still hold twelve releases later.**~~ **They held for
+thirty-two, and §33 is the re-take that says so: two cells of twenty-three
+populations moved, one of them a signed mean in its fifth decimal place.** What
+follows was written when `render` had gone from
 v0.35.0 to v0.47.0 since they were taken -- a real bold face where there was a
 faked one, and the rest changes made for speed -- and two populations re-measured
 at v0.43.0 came out **identical**: `ia-texts` and `fr-impots`, every bucket, every
@@ -958,7 +961,8 @@ else, so the fourth component was gone before `render` saw it, which left only
 "components out of a third-party module, or decoding JPEG 2000 here".
 
 **There was a third option, and it is the one that was taken: fork the
-module.** `github.com/go-images/jpeg2000` v0.1.0 is that fork, under the same
+module.** The fork is `github.com/go-images/jpeg2000` v0.13.2 today and was
+v0.1.0 when this section was written, under the same
 Apache-2.0 licence, with its one change stated in a `NOTICE` as section 4(b)
 requires and also offered upstream. A picture whose own JP2 header declares the
 enumerated colour space CMYK — EnumCS 12 of ITU-T T.800 Table I.1, which the
@@ -1964,12 +1968,23 @@ it is the only part where the answer is ground the references do not cover.
 
   **Measured before acting on it, and not acted on.** `Ours` is set at two
   places: a file that will not read, and a page that will not be got. It is the
-  `refused` column, and §28 shows that column is **zero in all twenty-three
+  `refused` column, and ~~§28 shows that column is **zero in all twenty-three
   populations** — a document ours refuses that poppler refuses too goes through
   `blame()` and comes out `Neither`, not `Ours`, which is why §27's sixty-six
   are not here. Splitting the label today would divide two empty buckets, and
-  the split changes a JSON field and every table that carries it. It is left
-  named, which is what this list is for.
+  the split changes a JSON field and every table that carries it.~~ **§31
+  measures that column at 1, not 0, and the one document in it is the SECOND
+  kind** — `bulletinno38tasm.pdf`, a page that will not be got. So the two
+  buckets are not both empty and the reason given for not splitting them does
+  not hold.
+
+  Worse, the two paths do not test the same thing. The `reader.Open` path calls
+  `blame()`, so a file poppler cannot open either comes out `Neither`. The
+  page path at `judgePage` sets `Missing: Ours` **without asking poppler at
+  all** — so for a page-level refusal the column's own definition, *"and the
+  judge would"*, is asserted rather than measured. Here it happens to be true:
+  `pdfimages -list` takes out all three pictures of that page (§31). It was not
+  the instrument that established that.
 - ~~**The three `DCTDecode` rows that did not move are not diagnosed.**
   `fr-impots` at a median peak of 255, `gh-pypdf` at 233 and `gh-qpdf` at 171 are
   not chroma reconstruction and are not rounding.~~ **All three are at a peak of
@@ -1979,9 +1994,45 @@ it is the only part where the answer is ground the references do not cover.
   see that an entry here can outlive its subject.
   [conformance#13](https://github.com/go-pdfkit/conformance/issues/13), cited
   beside it, is **closed**: the disagreements it found were this repository's
-  size matcher, and `match` now pairs by OBJECT first. Whether a per-picture
+  size matcher, and `match` now pairs by OBJECT first. ~~Whether a per-picture
   pairing audit has been run since is still not recorded, and that part of the
-  entry stands.
+  entry stands.~~ **It is recorded now, in every run.**
+
+  `PairedBy` already said what follows from itself -- *"a run whose size share
+  is large is a run whose numbers are worth less, and that has to be visible"*
+  -- and `Tally` dropped it, so the share reached no report line and no record.
+  It is counted as of
+  [conformance#92](https://github.com/go-pdfkit/conformance/pull/92):
+  `SizePaired` on the filter line and in the JSON. An audit is a one-off that
+  ages; a counter does not.
+
+  **First reading: ZERO, over 1 606 pictures.** Measured 2026-10-01 at the
+  `go.mod` of this run (`render` v0.60.0, `go-images/jpeg2000` v0.9.1 -- what
+  it held before #55; the count is a pairing property and does not depend on
+  either version): 330
+  pictures over the five `pdfscans` populations (`-limit 40`) and 1 276 over all
+  eighteen of `pdfforms` (`-limit 60`), 53 filter rows, not one paired by size.
+  Every picture both sides took out was matched by the one identity both
+  publish.
+
+  **A zero needs a control, because a counter that never fires reads exactly
+  like a fallback that never fires.** The object test was ablated -- `object`
+  forced to 0 inside `match`, which is the only input the first loop reads --
+  and the same sample came back with **every** picture paired by size (7 of 7
+  `DCTDecode`, 16 of 16 `JPXDecode`, and so on down the rows). The counter is
+  live; the zero is a property of the corpus.
+- **`refused` does not ask the renderer, and now that the difference is known
+  it could.** §31 found that the corpus's one entry in that column is a document
+  `render.Page` draws and `render.Images` refuses. Asking `Page` as well, on the
+  few documents that reach this branch, would let the column separate "no
+  picture came out of the extraction" from "the field can read this and we
+  cannot" — which is what the column was described as meaning.
+
+  **Measured, named, not acted on**, because it is a question about what the
+  column should MEAN and not a defect: a third outcome changes a JSON field and
+  every table that carries it, and whether an extraction harness should hold an
+  opinion about the renderer is not ours to settle in a commit. The cost is one
+  `render.Page` per refusal, and refusals are one document in 3 281.
 - **No aggregate bound is applied.** `mse` and `mean` are recorded in FFmpeg's
   and pdfium's units and bounded by nothing, because no bound has been measured
   for pictures that were *extracted* rather than rendered. Choosing one from
@@ -2009,7 +2060,7 @@ instrument that produced them. They can now.
 |---|---|
 | taken | 2026-09-28T14:49Z .. 2026-09-28T15:16Z (UTC) *(first: 2026-09-26T16:59Z)* |
 | judge | pdftoppm version 26.04.0 |
-| `go-pdfkit/render` | **v0.60.0**, which is what `go.mod` holds *(first taken at v0.47.0; nine releases later, each re-measured -- see the end of §24)* |
+| `go-pdfkit/render` | **v0.60.0**, which is what `go.mod` held when this was taken -- [#55](https://github.com/go-pdfkit/conformance/pull/55) has since moved it to **v0.67.0**, and these timings have NOT been re-taken against it *(first taken at v0.47.0; nine releases later, each re-measured -- see the end of §24)* |
 | `go-images/jpeg2000` | **v0.9.1** |
 | **cores** | **we use up to eight on a JPEG 2000 page; the judge uses one.** See *What this section does not say*. |
 | every named row | **drawn again three times** and the minimum kept (`compare -confirm`), because a list selected on the maximum of one sample per page is biased upward by the act of selecting |
@@ -2554,8 +2605,15 @@ bytes each — and `render` v0.66.0 fixed it. Re-measured against v0.67.0 and
 | agreement | 100.0% | 100.0% |
 | **refused** | **1** | **0** |
 
-The extra picture is the one that was refused, and it comes out exact. **The
-column is now zero in every population.**
+~~The extra picture is the one that was refused, and it comes out exact. **The
+column is now zero in every population.**~~
+
+> **Both sentences are wrong, and §31 has the measurement.** Re-taken
+> 2026-10-03 at the same versions, `refused` is **1**: `bulletinno38tasm.pdf` is
+> still refused, byte-identically to v0.60.0, because its page names three
+> 9 449 × 13 701 pictures and the `Images` path spends four bytes on every pixel
+> of each. The extra picture is real and is a different document's. Four cells
+> of this table reproduce; this one does not.
 
 `ia-americana` was re-measured too, since it holds the other two pages §26
 names, and it is **unchanged in every column**. Its two pages were refused by
@@ -2619,3 +2677,830 @@ forwards, as I did, produces a defect hunt for something fixed two months ago.
 
 The same hazard, in a smaller form, is in §27: a sweep's "drawn by neither" line
 counts the two builds it compares, not us and the judge.
+
+## §30 — §29's hazard, in the half of this document a program reads
+
+§29 says this file has to be read backwards, because a section is true of the
+run that produced it. That is about the prose. The same thing has happened to
+the **records**, and there it is worse: a paragraph can be struck through, a
+`.json` either describes the code or it does not.
+
+Read off the files themselves, 2026-10-01:
+
+| what | render | `go-images/jpeg2000` | dated |
+|---|---|---|---|
+| the twenty-three `baseline/*.json` | **v0.35.0** | **v0.1.0** | 2026-09-24 |
+| `go.mod`, which is what the tool in this repository builds against | ~~v0.60.0~~ **v0.67.0** | ~~v0.9.1~~ **v0.13.2** | since #55, 2026-10-03 |
+| §24, the timings | v0.60.0 | v0.9.1 | 2026-09-28 |
+| §29, measured in a tree with the modules upgraded | **v0.67.0** | **v0.13.2** | 2026-09-30 |
+
+**The document has four subjects at once and the machine-readable half is the
+oldest of them.** Every `taken` in `baseline/` is 2026-09-24T17:08Z..20:07Z, and
+`go-images/jpeg2000` has had **nineteen** releases since the version those
+records name (v0.2.0 through v0.13.2, counted off the tag list) — among them the whole 8.6-bytes-per-pixel decoder of §25 and the
+three pages of §26 that came back blank and now draw. Nothing in the records
+says they predate that work, because when they were written there was no later.
+
+### What this blocks, by name
+
+The entry above that reads *"No aggregate bound is applied … choosing one from
+these records is a job for a later run, and the records carry the terms"* cannot
+be done from these records. Their twenty-one buckets with `terms` put
+`mse.worst` at 0.654 and `|mean.worst|` at 0.579, with `peak.worst` at 4 in
+every bucket but one (`gh-openpdf DCTDecode converted`, at 20, which §17
+already accounts for) -- a tight, inviting distribution, and **a bound fitted to
+it would be fitted to v0.35.0.**
+A gate borrowed from a measurement of code that no longer exists goes red on
+the first legitimate change and is then deleted, which costs more than never
+having had it.
+
+So the order was: land the `render` v0.67.0 bump, re-take the twenty-three
+records at that `go.mod`, and read the distribution again. **The bound is not the
+next step. The records are.**
+
+**[#55](https://github.com/go-pdfkit/conformance/pull/55) landed on
+2026-10-03**, so the first step is done and the table above has been amended --
+which is this section happening to itself, four days after it was written.
+~~What is left of §30 is the row it exists for: the twenty-three records are
+still at v0.35.0.~~ **They were re-taken on 2026-10-04 and §33 says what
+moved: two cells of twenty-three populations, one of them a signed mean in its
+fifth decimal place.** §30's fact was right and the risk it implied was not.
+
+### Why this is not a gate
+
+The obvious fix -- a test asserting every record names the `render` version in
+`go.mod` -- would redden CI on every dependency bump, including the ones that
+change no pixel, and a gate that reddens on routine upgrades is a gate someone
+removes.
+
+**There is already a gate here, and it is the better one.**
+`TestTheBaselineReadmeDescribesTheRecordsBesideIt` asserts that the version rows
+of THIS FILE match the versions in the records beside it, on the row's own line.
+It does not care what `go.mod` says, so a dependency bump alone cannot redden
+it; what reddens it is a re-take whose README was not amended. It caught §33's
+on the first run -- three rows, including one where the version had landed on
+the next line of a rewrapped sentence and so was not on the row the guard reads.
+That is the gate this section said it would not add, already written, and the
+distinction is worth keeping: a guard on AGREEMENT BETWEEN TWO THINGS THIS
+REPOSITORY HOLDS costs nothing to keep green, while a guard on agreement with
+the outside world is a tax on every upgrade. What is wanted is the move §28 and conformance#92 both make: make the
+number **visible**, and let a reader see for themselves that a record is six
+days and thirty-two releases behind the code it is cited for. This table is
+that, until the records are re-taken.
+
+### How the twenty-three are re-taken
+
+§30 says the records are the next step. The top-level README shows a single
+invocation of `images -json`; neither file said how the **set** is taken, what
+it is named, or what it costs. One invocation per population, named after the corpus directory and the
+population, which is where the filenames in `baseline/` come from:
+
+```sh
+for pop in ia-americana ia-biodiversity ia-medical ia-texts ia-uscourts; do
+	images -dir /Users/Shared/pdfscans -only "$pop" -json > "baseline/pdfscans-$pop.json"
+done
+```
+
+and the eighteen of `/Users/Shared/pdfforms` the same way. Omitting `-only`
+writes **one** record carrying every population of that corpus, which is not
+the shape `baseline/` holds.
+
+**They are not interchangeable in cost.** Measured 2026-10-01 on an M4 Max, one
+at a time: `fr-cerfa` (450 forms) takes about two minutes, `ia-biodiversity`
+(250 scans) about **fifty**. The scans dominate, and the whole set is an
+afternoon.
+
+**Take them one at a time.** The judge is held to a wall-clock bound
+(`-timeout`, 2 minutes by default) and §22 is what it cost to learn that the
+bound is a property of the machine, not of the corpus: two runs in parallel can
+turn a document into a `hung` entry that neither would produce alone. A count
+measured beside another copy of itself is not a count of the corpus.
+
+## §31 — §28 closed a cell that is still open, and §30 is why nobody saw
+
+§28 is titled *"The one cell in this document that said «defect», and closing
+it"*. Its table reports `ia-biodiversity` re-measured against `render` v0.67.0
+and `go-images/jpeg2000` v0.13.2:
+
+| `ia-biodiversity` | §28's before | §28's after | **re-measured 2026-10-03** |
+|---|---:|---:|---:|
+| pictures | 754 | 755 | **755** ✓ |
+| direct | 705 | 706 | **706** ✓ |
+| compared | 650 | 651 | **651** ✓ |
+| exact | 650 | 651 | **651** ✓ |
+| **refused** | **1** | **0** | **1** ✗ |
+
+**Four cells of five reproduce and the fifth does not — and the fifth is the
+one the section is about.** Taken with `images -only ia-biodiversity -json`
+against render v0.67.0 and jpeg2000 v0.13.2, one at a time, beside a v0.60.0 run
+of the same population for a control. The control reproduces §28's *before*
+column exactly, which is what makes the *after* column's single disagreement
+readable rather than arguable.
+
+### What is actually refused, and why it is not §26's ceiling
+
+The document is the one §28 names, `bulletinno38tasm.pdf`, and the refusal is
+byte-identical at v0.60.0 and at v0.67.0 — so the seven releases §28 credits
+changed nothing about it:
+
+```
+render: the page names more picture than may be decoded at once:
+a picture of 9449 by 13701 pixels, with 9513958 of the 268435456 pixels left
+```
+
+That is not one picture being too big. **It is the third of three.** Page 1
+names three pictures of the same 9 449 × 13 701 — two JPEG 2000 greys and a
+JBIG2 soft mask — and `pdfimages -list` takes out all three:
+
+```
+page  num type    width height color comp bpc enc    object size
+   1    0 image    9449 13701  gray    1   8 jpx          32 884K
+   1    1 image    9449 13701  gray    1   8 jpx          34 167K
+   1    2 smask    9449 13701  gray    1   1 jbig2        34 254K
+```
+
+Each is 129 460 749 pixels. Two of them are 258 921 498, and 268 435 456 −
+258 921 498 = **9 513 958**, which is the number the message prints. The budget
+is spent by the first two and the third cannot be afforded.
+
+**The cause is the hand-off, not the codec.** `afford` charges declared pixels,
+and `decodeBase` says why that is honest: `r.bounded` is true exactly on the
+`Images` path, which hands pictures out through `raster.Image` and therefore
+**expands every one of them to four bytes a pixel**. Three pictures of 129.5
+megapixels is **1.447 GiB** at four bytes, against a page budget of 268 435 456
+pixels — exactly 1.000 GiB. Handed out as the single-component greys they are,
+the same page is **0.362 GiB** and well inside it.
+
+So this is the mirror image of §26. §26 was a ceiling that *refused* pages by
+counting pixels at four bytes each when the decoder no longer spent that; this
+is a page refused because the `Images` path really does spend it, on a corpus
+whose pictures are all one component. §25 took the decoder from 19.8 to 8.6
+bytes a pixel and this last factor of four is downstream of it, in the type the
+pictures come back in.
+
+Tracked as [go-pdfkit/render#100](https://github.com/go-pdfkit/render/issues/100).
+**The `refused` column is not zero, and this document should stop saying it is.**
+
+### Why it took nine days
+
+§30 is the answer. §28's figures were taken in a tree with the modules upgraded
+by hand and were never written to `baseline/`, so the only copy of them was
+prose — and prose cannot be re-run. The committed record still said `refused: 1`
+the whole time, which is to say **the repository contained the refutation
+already** and nothing compared the two halves of its own document.
+
+That is the argument for re-taking the records rather than for writing another
+section.
+
+### And the column was asserting half of its own definition
+
+Looking for the document turned up a defect in the instrument rather than in
+the renderer. `Ours` is documented as *"ours would not open the document or
+draw the page **and the judge would**. That is a defect and the only one of
+these that is"* — and `Ours` is set at two places:
+
+| where | asked the judge? |
+|---|---|
+| `reader.Open` fails | yes — `blame()`, which runs `pdfinfo` |
+| `render.Images` fails on a page | **no** |
+
+So a page refusal went into the defect column whatever poppler did with the
+same page. Here it happens to be right — `pdfimages` takes out all three
+pictures — but it was not the instrument that established that; it was this
+section, by hand.
+
+`judgePage` now asks, of the same tool on the same page, the way the branch
+below it already asks when the judge takes nothing out of a page ours drew for:
+
+| what comes back | column |
+|---|---|
+| the judge hands pictures back | `Ours` — a defect, and `bulletinno38tasm.pdf` is the corpus's only one |
+| the judge does not finish | `Hung`, naming `pdfimages` |
+| the judge refuses, or runs and takes nothing out | `Neither` |
+
+The last row folds two cases that `judgeShots` does not tell apart — it reports
+"no pictures came out" as an error — and the vocabulary now says so instead of
+implying a distinction the code cannot make.
+
+**It changed an answer immediately.** `TestAPageThatIsNotThereSaysSo` asks for
+page nine of a one-page document and asserted `Ours`: the instrument called a
+page that does not exist a defect of ours. Asked, poppler cannot give page nine
+either, and it is now `Neither`. Checked by mutation — never asking the judge,
+and swapping `Hung` for `Neither`, each make the tests fail.
+
+**The fix was then checked against the corpus, not only against its tests.**
+`ia-biodiversity` re-taken a third time, with the asking in place: `refused`
+is still **1**, `unopenable` and `declined` still 0, and every filter row
+identical to the run before it. A classification that quietly moved a real
+defect into `Neither` would look exactly like a fix from the test suite alone;
+asked of the document it was written for, it leaves it where it belongs,
+because `pdfimages` does hand three pictures back.
+
+None of these three runs is committed to `baseline/`. They were taken at render
+v0.67.0 while `go.mod` holds v0.60.0, and a record whose modules disagree with
+the tree that reads it is the whole subject of §30. The bump is open as
+[conformance#55](https://github.com/go-pdfkit/conformance/pull/55).
+
+### Correction, the same day: the page DRAWS. Only the extraction refuses.
+
+The two paragraphs above say the refusal is in the hand-off to `raster.Image`,
+and they are right about the arithmetic and wrong about the reach. `afford` and
+`r.budget` are reached from **`images.go` only**, and `bounded: true` is set at
+exactly one place in the whole module — inside `Images`. The page renderer
+neither budgets this way nor refuses for this reason.
+
+Asked directly, at render v0.67.0:
+
+```
+Images  REFUSED: ... with 9513958 of the 268435456 pixels left
+Page    ok: 411x596, 23659 dark pixels, 216735 light, 4562 between
+```
+
+It is not a blank page with a clean exit, either. Run through this repository's
+own `compare` on a one-document corpus, against `pdftoppm` at 72 dpi:
+
+| `bulletinno38tasm.pdf` page 1 | |
+|---|---|
+| pixels differing | 7.30% |
+| mean abs difference | 14.875 levels |
+| worst square mean | 55 levels |
+| ours | **795 ms** |
+| poppler | 2.992 s — we are 0.266× of it |
+
+7.3% on a 9 449 × 13 701 scan reduced to 411 × 596 is a **23× downscale**, which
+is the resampling disagreement §1 describes and the reason this baseline measures
+codecs through `images` rather than through a rasteriser at all. It is not a
+reading of the page being wrong; it is the reason the page is not the unit.
+
+**So `Ours`, whose comment says *"would not open the document or draw the page"*,
+is here neither.** Ours draws the page. What refuses is the extraction API the
+harness uses, under a budget the renderer does not share — and the one non-zero
+cell in the corpus's defect column is that, not a document the field can read
+and we cannot. `images.go` now says so where `Ours` is defined.
+
+That lowers [render#100](https://github.com/go-pdfkit/render/issues/100) from a
+gap against poppler to a limit of one API: no caller of `Page` is affected, and
+the issue says so now. **The measurement that found it was the renderer being
+asked the question the column's own words name**, which nothing in the harness
+had ever done — it only ever calls `Images`.
+
+### How many pages the budget refuses, over both corpora
+
+Before deciding what the budget is worth fixing, it was worth asking how often
+it fires. Every document of both corpora, page 1, at render v0.67.0, asking our
+side only — `reader.Open`, `PageCount`, `render.Images` — and never poppler, so
+this is a census and not a comparison:
+
+| | |
+|---|---:|
+| documents | **3 281** |
+| our side produced nothing for page 1 | **67** |
+| of those, `reader.Open` refused the file | **66** |
+| of those, the page budget refused | **1** |
+
+**One document in 3 281.** `bulletinno38tasm.pdf` and nothing else, which is
+what makes [render#100](https://github.com/go-pdfkit/render/issues/100) a limit
+worth recording rather than a campaign.
+
+And the sixty-six are §27's sixty-six, **recovered by a different instrument**:
+
+| count | `reader.Open` says | §27/§28's table |
+|---:|---|---:|
+| 39 | `unsupported security handler` | 39 |
+| 23 | `the password does not open this file` | 23 |
+| 2 | no indirect objects, and no `startxref` either | 2 |
+| 1 | no document catalogue, and an unsupported `/Brotli` filter | 1 |
+| 1 | no document catalogue, and no `startxref` | 1 |
+
+Their populations agree too — `ia-americana` 30, `gh-openpdf` 14, `gh-pdfbox` 8,
+`ia-texts` 7, `gh-safedocs` 5, `gh-pypdf` 1, `ia-medical` 1. §27's figures came
+out of a sweep that compares two builds and asks poppler separately; these came
+out of a program that asks neither. **Two instruments sharing no dependency
+agreeing on a census of sixty-six is the kind of control this file has been
+short of** — three of them agreed once before and all three were reading the
+same layer.
+
+## §32 — The direction the pairing could not see, and why its first number was wrong
+
+The pairing walks OUR pictures and appends one result for each. A row of the
+judge's that nothing claimed left no trace in any count, so **the one direction
+this harness could not see was the direction that matters most**: a picture the
+field gets out of a file and we do not.
+
+Its own test suite had already set the case up and recorded the blind spot as
+the expected answer. `TestAPictureTheOtherSideDoesNotHave` stands a judge with
+a 9×9 against a page holding a 2×1: ours is unmatched **and** theirs is, the
+first has been reported since the day it was written, the second was dropped,
+and the test asserted `len == 1`.
+
+### The first number was 7 614, and it was not a gap
+
+Counted over the eighteen `pdfforms` populations at render v0.67.0:
+**7 614**, of which `fr-cerfa` alone had 7 480. A number that size would mean
+poppler extracts thousands of pictures we cannot. It does not, and **one
+document carried 304 of the 316 in the first sixty of `fr-cerfa`** — which is
+the shape a dominating artefact has, not a population.
+
+That document is one this file already names: `cerfa_10074.pdf`, the page of
+211 uniform 2×2 swatches under `/SMask`s. Asked directly:
+
+| page 1 of `cerfa_10074.pdf` | |
+|---|---:|
+| rows `pdfimages -list` prints | **729** |
+| distinct objects among them | **214** |
+| rows for object 147 alone | **62** |
+| pictures `render.Images` returns | **425** |
+| 729 − 425 | **304**, the unseen count exactly |
+
+**`pdfimages` lists one row PER DRAW.** The `judgePage` comment in
+`images/images.go` said a repeated draw came back "against pdfimages's one";
+that was never measured and is wrong. It is corrected there, citing this.
+
+Ours is one entry per object on purpose — decoding the same stream a second
+time says nothing about a codec — so the asymmetry is expected and harmless to
+every fidelity figure in this file. What is NOT harmless is counting it as
+pictures we failed to get. `Repeated` is now a count of its own, and the report
+prints it beside `Unseen` so that the small number is read as small.
+
+### What is left in `Unseen` is INLINE IMAGES, and the first answer here was wrong
+
+~~In the same sixty documents, six rows remain … a push button's **icon** …
+A tool written for the purpose agreed with the count **document by document on
+56 of 60**.~~
+
+**That was measured on a sample where the thing being counted was almost always
+zero, and it is wrong.** Taken over the whole population instead: `fr-cerfa` has
+**4 153** unseen rows after the repeat split, and a program that counts the
+pictures only an annotation reaches finds **25** of them in all 450 documents.
+Fifty-six of sixty agreeing was fifty-four pairs of noughts.
+
+Grouped by what the judge's own listing says:
+
+| of `fr-cerfa`'s 4 153 unseen rows | |
+|---|---:|
+| object **0** | **4 147** |
+| `stencil` type | 2 614 |
+| `image` type | 1 538 |
+| 16×16 | 2 592 |
+| documents carrying any | **13** of 450 |
+| `cerfa_12481.pdf` alone | **2 592** |
+
+An object of nought is what `pdfimages` prints for an **inline image**, and
+`render.Images` says plainly that it does not return those: *"Inline images --
+the ones written into the content stream with BI -- are not returned: they are
+named by no resource and are objects of nothing."* Read at the byte level, the
+first three of `cerfa_12481.pdf`'s eight content streams hold **751** `BI`…`ID`
+images, the first of them
+
+	/IM true /W 16 /H 16 /BPC 1 /D[1 0] /F /CCF /DP<</K -1 /Columns 16>>
+
+a 16×16 CCITT-fax image mask -- which is exactly the `stencil 16x16` row
+poppler lists.
+
+**So a class of 4 147 pictures in one population is decoded by `render.Page`
+and compared against the reference by nothing.** `drawInlineImage` draws them;
+no figure in this file touches them. A defect in inline-image handling would be
+invisible to every number here.
+
+And it explains a nought that stood unexplained two sections ago.
+**`SizePaired` is zero in every population** because the pairing falls back to
+size exactly when an object number is missing, and the one class whose object
+number is missing never reaches the pairing at all. The fallback was written for
+a case the harness cannot see.
+
+Tracked as [go-pdfkit/render#101](https://github.com/go-pdfkit/render/issues/101).
+
+### The annotation case is small HERE and dominates another population
+
+Which is the same mistake in miniature, so it is worth the table. Counted over
+two whole populations rather than one sample:
+
+| population | documents | unseen rows | of which object 0 | pictures an annotation reaches |
+|---|---:|---:|---:|---:|
+| `fr-cerfa` | 450 | 4 153 | **4 147** | 25 |
+| `us-uscis` | 88 | **73** | **0** | **74** |
+
+In `us-uscis` it is **one picture per document, in 73 of 88**, and not one of
+them is inline: `g-1041.pdf`'s is a 1125×75 one-bit strip, which is a barcode.
+On a population of government forms, **the barcode or logo that identifies the
+form is the one picture per page nothing ever compares.** Filed as
+[go-pdfkit/render#104](https://github.com/go-pdfkit/render/issues/104).
+
+So neither cause ranks above the other; each dominates a different population,
+and a single ordering of them would have been wrong whichever way round it was
+written. In `fr-cerfa` the annotation case is 25 in 450, one of them
+`cerfa_10011.pdf`'s 106×56 `DCTDecode`, object 1865, reached as
+
+	/Annots → /Widget /FT /Btn → /MK /I → 1864 (Form /FRM) → /XObject /Im0 → 1865
+
+a push button's **icon**. Neither case is a decoder gap: `render.Page` draws
+annotations by default and draws inline images. Both are the extraction API's
+scope being narrower than the renderer's -- which is §31's finding, a third
+time, in a third place.
+
+### A third cause, and it was a real defect
+
+`gh-qpdf` has 13 unseen rows, of which 3 are inline images and **0** are
+annotation pictures. The remaining **ten** were a defect, and the fixture names
+itself: `form-xobjects-some-resources2.pdf`.
+
+Both of `render`'s paths had half a rule. `drawForm` and `imagesDrawn` each fell
+back to the parent when a form XObject's `/Resources` was **absent**, and a
+**present** one replaced it wholesale — so a name the form did not list resolved
+to nothing and the picture was silently not drawn. A form's resource dictionary
+is not required to be complete; a name it does not provide is resolved in the
+resources in force where the form was painted, which is what poppler does.
+
+| that page | |
+|---|---:|
+| images `pdfimages -list` takes out | 6 |
+| images `render.Images` returned | **2** |
+
+And it reached the page, not only the extraction: through this repository's own
+`compare` against `pdftoppm`, those fixtures were **8.54%** of pixels away at a
+worst square mean of **130 levels**. After the fix, **0.03%** and 8.80.
+
+Fixed in [go-pdfkit/render#103](https://github.com/go-pdfkit/render/pull/103),
+filed as [#102](https://github.com/go-pdfkit/render/issues/102). Checked in both
+directions over the whole forms corpus — 2 268 documents, eighteen populations —
+where **exactly one** population moves: `gh-qpdf`, pictures 63 → 73, the ten
+recovered landing in `(samples) direct` as **51 of 51 exact and 51 of 51
+byte-identical**. They are not merely present; they are right.
+
+**That is what the counter was for.** `Unseen` was added two sections ago as a
+field that documented a requirement, its first number was wrong twice, and what
+survived the two corrections found a rendering defect that every fidelity figure
+in this file had been blind to — because a picture nobody returns is a picture
+nobody compares.
+
+### The method, which is the part worth keeping
+
+Three times in one day a total was dominated by one document, and twice the
+first explanation fitted the sample and not the population:
+
+| | sample | population |
+|---|---|---|
+| first count | 316 in 60 documents | 7 614 in 18 populations |
+| after the repeat split | 12 | 4 243 |
+| cause offered | annotations, 56/60 agreeing | annotations explain **25 of 4 153** |
+| cause measured | — | inline images, **4 147 of 4 153** |
+| what the remainder held | — | a real defect: render#102, ten rows of `gh-qpdf` |
+
+**An agreement where both sides are mostly nought is not an agreement.** The
+control that would have caught it is the one this file keeps asking for: count
+the positives, and refuse to quote a rate whose denominator is six.
+
+## §33 — The records re-taken, and the staleness was almost entirely immaterial
+
+§30 said the twenty-three records were thirty-two `render` releases and nineteen
+`go-images/jpeg2000` releases behind the tree that reads them, and that the next
+step was the records and not a bound. They are re-taken: **2026-10-04, render
+v0.67.0, `go-images/jpeg2000` v0.13.2**, one population at a time for §22's
+reason, against the same `pdfimages` 26.04.0.
+
+### What moved in thirty-two releases: two cells
+
+| population | cell | 2026-09-24, v0.35.0 | 2026-10-04, v0.67.0 |
+|---|---|---:|---:|
+| `ia-biodiversity` | `JPXDecode direct` pictures | 496 | **497** |
+| | …and `exact` | 496 | **497** |
+| `gh-pdfbox` | `JPXDecode converted` signed `mean` | −0.0020404 | **−0.0020666** |
+
+**And nothing else, in twenty-three populations.** Every other bucket of every
+other population is identical cell for cell: the same pictures, the same exact,
+identical, inverted and differing, the same `share`, `peak` and `mse` to every
+digit recorded.
+
+The first row is §26's page, and the picture it gained comes out exact — which
+is the one claim of §28's table that §31 did NOT refute, now standing on a
+record rather than on prose. The second is a signed mean moving by **0.000026 of
+a level** on one picture, with its share, peak and mse unchanged.
+
+So §30 was right about the fact and wrong about the risk it implied. **A record
+can be thirty-two releases stale in its metadata and current in its numbers**,
+and the only way to know which is to re-take it. What this does buy is that the
+prose and the records now describe the same code, which is the thing §31 found
+had failed.
+
+### What the fresh records carry that the old ones could not
+
+| over 23 populations, 3 280 documents, 8 067 pictures | |
+|---|---:|
+| `refused` | **1** — §31's, still open as [render#100](https://github.com/go-pdfkit/render/issues/100) |
+| `unopenable` | 63 |
+| `declined` | 0 |
+| `hung` | 0 |
+| **`sizePaired`** | **0** |
+| **`unseen`** | **4 277** |
+| **`repeated`** | **3 371** |
+
+`sizePaired` is zero for the reason §32 found: the pairing falls back to size
+when an object number is missing, and the one class whose number is missing —
+inline images — never reaches it.
+
+### The four files that are not in the corpus, and why 66 was not 63
+
+§27 counts **66** documents neither implementation draws. The records say
+`unopenable` **63**. Both are right, and the difference is enumeration:
+
+	/Users/Shared/pdfscans   MANIFEST.tsv 1012 rows, 1013 files on disk
+	/Users/Shared/pdfforms   MANIFEST.tsv 2268 rows, 2268 files on disk
+
+Four scans files are on disk and in no manifest row —
+`bidragtillknne38suom.pdf`, `calcflh_000254.pdf`,
+`epn11-1968countclip2restricted.pdf` and `b22346703.pdf` — and **three of those
+four are refusals**: two in `ia-americana`, one in `ia-medical`. 66 − 3 = 63,
+exactly.
+
+`images` and `compare` walk the MANIFEST; the sweep behind §27 and the census
+behind §31 walk the directory. **Neither is wrong and no count is transferable
+between them without saying which it walked**, which is why §24's totals read
+3 208 and §27's read 3 281 and this section's read 3 280. The fourth file opens
+normally, which is why it never showed up in a refusal count to be asked about.
+
+### One row of these records has a fix waiting
+
+[go-pdfkit/render#103](https://github.com/go-pdfkit/render/pull/103) is open and
+takes `gh-qpdf` from 63 pictures to 73 — ten pictures a form XObject's
+incomplete `/Resources` was hiding, all ten exact and byte-identical. These
+records are taken at the `go.mod` as it stands, so that row is **expected to
+move** the moment that lands, and this is the sentence that says so before it
+does.
+
+## §34 — The page compared against poppler, which this document had never recorded
+
+Everything above measures **extracted pictures**: `images` against `pdfimages`,
+23 records, every codec drilled to one picture. §24 measures **time**. The one
+thing missing was the page itself — and `baseline/pages/` held exactly one
+population, as a control of one binary against itself (§21).
+
+So the page is recorded now. `compare` against `pdftoppm` at 72 dpi with
+`-cropbox`, one population at a time, 2026-10-04, at the `go.mod` of the records
+beside it (`render` v0.67.0, `go-images/jpeg2000` v0.13.2) and the same
+`pdftoppm` 26.04.0. The raw output of all twenty-three runs is in
+`baseline/pages/`, unedited.
+
+| population | compared | not | median | worst | byte-identical | mean \|diff\| | under 1% | worst page |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| `ca-cra` | 84 | 0 | 0.200% | 4.00% | **84.51%** | 9.58 | 83 | `t2222-fill-21f.pdf` 4.00% |
+| `fr-cerfa` | 450 | 0 | 0.110% | 6.70% | **85.07%** | 6.60 | 391 | `cerfa_12468.pdf` 6.70% |
+| `fr-impots` | 50 | 0 | 0.000% | 1.09% | **65.22%** | 4.84 | 49 | `2735_2735_5088.pdf` 1.09% |
+| `gh-openpdf` | 42 | 14 | 0.000% | 2.17% | **97.19%** | 1.36 | 41 | `openpdf-core_src_test_resources_pdf-2-0_PDF_` 2.17% |
+| `gh-pdfbox` | 149 | 8 | 0.010% | 11.11% | **93.88%** | 2.56 | 144 | `PDFBOX-3127-RAU4G6QMOVRYBISJU7R6MOVZCRFUO7P4` 11.11% |
+| `gh-pdfcpu` | 147 | 0 | 0.240% | 7.41% | **83.62%** | 2.40 | 141 | `form_primitives_comboboxGroup.pdf` 7.41% |
+| `gh-pypdf` | 32 | 2 | 0.000% | 0.68% | **87.45%** | 3.57 | 32 | `019-grayscale-image_grayscale-image.pdf` 0.68% |
+| `gh-qpdf` | 80 | 1 | 0.030% | 8.54% | **93.19%** | 1.61 | 76 | `qpdf_qtest_qpdf_form-xobjects-some-resources` 8.54% |
+| `gh-safedocs` | 20 | 6 | 0.250% | 13.57% | **90.27%** | 4.32 | 14 | `Miscellaneous_Targeted_Test_PDFs_PatternText` 13.57% |
+| `gh-verapdf` | 134 | 0 | 0.000% | 0.56% | **99.60%** | 0.12 | 134 | `PDF_A-1b_6.9_Interactive_Forms_veraPDF_test_` 0.56% |
+| `int-wipo` | 116 | 0 | 0.010% | 0.34% | **89.83%** | 5.01 | 116 | `docs-fr-forms-ro-editable-ed-ro154.pdf` 0.34% |
+| `uk-govuk` | 302 | 0 | 0.110% | 1.03% | **84.39%** | 5.97 | 301 | `lasting-power-of-attorney-forms__20250821-LP` 1.03% |
+| `us-dol` | 140 | 0 | 0.350% | 1.95% | **84.03%** | 10.45 | 118 | `2025-form-5500-ez.pdf` 1.95% |
+| `us-irs` | 69 | 0 | 0.080% | 0.43% | **80.63%** | 13.04 | 69 | `f720.pdf` 0.43% |
+| `us-opm` | 66 | 0 | 0.120% | 5.64% | **83.97%** | 8.73 | 64 | `sf2820.pdf` 5.64% |
+| `us-ssa` | 199 | 0 | 0.130% | 0.70% | **83.98%** | 9.67 | 199 | `ssa-454-bk.pdf` 0.70% |
+| `us-uscis` | 88 | 0 | 0.150% | 0.44% | **85.29%** | 11.46 | 88 | `i-914.pdf` 0.44% |
+| `us-uscourts` | 69 | 0 | 0.340% | 10.49% | **92.12%** | 4.69 | 55 | `ao038.pdf` 10.49% |
+| `ia-americana` | 222 | 28 | 0.230% | 19.23% | **23.52%** | 11.74 | 179 | `sim_unitarian-register-and-the-universalist-` 19.23% |
+| `ia-biodiversity` | 250 | 0 | 0.200% | 9.90% | **32.18%** | 11.23 | 220 | `bidragtillknne00falc.pdf` 9.90% |
+| `ia-medical` | 250 | 0 | 0.000% | 3.30% | **15.69%** | 6.48 | 246 | `childrenwithorth00shar.pdf` 3.30% |
+| `ia-texts` | 5 | 7 | 0.010% | 2.02% | **22.82%** | 10.40 | 4 | `bdrc-W1KG4230.pdf` 2.02% |
+| `ia-uscourts` | 250 | 0 | 0.050% | 2.21% | **85.36%** | 5.21 | 237 | `gov.uscourts.casd.850253.pdf` 2.21% |
+| **all 23** | **3214** | **66** | — | — | — | — | **3001** | — |
+
+**93.4% of the 3214 pages compared differ from poppler on under 1% of their
+pixels**, and the MEDIAN is at or under 0.35% in every one of the twenty-three
+populations — 0.000% in five of them.
+
+### What the sixty-six not compared are, and why that number keeps appearing
+
+	63  refused -- neither implementation opens the file
+	 2  different sizes -- the two renderers produced different pixel dimensions
+	 1  hung -- pdftoppm did not finish within the bound
+
+The 63 are the records' `unopenable` 63, the same set, by an instrument that
+renders instead of extracting. §33 explains why §27 counts 66 of these and the
+records count 63: §27 walks the directory and the records walk the MANIFEST,
+which has four fewer files, three of them refusals. That this run's "not
+compared" is also 66 is a coincidence of three different causes, not the same
+66, and it is worth saying so plainly because the number invites the mistake.
+
+**The one `hung` is the paragraph the top-level README carries made concrete.**
+`qpdf_qtest_qpdf_shared-unnamed-field.pdf`: `images` reports `hung: 0` in all 23
+records because that document draws no picture on its first page, so the
+extraction harness never asks poppler about it at all. `compare` does meet it.
+Two instruments, two populations, and neither count is wrong.
+
+### Do not read a low byte-identical share as a defect
+
+`ia-medical` is **15.69%** byte-identical and `gh-verapdf` is **99.60%**, and
+the first is not twenty times worse: its median difference is **0.000%** of
+pixels against veraPDF's 0.000% too. The scans are 9 000-pixel-wide pages
+reduced to about 600 for the comparison — a 15× to 23× downscale, where any
+difference in resampling puts a level or two into most pixels and byte-identity
+collapses while the picture does not. §1 says the same thing about why this
+baseline measures codecs through extraction rather than through a rasteriser.
+**Byte-identity is a property of the scale asked for.** The median and the
+`under 1%` column are the figures to read.
+
+### What the worst pages are
+
+`ia-americana`'s 19.23% is the worst page in the corpus and is not diagnosed
+here. Below it: `gh-safedocs` 13.57% (`PatternTextInsideText.pdf` -- a pattern
+used as the fill of text inside text), `gh-pdfbox` 11.11%, `us-uscourts`
+10.49%, `ia-biodiversity` 9.90%, and then **`gh-qpdf` 8.54%, which
+[render#103](https://github.com/go-pdfkit/render/pull/103) takes to 0.03%** --
+it is in this table because these records are taken at the `go.mod` as it
+stands, and §33 says the same of the row it moves.
+
+### Two things these files are not
+
+**The timing columns are not to be read.** `compare` prints them and they are
+in the raw output, measured while the load average moved between 7 and 59.
+§24 is where timings live, with its own stated conditions; §22 is why a bound
+under load is a property of the machine. The fidelity columns are deterministic
+-- both rasterisers are -- so the load does not touch them, which is the only
+reason this run is usable at all.
+
+**And they are text, not a record.** `images` has `-json` and twenty-three
+machine-readable baselines; `compare` has neither, so this is a tabulation of
+prose, exactly as §21's control is. It should have a `-json` of its own -- *a
+number that is not written down cannot be regressed against* is this
+repository's own sentence, and these are not written down in a form a later run
+can subtract from. It was not built here because `judgeVersion`, `modules` and
+the `baseline` record type live in `cmd/images`, package `main`, so `compare`
+cannot import them; moving them to an internal package touches the very files
+an unmerged pull request is changing. Named, with the reason, rather than
+started.
+
+## §36 — A security audit of the harness, and the two trust boundaries it was not treating as such
+
+Everything else in this file measures fidelity. This section is about the
+tools, and it comes from asking one question of them: **what in here is data
+that something else wrote?**
+
+Three answers, and two of them had no guard.
+
+### 1. A manifest path was read verbatim and joined to the corpus
+
+`Entry.Path` comes out of `MANIFEST.tsv`, a data file that travels beside the
+documents in a shared directory, and which nothing in this repository
+necessarily wrote — the forms corpus was gathered before this repository
+existed, which the header-reading code exists for. That path was then joined to
+the corpus directory by `os.Stat`, `os.Open`, a hash, and the argument list of a
+poppler invocation.
+
+`filepath.Join` neutralises an **absolute** path by construction:
+`Join("/corpus", "/etc/passwd")` is `/corpus/etc/passwd`. It does **not**
+neutralise `..`:
+
+	Join("/corpus", "../../etc/passwd")  ==  "/etc/passwd"
+
+So a manifest row could name a file outside the corpus and every tool here would
+read it. `corpus.Read` now **refuses** such a row — refuses rather than cleans,
+because a row trying to leave the corpus is not a row with a typo, and
+rewriting it would put a file in a measurement under a name the manifest did not
+give.
+
+### 2. A remote server's identifier became a local file name, and a file name beginning with `-` is a flag
+
+`harvest` names what it fetches `strings.ReplaceAll(id, "/", "_") + ".pdf"`,
+where `id` comes from the archive's **search results**. The `/` was replaced,
+which blocks a directory escape. A leading `-` was not.
+
+Every poppler tool parses its arguments with getopt, and the document path is
+positional. A corpus file called `-v.pdf` makes `pdfimages` print its version
+and take no picture — and the harness then records the page as one **the judge
+drew nothing for**. A wrong measurement, from a file name.
+
+Guarded twice, deliberately:
+
+| | |
+|---|---|
+| `internal/poppler.Document` | prefixes `./` when a path would be read as a flag, at every call — `pdfinfo`, `pdfimages`, `pdfimages -list`, `pdftoppm` |
+| `corpus.safeName` | strips a leading `-` or `.` when the file is created, so the awkward name never enters the corpus |
+
+A leading `.` goes too, for a reason this document already has a section about:
+a corpus file nothing lists is measured by every tool that walks the manifest
+and by no tool that walks the directory, which is §33's disagreement.
+
+### 3. What was already right, and is worth saying
+
+- **No shell, anywhere.** `exec.CommandContext(ctx, name, args...)` takes an
+  argv, so no amount of quoting in a file name reaches a shell. Command
+  injection was never available; argument injection was.
+- **Every poppler call is bounded** (§21, §22) — a hostile document cannot hold
+  a run open, and a bound that fires is *named* rather than retried.
+- **A decode is bounded by what it will cost**, not by what the file claims:
+  §25 and §26 are that work, and `afford` charges a page before a byte is
+  spent, so *"a 208 KB file names 87 GB"* is refused rather than attempted.
+- Temporary files go through `os.MkdirTemp` and are removed with the directory,
+  so nothing is written to a predictable path.
+
+### 4. The ceiling was one-sided: we bounded our own decode and not the judge's answer
+
+Found by continuing the same question past the inputs a file provides to the
+inputs a TOOL provides. `render` refuses to decode a page past a ceiling; three
+`png.Decode` calls read poppler's answer about the same page with no bound at
+all.
+
+Measured on the page of §35, where our own decoder refuses to spend 277 MB:
+
+| | |
+|---|---:|
+| PNGs `pdfimages` writes for page 1 | 3 × 7 048 × 9 856 |
+| on disk | 44 MB |
+| `png.Decode` → three `*image.Gray` | 69.5 MB each |
+| `raster.FromImage` → RGBA, which `raster.Image` always is | **278 MB each** |
+| **retained** | **834 MB** |
+
+**An instrument that refuses to spend what it asks the other side to spend is
+measuring two different things**, and nothing here limits what poppler is asked
+to write. `maxJudgePixels` is now the same number `render` bounds a page by, in
+the same unit, checked from `png.DecodeConfig` **before** a byte is decoded —
+for the reason `afford` gives: a limit noticed after the allocation has not
+helped. Today's corpus is inside it (that page is 3 × 69 465 088 = 208 395 264
+against 268 435 456), so **no figure in `baseline/` moves**; what changes is
+that an unbounded read is bounded.
+
+And the silence beside it is gone. A PNG that could not be read was **skipped**
+with `continue`, so the pairing saw fewer of the judge's pictures and said
+nothing — the same mistake as §35, three functions away. It is reported now,
+the way the hung listing beside it already was.
+
+Both of the first two fixes are mutation-checked: accepting a `..` row fails two
+cases of `TestAManifestRowThatLeavesTheCorpus`, and leaving a leading dash alone
+fails `TestAPathThatWouldBeReadAsAFlag`. So are these: dropping the bound lets a
+picture past the budget be read, and restoring the `continue` turns a page that
+should be reported into a page measured on nothing. **Neither is a finding about a document in
+the corpus** — they are findings about the instrument, which is what an audit of
+an instrument should produce.
+
+## §35 — The count of §32 was an undercount, and the `hung` column was empty because nobody asked
+
+`judgePage` returned `nil` the moment `render.Images` handed back an empty
+slice. A page we produce no picture for produced **no row** — not a refusal, not
+an unseen picture, nothing — and it had done that since it was written.
+
+§34 found the consequence without looking for it. The page `compare` ranks
+**worst of 3 214**, at 19.23% of pixels differing, is one of those pages:
+
+```
+render.Images  ->  0 images, err == nil
+render.Page    ->  1269x1775, 154 055 dark pixels      (it draws)
+pdfimages      ->  3 pictures of 7048x9856
+```
+
+Each of those pictures is 69 465 088 pixels, **3.5% past** the per-picture
+ceiling, and `decodeBase` drops it by returning nil, which is not an error
+([render#108](https://github.com/go-pdfkit/render/issues/108)). The
+second-worst page, at 14.70%, is the same shape 5.5% past it. So **the two pages
+at the top of this corpus's page-level disagreement were the two pages the
+picture-level instrument could not see.**
+
+### What it cost, measured over all twenty-three populations
+
+The judge is now asked on such a page, and what it took out is counted as
+`Unseen`:
+
+| population | before | after | |
+|---|---:|---:|---:|
+| `fr-cerfa` | 4 153 | **5 351** | +1 198 |
+| `gh-safedocs` | 0 | **11** | +11 |
+| `ia-americana` | 24 | **32** | +8 |
+| `gh-pdfbox` | 4 | 10 | +6 |
+| `gh-qpdf` | 13 | 19 | +6 |
+| `gh-openpdf`, `gh-pypdf`, `us-uscis`, `ia-uscourts` | | | +1 each |
+| **23 populations** | **4 277** | **5 510** | **+1 233 — a 29% undercount** |
+
+Nine of twenty-three moved. `fr-cerfa`'s 1 198 come from **13 documents whose
+page 1 draws only inline images** — 1 197 of the 1 198 rows carry object 0,
+which is [render#101](https://github.com/go-pdfkit/render/issues/101) — so those
+pages did not merely lose a count, they vanished whole. `gh-safedocs` going from
+nought to eleven is the same thing in a test suite built out of inline images.
+
+**It was an undercount systematically for the heaviest pages**, which are the
+ones a reader would most want it for.
+
+### And one cell nobody expected: `hung` is no longer zero
+
+Everything else in all 23 records is identical, cell for cell. One thing is
+not, and it is not an `unseen`:
+
+	gh-qpdf   hung: qpdf_qtest_qpdf_shared-unnamed-field.pdf page 1, pdfimages
+
+This document draws no picture on page 1, so `images` **never asked poppler
+about it** — which is exactly what this file and the top-level README have both
+said for weeks to explain `hung: 0`:
+
+> The document that hangs draws no picture on its first page, so `images` never
+> asks poppler about it at all; `compare` does meet it and names it.
+
+The sentence was right and it was a description of the hole, not of the corpus.
+Asking the judge on a page we drew nothing for asks about that document for the
+first time, and `pdfimages` does not come back. §34's independent page
+comparison hit the same file, the same page, the same tool — **two instruments,
+neither looking for it, agreeing on the one document in 3 280 that stops a
+poppler tool.**
+
+So `hung` is 1 and the column has a worked example at last, which is better
+than a zero that meant "unasked".

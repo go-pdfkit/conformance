@@ -1,0 +1,25 @@
+ca-cra	84 compared	0 not
+	pixels differing: median 0.0020  p90 0.0038  p99 0.0055  worst 0.0400
+	under 1% 83  under 2% 83  under 5% 84  under 10% 84
+	identical byte for byte 84.51%   mean |diff|  9.583 levels
+	colour, levels of 255: worst square mean 17.22  max 33.74  worst pixel 193
+	worst   4.00%  t2222-fill-21f.pdf page 1
+	worst   0.55%  t4a-fill-25e.pdf page 1
+	worst   0.52%  t183corp-fill-23e.pdf page 1
+	worst   0.51%  t183corp-fill-24e.pdf page 1
+	worst   0.47%  t929-fill-24e.pdf page 1
+	worst   0.44%  t185-fill-25e.pdf page 1
+	worst   0.41%  t183-fill-25e.pdf page 1
+	worst   0.40%  gst498-fill-25e.pdf page 1
+	worst   0.39%  rc193-fill-25e.pdf page 1
+	worst   0.38%  rc325-fill-26e.pdf page 1
+	worst   0.38%  rc199-fill-25e.pdf page 1
+	worst   0.37%  t777-fill-25e.pdf page 1
+	time, 84 pages both were timed on: ours 3.521s  theirs 19.231s  (0.183x)
+	per page ours/theirs: median 0.210x  p90 0.298x   faster on 84 of 84
+	worst   0.67x faster ours    153ms  theirs    228ms  gst498-fill-25e.pdf page 1
+	worst   0.48x faster ours     87ms  theirs    180ms  rc66sch-fill-26e.pdf page 1
+	worst   0.40x faster ours     59ms  theirs    149ms  t1158-fill-25e.pdf page 1
+	worst   0.35x faster ours     70ms  theirs    200ms  t1213-fill-25e.pdf page 1
+	worst   0.34x faster ours     55ms  theirs    164ms  rc193-fill-25e.pdf page 1
+	slowest page 229ms, 0 over the threshold

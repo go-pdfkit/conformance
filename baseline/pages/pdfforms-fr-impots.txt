@@ -1,0 +1,25 @@
+fr-impots	50 compared	0 not
+	pixels differing: median 0.0000  p90 0.0010  p99 0.0068  worst 0.0109
+	under 1% 49  under 2% 50  under 5% 50  under 10% 50
+	identical byte for byte 65.22%   mean |diff|  4.839 levels
+	colour, levels of 255: worst square mean 15.64  max 28.35  worst pixel 182
+	worst   1.09%  2735_2735_5088.pdf page 1
+	worst   0.68%  2044_2044_5133.pdf page 1
+	worst   0.46%  2044_2044_5484.pdf page 1
+	worst   0.45%  2044_2044_4764.pdf page 1
+	worst   0.14%  2042_2042_4752.pdf page 1
+	worst   0.10%  2047_2047_4769.pdf page 1
+	worst   0.03%  2042_2042_5126.pdf page 1
+	worst   0.03%  2042_2042_5476.pdf page 1
+	worst   0.03%  2042_2042_4756.pdf page 1
+	worst   0.02%  2042_2042_5534.pdf page 1
+	worst   0.02%  2735_2735_5089.pdf page 1
+	worst   0.02%  2042_2042_5532.pdf page 1
+	time, 50 pages both were timed on: ours 2.375s  theirs 8.926s  (0.266x)
+	per page ours/theirs: median 0.242x  p90 0.363x   faster on 50 of 50
+	worst   0.59x faster ours    113ms  theirs    192ms  2042_2042_5472.pdf page 1
+	worst   0.43x faster ours     94ms  theirs    220ms  2042_2042_5122.pdf page 1
+	worst   0.40x faster ours     82ms  theirs    205ms  2047_2047_4769.pdf page 1
+	worst   0.39x faster ours     68ms  theirs    176ms  2042_2042_4752.pdf page 1
+	worst   0.36x faster ours     73ms  theirs    201ms  2047_2047_5149.pdf page 1
+	slowest page 113ms, 0 over the threshold

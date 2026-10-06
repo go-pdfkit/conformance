@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -89,5 +90,62 @@ func TestMainCallsRun(t *testing.T) {
 	main()
 	if got != 2 {
 		t.Errorf("main exited %d, want 2", got)
+	}
+}
+
+func TestCheckReportsACorpusThatDisagreesAndExitsNonZero(t *testing.T) {
+	// -check is meant to be the first line of a measuring script, so the exit
+	// status carries the answer and not only the text.
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "a"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "a/stranger.pdf"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out, errOut bytes.Buffer
+	if code := run([]string{"-check", "-dir", dir}, &out, &errOut); code != 1 {
+		t.Fatalf("exit %d: %s%s", code, out.String(), errOut.String())
+	}
+	if !strings.Contains(out.String(), "in no manifest row") ||
+		!strings.Contains(out.String(), "1 disagreement") {
+		t.Errorf("it said %q", out.String())
+	}
+}
+
+func TestCheckSaysSoWhenTheCorpusAgrees(t *testing.T) {
+	// A silent success and a success that says what it checked are not the
+	// same thing to anyone reading a log.
+	dir := t.TempDir()
+	var out, errOut bytes.Buffer
+	if code := run([]string{"-check", "-dir", dir}, &out, &errOut); code != 0 {
+		t.Fatalf("exit %d: %s%s", code, out.String(), errOut.String())
+	}
+	if !strings.Contains(out.String(), "agree") {
+		t.Errorf("it said %q", out.String())
+	}
+}
+
+func TestCheckWithoutADirectory(t *testing.T) {
+	var out, errOut bytes.Buffer
+	if code := run([]string{"-check"}, &out, &errOut); code != 2 {
+		t.Errorf("exit %d", code)
+	}
+	if !strings.Contains(errOut.String(), "needs -dir") {
+		t.Errorf("it said %q", errOut.String())
+	}
+}
+
+func TestCheckOfAManifestThatCannotBeRead(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, corpus.ManifestName), []byte("nonsense\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out, errOut bytes.Buffer
+	if code := run([]string{"-check", "-dir", dir}, &out, &errOut); code != 1 {
+		t.Errorf("exit %d: %s", code, errOut.String())
+	}
+	if !strings.Contains(errOut.String(), "harvest:") {
+		t.Errorf("it said %q", errOut.String())
 	}
 }

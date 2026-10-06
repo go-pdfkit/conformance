@@ -224,7 +224,8 @@ func draw(path string, page int, dpi float64) (*raster.Image, time.Duration, boo
 	stem := filepath.Join(dir, "p")
 	start := time.Now()
 	hung, err := popplerCommand("-cropbox", "-r", fmt.Sprint(int(dpi)),
-		"-f", fmt.Sprint(page), "-l", fmt.Sprint(page), "-png", path, stem)
+		"-f", fmt.Sprint(page), "-l", fmt.Sprint(page), "-png",
+		poppler.Document(path), stem)
 	took := time.Since(start)
 	if hung {
 		return nil, took, true, err

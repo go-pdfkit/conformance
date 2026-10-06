@@ -1,0 +1,25 @@
+fr-cerfa	450 compared	0 not
+	pixels differing: median 0.0011  p90 0.0129  p99 0.0536  worst 0.0670
+	under 1% 391  under 2% 426  under 5% 442  under 10% 450
+	identical byte for byte 85.07%   mean |diff|  6.604 levels
+	colour, levels of 255: worst square mean 19.62  max 96.09  worst pixel 255
+	worst   6.70%  cerfa_12468.pdf page 1
+	worst   6.52%  cerfa_12453.pdf page 1
+	worst   6.09%  cerfa_10074.pdf page 1
+	worst   5.58%  cerfa_12147.pdf page 1
+	worst   5.49%  cerfa_11764.pdf page 1
+	worst   5.36%  cerfa_12622.pdf page 1
+	worst   5.34%  cerfa_11359.pdf page 1
+	worst   5.07%  cerfa_11723.pdf page 1
+	worst   4.90%  cerfa_11525.pdf page 1
+	worst   4.90%  cerfa_12146.pdf page 1
+	worst   4.89%  cerfa_12621.pdf page 1
+	worst   4.63%  cerfa_11527.pdf page 1
+	time, 450 pages both were timed on: ours 18.477s  theirs 1m20.522s  (0.229x)
+	per page ours/theirs: median 0.180x  p90 0.387x   faster on 444 of 450
+	worst   2.06x SLOWER ours    434ms  theirs    210ms  cerfa_10702.pdf page 1
+	worst   1.14x SLOWER ours    329ms  theirs    289ms  cerfa_10020.pdf page 1
+	worst   1.06x SLOWER ours    163ms  theirs    153ms  cerfa_10114.pdf page 1
+	worst   1.05x SLOWER ours    158ms  theirs    150ms  cerfa_10115.pdf page 1
+	worst   1.03x SLOWER ours    338ms  theirs    328ms  cerfa_12235.pdf page 1
+	slowest page 434ms, 0 over the threshold

@@ -1,0 +1,25 @@
+us-uscourts	69 compared	0 not
+	pixels differing: median 0.0034  p90 0.0117  p99 0.0517  worst 0.1049
+	under 1% 55  under 2% 67  under 5% 67  under 10% 68
+	identical byte for byte 92.12%   mean |diff|  4.686 levels
+	colour, levels of 255: worst square mean 13.24  max 31.79  worst pixel 151
+	worst  10.49%  ao038.pdf page 1
+	worst   5.17%  ao436.pdf page 1
+	worst   1.58%  ao133.pdf page 1
+	worst   1.34%  ao088.pdf page 1
+	worst   1.34%  ao083.pdf page 1
+	worst   1.32%  ao458.pdf page 1
+	worst   1.23%  ao450.pdf page 1
+	worst   1.17%  ao442.pdf page 1
+	worst   1.13%  ao078.pdf page 1
+	worst   1.12%  ao085.pdf page 1
+	worst   1.10%  ao089.pdf page 1
+	worst   1.09%  ao246.pdf page 1
+	time, 69 pages both were timed on: ours 1.344s  theirs 10.874s  (0.124x)
+	per page ours/theirs: median 0.106x  p90 0.164x   faster on 69 of 69
+	worst   0.94x faster ours    124ms  theirs    131ms  ao390.pdf page 1
+	worst   0.48x faster ours    170ms  theirs    356ms  ao213.pdf page 1
+	worst   0.21x faster ours     20ms  theirs     99ms  ao078.pdf page 1
+	worst   0.20x faster ours     19ms  theirs     96ms  ao030.pdf page 1
+	worst   0.20x faster ours     33ms  theirs    169ms  ao240.pdf page 1
+	slowest page 170ms, 0 over the threshold

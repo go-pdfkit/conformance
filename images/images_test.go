@@ -500,13 +500,35 @@ func TestPicturesAreOrderedByTheirNumberAndNotTheirName(t *testing.T) {
 
 func TestAPictureTheOtherSideDoesNotHave(t *testing.T) {
 	// Nothing exact to pair on, and nothing of our size to fall back to.
+	//
+	// This case is SYMMETRIC and the test only ever asserted one half of it.
+	// Ours has a 2x1 nothing of theirs matches; theirs has a 9x9 nothing of
+	// ours matches. The first was reported from the day this was written; the
+	// second left no trace in any count, because the pairing walks our
+	// pictures and appends one result for each. The test asserted len == 1
+	// and so recorded the blind spot as the expected answer.
 	standInWithoutObjects(t, image.NewRGBA(image.Rect(0, 0, 9, 9)))
 	got := Judge(pageOfPictures(t, func(w *reader.Writer) reader.Dict {
 		return reader.Dict{"I": grey(w)}
 	}), Options{})
-	if len(got) != 1 || got[0].Share != -1 || got[0].PairedBy != "" ||
-		got[0].Note != "they took out nothing this size" {
+	if len(got) != 2 {
 		t.Fatalf("got %+v", got)
+	}
+	if got[0].Share != -1 || got[0].PairedBy != "" ||
+		got[0].Note != "they took out nothing this size" {
+		t.Errorf("our unmatched picture came back as %+v", got[0])
+	}
+	if got[1].Missing != Unseen || got[1].Name != "" ||
+		got[1].Note != "the judge took out a image of 9x9 (row 0, object 0) we have no picture for" {
+		t.Errorf("their unmatched picture came back as %+v", got[1])
+	}
+	// Name is empty on purpose: there is no filter of OURS to group it under,
+	// so Tally must skip it and Summarize must still count it.
+	if by := Tally(got); len(by) != 1 {
+		t.Errorf("the tally grouped the judge's own picture under a filter: %v", by)
+	}
+	if s := Summarize("p", 1, got); s.Unseen != 1 {
+		t.Errorf("the record says %d unseen, want 1", s.Unseen)
 	}
 }
 
@@ -635,8 +657,66 @@ func TestAFileTheyWroteThatIsNotAPicture(t *testing.T) {
 }
 
 func TestAFileTheyWroteThatCannotBeOpened(t *testing.T) {
-	if _, err := readPNG(filepath.Join(t.TempDir(), "gone.png")); err == nil {
+	if _, _, err := readPNG(filepath.Join(t.TempDir(), "gone.png"), maxJudgePixels); err == nil {
 		t.Error("a file that is not there was read")
+	}
+}
+
+// TestTheJudgesOwnAnswerIsBoundedToo closes an asymmetry: render refuses to
+// decode a page past a ceiling, and nothing bounded what we read BACK from
+// poppler about the same page.
+//
+// Measured on page 1 of sim_unitarian-...-1825-06-25_4_25.pdf, where our own
+// decoder refuses to spend 277 MB: pdfimages writes three PNGs of 7 048 by
+// 9 856, 44 MB on disk, which png.Decode makes into three *image.Gray of
+// 69.5 MB and raster.FromImage turns into RGBA -- raster.Image is always four
+// bytes a pixel. 834 MB retained, for a page we declined to read ourselves.
+func TestTheJudgesOwnAnswerIsBoundedToo(t *testing.T) {
+	dir := t.TempDir()
+	name := filepath.Join(dir, "p-000.png")
+	f, err := os.Create(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := png.Encode(f, image.NewGray(image.Rect(0, 0, 40, 30))); err != nil {
+		f.Close()
+		t.Fatal(err)
+	}
+	f.Close()
+
+	// Inside the budget: read, and the budget comes back smaller by exactly
+	// what the picture holds.
+	im, left, err := readPNG(name, 10_000)
+	if err != nil {
+		t.Fatalf("a 40x30 picture was refused with 10 000 pixels left: %v", err)
+	}
+	if im.W != 40 || im.H != 30 {
+		t.Errorf("read it as %dx%d", im.W, im.H)
+	}
+	if left != 10_000-40*30 {
+		t.Errorf("%d pixels left, want %d", left, 10_000-40*30)
+	}
+
+	// Past it: refused, and refused BEFORE the decode -- the message is about
+	// the configuration, which is all that was read.
+	if _, _, err := readPNG(name, 40*30-1); err == nil {
+		t.Error("a picture past the budget was read")
+	} else if !strings.Contains(err.Error(), "40x30") {
+		t.Errorf("the refusal does not say what it refused: %v", err)
+	}
+
+	// And a page whose pictures do not fit is REPORTED, not quietly measured
+	// on the ones that did -- the mistake §35 is about.
+	was := maxJudge
+	t.Cleanup(func() { maxJudge = was })
+	maxJudge = 1
+	standIn(t, image.NewRGBA(image.Rect(0, 0, 2, 1)))
+	got := Judge(pageOfPictures(t, func(w *reader.Writer) reader.Dict {
+		return reader.Dict{"I": grey(w)}
+	}), Options{})
+	if len(got) != 1 || got[0].Missing != Theirs ||
+		!strings.Contains(got[0].Note, "could not be read") {
+		t.Fatalf("got %+v", got)
 	}
 }
 
@@ -827,8 +907,54 @@ func TestAPageThatIsNotThereSaysSo(t *testing.T) {
 	if len(got) != 1 || got[0].Share != -1 || !strings.Contains(got[0].Note, "no page") {
 		t.Fatalf("page nine of a one-page document came back as %+v", got)
 	}
-	if got[0].Missing != Ours {
+	// NEITHER, not ours. This said Ours while the branch asserted the judge
+	// would have drawn it; asked, poppler cannot give page nine of a one-page
+	// document either, and a page that is not there is not a defect of ours.
+	if got[0].Missing != Neither {
 		t.Errorf("blamed %q", got[0].Missing)
+	}
+	if !strings.Contains(got[0].Note, "the judge drew nothing for it either") {
+		t.Errorf("the note does not say the judge was asked: %q", got[0].Note)
+	}
+}
+
+func TestAPageRefusalIsNotADefectUntilTheJudgeIsAsked(t *testing.T) {
+	// The three ways the question can come back, over the same refusal, since
+	// the column that carries the answer is the one this document calls the
+	// count that is a defect.
+	path := pageOfPictures(t, func(w *reader.Writer) reader.Dict {
+		return reader.Dict{"I": grey(w)}
+	})
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := reader.Open(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	was := popplerCommand
+	t.Cleanup(func() { popplerCommand = was })
+
+	popplerCommand = func(...string) (bool, error) { return true, os.ErrDeadlineExceeded }
+	got := judgePage(d, path, 9)
+	if len(got) != 1 || got[0].Missing != Hung || got[0].Tool != "pdfimages" {
+		t.Errorf("a judge that did not finish came back as %+v", got)
+	}
+
+	// A judge that runs and takes nothing out is NOT a defect of ours, and
+	// judgeShots reports that as an error, so it arrives as Neither like a
+	// refusal does. The two are not told apart and the vocabulary says so.
+	popplerCommand = func(...string) (bool, error) { return false, nil }
+	got = judgePage(d, path, 9)
+	if len(got) != 1 || got[0].Missing != Neither {
+		t.Errorf("a judge that took nothing out came back as %+v", got)
+	}
+	// What is left of Ours is the case that matters: ours refuses and the
+	// judge hands pictures back. That is the one bulletinno38tasm.pdf is in,
+	// and the whole corpus's only instance of it -- see baseline §31.
+	if got[0].Tool != "" {
+		t.Errorf("a judge that did not hang named a tool: %q", got[0].Tool)
 	}
 }
 
@@ -1755,5 +1881,209 @@ func TestAPaletteInAStreamIsReadToo(t *testing.T) {
 	})
 	if got := rawBitObjects(opened(t, path), 1); got[num(t, im)] {
 		t.Errorf("a black-and-white palette in a stream was counted apart: %v", got)
+	}
+}
+
+func TestTheSizePairedShareIsCounted(t *testing.T) {
+	// PairedBy's own note says a run whose size share is large is a run whose
+	// numbers are worth less, "and that has to be visible". Until this counter
+	// it was in no report and no record.
+	//
+	// Both sides are asserted. A counter that increments on every picture reads
+	// exactly like one that works, until the run that is all object-paired says
+	// every picture is suspect.
+	rows := []Result{
+		{Name: "a", Filter: "DCTDecode", PairedBy: PairedBySize},
+		{Name: "b", Filter: "DCTDecode", PairedBy: PairedByObject},
+		{Name: "c", Filter: "DCTDecode", PairedBy: PairedBySize},
+		{Name: "d", Filter: "JPXDecode", PairedBy: PairedByObject},
+	}
+	by := Tally(rows)
+	if got := by["DCTDecode"].SizePaired; got != 2 {
+		t.Errorf("DCTDecode counted %d paired by size, want 2", got)
+	}
+	if got := by["JPXDecode"].SizePaired; got != 0 {
+		t.Errorf("JPXDecode counted %d paired by size, want 0 -- the counter "+
+			"fires on pictures it should not", got)
+	}
+	// And it reaches the two places anyone reads: the report and the record.
+	if rep := Report(by); !strings.Contains(rep, "2 paired by size") {
+		t.Errorf("the report does not carry the share:\n%s", rep)
+	}
+	var found bool
+	for _, f := range Summarize("p", 1, rows).Filters {
+		if f.Filter == "DCTDecode" {
+			found = true
+			if f.SizePaired != 2 {
+				t.Errorf("the record says %d paired by size, want 2", f.SizePaired)
+			}
+		}
+	}
+	if !found {
+		t.Error("the record has no DCTDecode line to carry it")
+	}
+}
+
+func TestOnlyTheJudgePicturesNothingClaimedAreCounted(t *testing.T) {
+	// The other side of the counter, and the side a test is easy to leave
+	// out: a judge that took out TWO pictures, one of which ours matched.
+	// Counting both would read exactly like counting the right one, until a
+	// run where every picture paired reported every picture as missing from
+	// our side.
+	standIn(t, image.NewRGBA(image.Rect(0, 0, 2, 1)), image.NewRGBA(image.Rect(0, 0, 2, 1)))
+	got := Judge(pageOfPictures(t, func(w *reader.Writer) reader.Dict {
+		return reader.Dict{"I": grey(w)}
+	}), Options{})
+	if len(got) != 2 {
+		t.Fatalf("got %+v", got)
+	}
+	if got[0].Missing != Judged || got[0].PairedBy != PairedByObject {
+		t.Errorf("our picture did not pair: %+v", got[0])
+	}
+	if got[1].Missing != Unseen {
+		t.Errorf("the second judge row came back as %+v", got[1])
+	}
+	if s := Summarize("p", 1, got); s.Unseen != 1 {
+		t.Errorf("the record says %d unseen, want 1 -- the claimed row is "+
+			"being counted as well", s.Unseen)
+	}
+}
+
+// TestARowTheJudgeListedTwiceIsNotAPictureWeMissed is the measurement that
+// made Repeated necessary. pdfimages lists one row PER DRAW: page 1 of
+// cerfa_10074.pdf gives it 729 rows over 214 distinct objects -- object 147
+// sixty-two times -- against the 425 pictures Images returns, and all 304
+// leftovers were being counted as pictures the field gets out and we do not.
+func TestARowTheJudgeListedTwiceIsNotAPictureWeMissed(t *testing.T) {
+	path := pageOfPictures(t, func(w *reader.Writer) reader.Dict {
+		return reader.Dict{"I": grey(w)}
+	})
+	obj := imageObjects(path)
+	if len(obj) != 1 {
+		t.Fatalf("the fixture has %d image objects, want 1", len(obj))
+	}
+	// A judge that drew the one picture twice, and one row for a picture that
+	// is not ours at all, so both branches are exercised at once.
+	wasPictures, wasList := popplerCommand, listCommand
+	t.Cleanup(func() { popplerCommand, listCommand = wasPictures, wasList })
+	popplerCommand = func(args ...string) (bool, error) {
+		stem := args[len(args)-1]
+		for i := 0; i < 3; i++ {
+			f, err := os.Create(fmt.Sprintf("%s-%03d.png", stem, i))
+			if err != nil {
+				return false, err
+			}
+			err = png.Encode(f, image.NewRGBA(image.Rect(0, 0, 2, 1)))
+			f.Close()
+			if err != nil {
+				return false, err
+			}
+		}
+		return false, nil
+	}
+	listCommand = func(...string) ([]byte, bool, error) {
+		var sb strings.Builder
+		sb.WriteString("page   num  type   width height color comp bpc  enc interp  object ID x-ppi y-ppi size ratio\n")
+		sb.WriteString("------\n")
+		for i, o := range []int{obj[0], obj[0], 9999} {
+			fmt.Fprintf(&sb, "   1  %4d image      2     1  gray    1   8  image  no  %2d  0  72  72 9B 50%%\n", i, o)
+		}
+		return []byte(sb.String()), false, nil
+	}
+	got := Judge(path, Options{})
+	s := Summarize("p", 1, got)
+	if s.Repeated != 1 {
+		t.Errorf("repeated %d, want 1 -- the second row of our own object", s.Repeated)
+	}
+	if s.Unseen != 1 {
+		t.Errorf("unseen %d, want 1 -- object 9999 is nobody's picture of ours", s.Unseen)
+	}
+	var sawRepeat bool
+	for _, r := range got {
+		if r.Missing == Repeated {
+			sawRepeat = true
+			if !strings.Contains(r.Note, "we return it once") {
+				t.Errorf("the note does not say why: %q", r.Note)
+			}
+		}
+	}
+	if !sawRepeat {
+		t.Error("no result carried the repeat")
+	}
+}
+
+// TestAPageWeDrewNoPictureForIsStillJudged is the hole the corpus's worst page
+// fell through.
+//
+// page 1 of sim_unitarian-...-1825-06-25_4_25.pdf: pdfimages takes out three
+// pictures of 7 048 by 9 856, render.Page draws the page, and render.Images
+// hands back an empty slice and NO ERROR -- each picture is 3.5% past the
+// per-picture ceiling and is dropped in silence. compare measures that page at
+// 19.23% of pixels differing, the worst of 3 214 pages, and this instrument
+// measured it not at all: judgePage returned nil before the judge was asked.
+//
+// Which also made §32's count an UNDERCOUNT, and systematically so for the
+// heaviest pages -- the ones a reader would most want it for.
+func TestAPageWeDrewNoPictureForIsStillJudged(t *testing.T) {
+	empty := func(*reader.Writer) reader.Dict { return reader.Dict{} }
+
+	t.Run("the judge took pictures out", func(t *testing.T) {
+		standIn(t, image.NewRGBA(image.Rect(0, 0, 2, 1)), image.NewRGBA(image.Rect(0, 0, 2, 1)))
+		got := Judge(pageOfPictures(t, empty), Options{})
+		if len(got) != 2 {
+			t.Fatalf("got %+v", got)
+		}
+		for _, r := range got {
+			if r.Missing != Unseen {
+				t.Errorf("came back as %q", r.Missing)
+			}
+			if !strings.Contains(r.Note, "we drew no picture for this page") {
+				t.Errorf("the note reads %q", r.Note)
+			}
+		}
+		if s := Summarize("p", 1, got); s.Unseen != 2 {
+			t.Errorf("the record says %d unseen, want 2", s.Unseen)
+		}
+	})
+
+	t.Run("neither side did", func(t *testing.T) {
+		// Not a disagreement and not worth a row: it is what most pages of
+		// most documents look like, and a row each would bury the ones above.
+		standIn(t)
+		if got := Judge(pageOfPictures(t, empty), Options{}); len(got) != 0 {
+			t.Errorf("got %+v", got)
+		}
+	})
+
+	t.Run("the judge would not finish", func(t *testing.T) {
+		was := popplerCommand
+		t.Cleanup(func() { popplerCommand = was })
+		popplerCommand = func(...string) (bool, error) { return true, os.ErrDeadlineExceeded }
+		got := Judge(pageOfPictures(t, empty), Options{})
+		if len(got) != 1 || got[0].Missing != Hung || got[0].Tool != "pdfimages" {
+			t.Fatalf("got %+v", got)
+		}
+		if !strings.Contains(got[0].Note, "a page we drew no picture for") {
+			t.Errorf("the note reads %q", got[0].Note)
+		}
+	})
+}
+
+func TestAPictureOfTheirsThatStopsHalfWay(t *testing.T) {
+	// The configuration is read before the bound is applied, so a file whose
+	// header parses and whose pixels do not is a distinct case from a file
+	// that is not a PNG at all.
+	dir := t.TempDir()
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, image.NewGray(image.Rect(0, 0, 40, 30))); err != nil {
+		t.Fatal(err)
+	}
+	b := buf.Bytes()
+	name := filepath.Join(dir, "half.png")
+	if err := os.WriteFile(name, b[:len(b)/2], 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := readPNG(name, maxJudgePixels); err == nil {
+		t.Error("half a PNG was read as a picture")
 	}
 }

@@ -1,0 +1,25 @@
+us-ssa	199 compared	0 not
+	pixels differing: median 0.0013  p90 0.0034  p99 0.0057  worst 0.0070
+	under 1% 199  under 2% 199  under 5% 199  under 10% 199
+	identical byte for byte 83.98%   mean |diff|  9.666 levels
+	colour, levels of 255: worst square mean 17.08  max 25.83  worst pixel 234
+	worst   0.70%  ssa-454-bk.pdf page 1
+	worst   0.66%  ssa-1372.pdf page 1
+	worst   0.57%  ssa-3820.pdf page 1
+	worst   0.51%  ssa-4111.pdf page 1
+	worst   0.46%  ssa-1383-fc.pdf page 1
+	worst   0.45%  ssa-1372-bk-fc-sp.pdf page 1
+	worst   0.45%  ssa-21.pdf page 1
+	worst   0.44%  ssa-4814.pdf page 1
+	worst   0.44%  ssa-792.pdf page 1
+	worst   0.43%  ssa-8011-f3.pdf page 1
+	worst   0.42%  ssa-7008.pdf page 1
+	worst   0.41%  ssa-1724.pdf page 1
+	time, 199 pages both were timed on: ours 2.665s  theirs 24.997s  (0.107x)
+	per page ours/theirs: median 0.093x  p90 0.139x   faster on 199 of 199
+	worst   0.35x faster ours     71ms  theirs    204ms  ss-5-ch-inst.pdf page 1
+	worst   0.33x faster ours     51ms  theirs    154ms  ss-5-kor-inst.pdf page 1
+	worst   0.27x faster ours     44ms  theirs    162ms  fss4sp.pdf page 1
+	worst   0.23x faster ours     35ms  theirs    151ms  ss-5-ru-inst.pdf page 1
+	worst   0.23x faster ours     34ms  theirs    149ms  fss4.pdf page 1
+	slowest page 71ms, 0 over the threshold

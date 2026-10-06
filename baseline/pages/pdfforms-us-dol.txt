@@ -1,0 +1,25 @@
+us-dol	140 compared	0 not
+	pixels differing: median 0.0035  p90 0.0122  p99 0.0194  worst 0.0195
+	under 1% 118  under 2% 140  under 5% 140  under 10% 140
+	identical byte for byte 84.03%   mean |diff| 10.447 levels
+	colour, levels of 255: worst square mean 21.33  max 40.03  worst pixel 255
+	worst   1.95%  2025-form-5500-ez.pdf page 1
+	worst   1.95%  2024-form-5500-ez.pdf page 1
+	worst   1.94%  2023-form-5500-ez.pdf page 1
+	worst   1.54%  1996-schedule-e.pdf page 1
+	worst   1.53%  1998-schedule-e.pdf page 1
+	worst   1.53%  1997-schedule-e.pdf page 1
+	worst   1.37%  1999-schedule-d.pdf page 1
+	worst   1.32%  1997-schedule-f.pdf page 1
+	worst   1.31%  2023-schedule-a.pdf page 1
+	worst   1.30%  1996-schedule-f.pdf page 1
+	worst   1.29%  2009-schedule-g.pdf page 1
+	worst   1.27%  2011-schedule-d.pdf page 1
+	time, 140 pages both were timed on: ours 4.33s  theirs 19.072s  (0.227x)
+	per page ours/theirs: median 0.214x  p90 0.291x   faster on 139 of 140
+	worst   1.62x SLOWER ours    351ms  theirs    217ms  2024-schedule-dcg.pdf page 1
+	worst   0.52x faster ours     66ms  theirs    127ms  2024-schedule-d.pdf page 1
+	worst   0.44x faster ours     53ms  theirs    121ms  2024-schedule-sb.pdf page 1
+	worst   0.43x faster ours     53ms  theirs    124ms  2024-schedule-mb.pdf page 1
+	worst   0.41x faster ours     64ms  theirs    155ms  2024-schedule-h.pdf page 1
+	slowest page 351ms, 0 over the threshold

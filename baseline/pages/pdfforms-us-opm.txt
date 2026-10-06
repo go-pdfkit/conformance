@@ -1,0 +1,25 @@
+us-opm	66 compared	0 not
+	pixels differing: median 0.0012  p90 0.0068  p99 0.0261  worst 0.0564
+	under 1% 64  under 2% 64  under 5% 65  under 10% 66
+	identical byte for byte 83.97%   mean |diff|  8.729 levels
+	colour, levels of 255: worst square mean 18.53  max 41.24  worst pixel 221
+	worst   5.64%  sf2820.pdf page 1
+	worst   2.61%  sf3106.pdf page 1
+	worst   0.85%  sf3100.pdf page 1
+	worst   0.79%  sf3108.pdf page 1
+	worst   0.78%  sf2810.pdf page 1
+	worst   0.70%  sf2812.pdf page 1
+	worst   0.70%  sf2817.pdf page 1
+	worst   0.68%  sf144.pdf page 1
+	worst   0.67%  sf256.pdf page 1
+	worst   0.55%  sf61.pdf page 1
+	worst   0.53%  sf3110.pdf page 1
+	worst   0.45%  sf62.pdf page 1
+	time, 66 pages both were timed on: ours 2.038s  theirs 12.986s  (0.157x)
+	per page ours/theirs: median 0.141x  p90 0.342x   faster on 66 of 66
+	worst   0.67x faster ours    159ms  theirs    237ms  sf144.pdf page 1
+	worst   0.43x faster ours     36ms  theirs     85ms  of5057.pdf page 1
+	worst   0.41x faster ours    114ms  theirs    280ms  sf1187.pdf page 1
+	worst   0.40x faster ours     51ms  theirs    126ms  sf1152.pdf page 1
+	worst   0.39x faster ours     89ms  theirs    230ms  sf113a.pdf page 1
+	slowest page 159ms, 0 over the threshold

@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	slashpath "path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -192,7 +193,40 @@ func (l layout) parse(line string) (Entry, error) {
 	if e.Origin != "" && !strings.ContainsRune(e.Path, '/') {
 		e.Path = e.Origin + "/" + e.Path
 	}
+	if err := inside(e.Path); err != nil {
+		return e, err
+	}
 	return e, nil
+}
+
+// inside refuses a row whose path is not under the corpus directory.
+//
+// The path is read verbatim out of a DATA FILE and then joined to the corpus
+// directory by every tool here -- os.Stat, os.Open, a hash, and the argument
+// list of a poppler invocation. filepath.Join neutralises an ABSOLUTE path by
+// construction ("/corpus" + "/etc/passwd" is "/corpus/etc/passwd") and does
+// NOT neutralise "..": Join("/corpus", "../../etc/passwd") is "/etc/passwd".
+//
+// So a manifest is a trust boundary and was not treated as one. It travels
+// beside the documents, in a shared directory, and nothing wrote it that this
+// repository controls -- the forms corpus was gathered before this repository
+// existed, which the header-reading code above exists for.
+//
+// Refused rather than cleaned. A row that tries to leave the corpus is not a
+// row with a typo, and silently rewriting it would put a file in a measurement
+// under a name that is not the one the manifest gave.
+func inside(p string) error {
+	if p == "" {
+		return fmt.Errorf("the row names no path")
+	}
+	if slashpath.IsAbs(p) || filepath.IsAbs(p) {
+		return fmt.Errorf("%q is absolute, and a manifest path is relative to the corpus", p)
+	}
+	clean := slashpath.Clean(p)
+	if clean == ".." || strings.HasPrefix(clean, "../") {
+		return fmt.Errorf("%q leaves the corpus directory", p)
+	}
+	return nil
 }
 
 // parseTime accepts the shapes a manifest has been written in, and reports the

@@ -129,6 +129,19 @@ func run(args []string, out, errOut io.Writer) int {
 		for _, h := range summary.Hung {
 			fmt.Fprintf(out, "  hung  %s  %s page %d\n", h.Tool, h.Path, h.Page)
 		}
+		// And the pictures the judge took out that we produced nothing for,
+		// by the same argument: the one direction the pairing cannot see is
+		// the one that says the field gets something out of a file and we do
+		// not.
+		if summary.Unseen > 0 {
+			fmt.Fprintf(out, "  %5d the judge took out and we did not\n", summary.Unseen)
+		}
+		// And beside it the rows that are only a difference of unit, so that
+		// the one above is read as the small number it is.
+		if summary.Repeated > 0 {
+			fmt.Fprintf(out, "  %5d rows the judge listed again for a picture we return once\n",
+				summary.Repeated)
+		}
 	}
 	if *asJSON {
 		// Marshal fails only on a value it cannot encode, and this one is

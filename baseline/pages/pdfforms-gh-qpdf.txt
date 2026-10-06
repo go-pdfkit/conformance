@@ -1,0 +1,27 @@
+gh-qpdf	80 compared	1 not
+	    1  hung
+	pixels differing: median 0.0003  p90 0.0039  p99 0.0854  worst 0.0854
+	under 1% 76  under 2% 76  under 5% 78  under 10% 80
+	identical byte for byte 93.19%   mean |diff|  1.612 levels
+	colour, levels of 255: worst square mean 19.99  max 191.00  worst pixel 254
+	worst   8.54%  qpdf_qtest_qpdf_form-xobjects-some-resources2-out.pdf page 1
+	worst   8.54%  qpdf_qtest_qpdf_form-xobjects-some-resources2.pdf page 1
+	worst   2.19%  qpdf_qtest_qpdf_form-xobjects-some-resources1-out.pdf page 1
+	worst   2.19%  qpdf_qtest_qpdf_form-xobjects-some-resources1.pdf page 1
+	worst   0.43%  qpdf_qtest_qpdf_annotations-rotated-90.pdf page 1
+	worst   0.43%  qpdf_qtest_qpdf_rotated-shared-annotations-1.pdf page 1
+	worst   0.43%  qpdf_qtest_qpdf_rotated-shared-annotations-2.pdf page 1
+	worst   0.39%  qpdf_qtest_qpdf_annotations-rotated-270.pdf page 1
+	worst   0.39%  qpdf_qtest_qpdf_annotations-rotated-180.pdf page 1
+	worst   0.29%  qpdf_qtest_qpdf_overlay-copy-annotations-p1.pdf page 1
+	worst   0.29%  qpdf_qtest_qpdf_overlay-copy-annotations.pdf page 1
+	worst   0.29%  examples_qtest_overlay-page_annotations-out.pdf page 1
+	time, 80 pages both were timed on: ours 298ms  theirs 4.996s  (0.060x)
+	per page ours/theirs: median 0.049x  p90 0.093x   faster on 80 of 80
+	worst   0.15x faster ours     12ms  theirs     82ms  qpdf_qtest_qpdf_overlay-copy-annotations-p1.pdf page 1
+	worst   0.14x faster ours     10ms  theirs     72ms  qpdf_qtest_qpdf_overlay-copy-annotations-p5.pdf page 1
+	worst   0.13x faster ours     11ms  theirs     81ms  qpdf_qtest_qpdf_overlay-copy-annotations.pdf page 1
+	worst   0.13x faster ours      8ms  theirs     62ms  qpdf_qtest_qpdf_overlay-copy-annotations-p2.pdf page 1
+	worst   0.12x faster ours     10ms  theirs     89ms  examples_qtest_overlay-page_annotations-out.pdf page 1
+	slowest page 12ms, 0 over the threshold
+	hung  pdftoppm  /Users/Shared/pdfforms/gh-qpdf/qpdf_qtest_qpdf_shared-unnamed-field.pdf page 1

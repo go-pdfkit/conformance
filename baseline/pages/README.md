@@ -1,4 +1,14 @@
-# The page records §21 is measured from
+# The page records
+
+**§34's twenty-three `pdfforms-*.txt` and `pdfscans-*.txt` are the whole corpus
+compared against poppler**, which nothing in this repository had recorded until
+2026-10-04: `compare` against `pdftoppm` at 72 dpi with `-cropbox`, one
+population at a time, at the `go.mod` of the `.json` records beside this
+directory. Read §34 for what they say and for the two things they are not --
+their timing columns were measured under a load average between 7 and 59 and
+are not to be read, and they are text rather than a machine-readable record.
+
+## The two files §21 is measured from
 
 These are `compare`'s output, unedited, for the control in §21: the same 250
 documents drawn twice by **one binary built twice**, current in everything but

@@ -178,6 +178,7 @@
 package images
 
 import (
+	"bytes"
 	"fmt"
 	"image/png"
 	"os"
@@ -321,12 +322,25 @@ type Missing string
 const (
 	// Judged means there was a picture on both sides and they were compared.
 	Judged Missing = ""
-	// Ours means ours would not open the document or draw the page and the
-	// judge would. That is a defect and the only one of these that is: a
-	// document the field can read and we cannot.
+	// Ours means ours produced no picture for a page the judge did produce
+	// pictures for. That is the only one of these that can be a defect.
+	//
+	// It is NOT "would not draw the page", which this said for months. The
+	// two are different questions and the corpus has an instance of the
+	// difference: bulletinno38tasm.pdf is counted here, and render.Page draws
+	// it. What refuses it is render.Images, under a per-page pixel budget that
+	// the page renderer does not share -- afford() is reached from images.go
+	// alone. See baseline/README.md §31 and go-pdfkit/render#100.
+	//
+	// So a document in this column is worth reading and is not by itself a
+	// document the field can read and we cannot. Asking the renderer is a
+	// separate step, and this harness never takes it: it only calls Images.
 	Ours Missing = "ours"
-	// Neither means no implementation would open it — ours refused, and so
-	// did the judge, asked separately about the same file.
+	// Neither means no implementation produced a picture — ours refused, and
+	// so did the judge, asked separately about the same file, or for a page,
+	// about the same page. A judge that answers and takes nothing out of a
+	// page ours refused is here too: judgeShots reports that as an error, and
+	// the two are not told apart.
 	//
 	// This has to be told apart from Ours or the count misleads in the
 	// direction of comfort in one direction and panic in the other. Seven of
@@ -341,6 +355,46 @@ const (
 	// this cannot get an answer about, and one that must be counted so that a
 	// corpus getting harder is not read as a decoder getting worse.
 	Theirs Missing = "theirs"
+	// Unseen means the judge took a picture out whose OBJECT ours produced
+	// nothing for. It is the mirror of Unmatched and it had no name, because
+	// the pairing walks OUR pictures and appends one result for each: a row
+	// of the judge's that nothing claimed left no trace in any count, so the
+	// one direction this harness could not see was the direction that matters
+	// most -- a picture the field gets out of a file and we do not.
+	//
+	// Measured over fr-cerfa's 450 forms, it is 4 153 rows and two classes,
+	// in proportions worth knowing before anyone reads the number as a gap:
+	//
+	//	4 147  object 0 -- INLINE IMAGES, which render.Images does not
+	//	       return at all. 2 614 of them are stencils, 2 592 of them
+	//	       16x16, and ONE document holds 2 592. go-pdfkit/render#101.
+	//	   25  pictures only an ANNOTATION reaches, counted over the whole
+	//	       population: a push button's icon (/MK /I) or a widget's
+	//	       appearance (/AP /N), which Images cannot see because it
+	//	       walks the content stream. cerfa_10011.pdf is one.
+	//
+	// Neither is a decoder gap: render.Page draws annotations and draws
+	// inline images. Both are the extraction API's scope being narrower than
+	// the renderer's. See baseline/README.md §32, which also records that
+	// the FIRST cause offered here was the small one, fitted to a sample
+	// where both sides were almost always nought.
+	Unseen Missing = "unseen"
+	// Repeated means the judge listed a row for a picture ours produced
+	// ONCE, under an object we did compare -- the same stream drawn again.
+	//
+	// It has to be apart from Unseen or the number is worthless. pdfimages
+	// lists one row PER DRAW: page 1 of cerfa_10074.pdf gives it 729 rows
+	// over 214 distinct objects, object 147 sixty-two times, against the 425
+	// pictures Images returns. Counting those 304 leftovers as pictures the
+	// field gets and we do not would be false, and large enough to drown the
+	// six real ones in the same sixty documents.
+	//
+	// Ours is one entry per object on purpose: decoding the same stream a
+	// second time says nothing about a codec. The asymmetry is therefore
+	// expected, and it is counted so that 729 against 425 has somewhere to
+	// show. The package comment's claim that pdfimages gives "one" for a
+	// repeated draw was never measured and is wrong; §32 measures it.
+	Repeated Missing = "repeated"
 	// Hung means a poppler tool did not finish within Timeout.
 	//
 	// It is its own value rather than a kind of Theirs because a judge that
@@ -397,9 +451,17 @@ func Judge(path string, opt Options) []Result {
 // Nothing deduplicates the pictures here, and that is a decision about which
 // version of render this is built against. Under v0.19.0 render.Images
 // answered per DRAW — a page that stamped the same logo five hundred times
-// yielded five hundred entries decoded from the same bytes, against
-// pdfimages's one, and every repeat after the first landed in the unmatched
-// column. This package compensated by keeping one entry per resource name.
+// yielded five hundred entries decoded from the same bytes, and every repeat
+// after the first landed in the unmatched column. This package compensated by
+// keeping one entry per resource name.
+//
+// That sentence said "against pdfimages's one", which was never measured and
+// is WRONG. pdfimages lists one row per draw as well: page 1 of
+// cerfa_10074.pdf gives it 729 rows over 214 distinct objects, object 147
+// sixty-two times, against the 425 pictures Images returns. The two sides
+// disagree about the UNIT, and the 304 rows left over on the judge's side are
+// counted as Repeated rather than as pictures we failed to get. See
+// baseline/README.md §32.
 //
 // v0.20.0 removed the cause: a page's resources are a graph and were being
 // walked as a tree, so a picture reached through two forms was decoded twice.
@@ -414,11 +476,73 @@ func Judge(path string, opt Options) []Result {
 func judgePage(d *reader.Document, path string, p int) []Result {
 	ours, err := render.Images(d, p)
 	if err != nil {
-		return []Result{{Path: path, Page: p, Difference: unjudged(),
-			Missing: Ours, Note: "no page: " + err.Error()}}
+		// Ours says "ours would not draw it AND THE JUDGE WOULD. That is a
+		// defect and the only one of these that is." This path used to assert
+		// the second half rather than ask it: the open path above goes through
+		// blame(), and a page refusal went straight into the defect column
+		// whatever poppler did with the same page.
+		//
+		// The question here is narrower than blame()'s -- not whether poppler
+		// opens the FILE but whether it gets this PAGE -- so it is asked the
+		// way the branch below asks it, of the same tool on the same page.
+		//
+		// judgeShots reports "no pictures came out" as an ERROR, so a judge
+		// that refuses the page and a judge that answers and takes nothing out
+		// of it arrive here the same way. Both become Neither, which is what
+		// that word means for a page: no implementation produced a picture for
+		// it. It is also symmetric with the branch below, where the judge
+		// taking nothing out of a page OURS drew for is Theirs rather than a
+		// disagreement.
+		r := Result{Path: path, Page: p, Difference: unjudged(),
+			Missing: Ours, Note: "no page: " + err.Error()}
+		if _, tool, jerr := judgeShots(path, p); jerr != nil {
+			if tool != "" {
+				r.Missing, r.Tool = Hung, tool
+				r.Note += "; " + tool + " hung, so whose refusal this is is not known"
+			} else {
+				r.Missing = Neither
+				r.Note += "; and the judge drew nothing for it either: " + jerr.Error()
+			}
+		}
+		return []Result{r}
 	}
 	if len(ours) == 0 {
-		return nil
+		// A page we produced NO picture for is not nothing to say, and this
+		// returned nothing to say for as long as it has existed.
+		//
+		// The corpus's worst page is one: page 1 of
+		// sim_unitarian-...-1825-06-25_4_25.pdf, where pdfimages takes out
+		// three pictures of 7 048 by 9 856, render.Page draws the page, and
+		// render.Images hands back an empty slice and NO ERROR -- each picture
+		// is 69 465 088 pixels, 3.5% past the per-picture ceiling, and is
+		// dropped in silence. compare measures that page at 19.23% of pixels
+		// differing, the worst of 3 214, and this instrument measured it not
+		// at all. See go-pdfkit/render#108.
+		//
+		// So the judge is asked, and what it took out is counted as Unseen,
+		// which is exactly what that word means. It also makes the count added
+		// in §32 honest: it was an UNDERCOUNT, and systematically so for the
+		// heaviest pages, which are the ones a reader would most want it for.
+		shots, tool, jerr := judgeShots(path, p)
+		switch {
+		case jerr != nil && tool != "":
+			return []Result{{Path: path, Page: p, Difference: unjudged(),
+				Missing: Hung, Tool: tool,
+				Note: tool + " hung on a page we drew no picture for"}}
+		case jerr != nil:
+			// Neither side produced a picture for this page, which is not a
+			// disagreement and is not worth a row: it is what most pages of
+			// most documents look like.
+			return nil
+		}
+		out := make([]Result, 0, len(shots))
+		for _, t := range shots {
+			out = append(out, Result{Path: path, Page: p, Difference: unjudged(),
+				Missing: Unseen,
+				Note: fmt.Sprintf("we drew no picture for this page; the judge took out a %s of %dx%d (row %d, object %d)",
+					t.kind, t.pic.W, t.pic.H, t.num, t.object)})
+		}
+		return out
 	}
 	theirs, tool, err := judgeShots(path, p)
 	if err != nil {
@@ -475,6 +599,36 @@ func judgePage(d *reader.Document, path string, p int) []Result {
 			// decoder handing back the wrong dimensions looks like.
 			r.Note = fmt.Sprintf("they took it out %dx%d, we read it %dx%d",
 				theirs[j].pic.W, theirs[j].pic.H, im.Pic.W, im.Pic.H)
+		}
+		out = append(out, r)
+	}
+	// The judge's rows nothing claimed. Name is left empty so that Tally
+	// skips these -- there is no filter of OURS to group them under, because
+	// there is no picture of ours -- and Summarize counts them from Missing
+	// like the other asymmetries. They are reported for the reason the hangs
+	// are: a report that leaves them out cannot be told from one that has
+	// none.
+	//
+	// A row whose OBJECT is one we compared is the same stream drawn again,
+	// which is not a picture we failed to get. Those two must not share a
+	// count: see Repeated.
+	mine := make(map[int]bool, len(ours))
+	for _, im := range ours {
+		if im.Object > 0 {
+			mine[im.Object] = true
+		}
+	}
+	for j, t := range theirs {
+		if claimed[j] {
+			continue
+		}
+		r := Result{Path: path, Page: p, Difference: unjudged(), Missing: Unseen,
+			Note: fmt.Sprintf("the judge took out a %s of %dx%d (row %d, object %d) we have no picture for",
+				t.kind, t.pic.W, t.pic.H, t.num, t.object)}
+		if t.object > 0 && mine[t.object] {
+			r.Missing = Repeated
+			r.Note = fmt.Sprintf("the judge listed object %d again as a %s of %dx%d (row %d); we return it once",
+				t.object, t.kind, t.pic.W, t.pic.H, t.num)
 		}
 		out = append(out, r)
 	}
@@ -927,7 +1081,7 @@ func calibratedSpace(d *reader.Document, v reader.Object, res reader.Dict) bool 
 // read perfectly well and one it could not read at all, and those are the two
 // things that must not be confused here.
 var infoCommand = func(path string) (bool, error) {
-	_, hung, err := poppler.Run("pdfinfo", path)
+	_, hung, err := poppler.Run("pdfinfo", poppler.Document(path))
 	return hung, err
 }
 
@@ -1001,7 +1155,7 @@ func judgeShots(path string, page int) ([]shot, string, error) {
 	defer os.RemoveAll(dir)
 	stem := filepath.Join(dir, "i")
 	hung, err := popplerCommand("-png", "-f", fmt.Sprint(page), "-l", fmt.Sprint(page),
-		path, stem)
+		poppler.Document(path), stem)
 	if hung {
 		return nil, "pdfimages", poppler.DidNotFinish("pdfimages")
 	}
@@ -1022,11 +1176,17 @@ func judgeShots(path string, page int) ([]shot, string, error) {
 		return nil, "pdfimages -list", poppler.DidNotFinish("pdfimages -list")
 	}
 	out := make([]shot, 0, len(names))
+	left := maxJudge
 	for _, name := range names {
-		im, err := readPNG(name)
+		im, rest, err := readPNG(name, left)
 		if err != nil {
-			continue
+			// NOT skipped. A picture of the judge's that silently does not
+			// arrive makes the pairing see fewer of them, which is a real
+			// number in a real column -- the same argument the hung listing
+			// above is reported by, and the same mistake §35 is about.
+			return nil, "", fmt.Errorf("the judge's own picture could not be read: %w", err)
 		}
+		left = rest
 		n := number(name)
 		row := spaces[n]
 		out = append(out, shot{pic: im, num: n, space: row.space,
@@ -1066,7 +1226,8 @@ func number(name string) int {
 // that could not be taken at all leaves every picture unclassified, which the
 // package comment explains is deliberately loud.
 func listing(path string, page int) (map[int]listRow, bool) {
-	out, hung, err := listCommand("-list", "-f", fmt.Sprint(page), "-l", fmt.Sprint(page), path)
+	out, hung, err := listCommand("-list", "-f", fmt.Sprint(page), "-l", fmt.Sprint(page),
+		poppler.Document(path))
 	if hung {
 		return nil, true
 	}
@@ -1105,17 +1266,60 @@ type listRow struct {
 }
 
 // readPNG reads one of the files pdfimages wrote.
-func readPNG(name string) (*raster.Image, error) {
-	f, err := os.Open(name)
+// maxJudgePixels bounds what the JUDGE's answer about one page may cost to
+// read back, and it is deliberately the same number render bounds its own
+// decode of a page by.
+//
+// The two were not symmetric and the asymmetry was large. Measured on page 1 of
+// sim_unitarian-...-1825-06-25_4_25.pdf: pdfimages writes three PNGs of
+// 7 048 by 9 856, 44 MB on disk; png.Decode makes three *image.Gray of 69.5 MB
+// and raster.FromImage turns each into RGBA, which raster.Image always is --
+// FOUR bytes a pixel. 834 MB RETAINED, on the one page where our own decoder
+// refuses to spend 277 MB (go-pdfkit/render#108).
+//
+// An instrument that refuses to spend what it asks the other side to spend is
+// measuring two different things, and the bound it does not have is the one a
+// hostile document reaches: nothing here limits what poppler is asked to write.
+//
+// Counted in PIXELS over the whole page, as render counts it, so the two sides
+// read the same arithmetic. Today's corpus is inside it -- that page is
+// 3 x 69 465 088 = 208 395 264 against 268 435 456 -- so no figure in
+// baseline/ moves. What changes is that an unbounded read is bounded.
+const maxJudgePixels = 256 << 20
+
+// maxJudge is a variable so a test can reach the refusal without writing a
+// 256-megapixel PNG, exactly as popplerCommand is one.
+var maxJudge = maxJudgePixels
+
+// readPNG reads one picture the judge wrote.
+//
+// The configuration is read FIRST and the bound applied before a byte is
+// decoded, for the reason render's own afford() gives: a limit noticed after
+// the allocation has not helped.
+func readPNG(name string, left int) (*raster.Image, int, error) {
+	// Read in full and decode from memory, twice over the same bytes. Seeking
+	// one open file back to the start would do it in one read and adds a
+	// branch nothing can reach on a regular file -- and a branch nothing can
+	// reach is a branch nobody can test. The file is on disk and bounded by
+	// what poppler wrote.
+	b, err := os.ReadFile(name)
 	if err != nil {
-		return nil, err
+		return nil, left, err
 	}
-	defer f.Close()
-	img, err := png.Decode(f)
+	cfg, err := png.DecodeConfig(bytes.NewReader(b))
 	if err != nil {
-		return nil, err
+		return nil, left, err
 	}
-	return raster.FromImage(img), nil
+	px := cfg.Width * cfg.Height
+	if cfg.Width <= 0 || cfg.Height <= 0 || px > left {
+		return nil, left, fmt.Errorf("%s is %dx%d and %d of %d pixels are left",
+			filepath.Base(name), cfg.Width, cfg.Height, left, maxJudge)
+	}
+	img, err := png.Decode(bytes.NewReader(b))
+	if err != nil {
+		return nil, left, err
+	}
+	return raster.FromImage(img), left - px, nil
 }
 
 // A Bucket is what one group of a filter's comparable pictures came to.
@@ -1157,6 +1361,18 @@ type Bucket struct {
 type Counts struct {
 	// Pictures is how many were judged.
 	Pictures int
+	// SizePaired is how many were matched to the judge's picture by SIZE
+	// rather than by object number.
+	//
+	// PairedBy's own note says a run whose size share is large is a run whose
+	// numbers are worth less, "and that has to be visible". It was not: the
+	// field was recorded per picture and no report or record carried it, so
+	// the share could not be read from a run at all. conformance#13 found 144
+	// of 173 apparent inversions were this fallback pairing pictures that had
+	// nothing to do with each other, which is what makes the share worth
+	// printing beside the counts it qualifies rather than kept for whoever
+	// thinks to ask.
+	SizePaired int
 	// Unmatched is how many the other implementation had no picture for.
 	Unmatched int
 	// Remapped is how many carried a /Decode array, which we apply and
@@ -1199,6 +1415,9 @@ func Tally(rs []Result) map[string]*Counts {
 			by[key] = c
 		}
 		c.Pictures++
+		if r.PairedBy == PairedBySize {
+			c.SizePaired++
+		}
 		switch {
 		case r.RawBits:
 			c.RawBits++
@@ -1251,8 +1470,8 @@ func Report(by map[string]*Counts) string {
 	var sb strings.Builder
 	for _, key := range order(by) {
 		c := by[key]
-		fmt.Fprintf(&sb, "%-22s %5d pictures  %5d unmatched  %5d remapped\n",
-			key, c.Pictures, c.Unmatched, c.Remapped)
+		fmt.Fprintf(&sb, "%-22s %5d pictures  %5d unmatched  %5d remapped  %5d paired by size\n",
+			key, c.Pictures, c.Unmatched, c.Remapped, c.SizePaired)
 		reportBucket(&sb, "direct", &c.Direct)
 		reportBucket(&sb, "converted", &c.Converted)
 	}
@@ -1314,6 +1533,16 @@ type Summary struct {
 	// Declined is how many pages ours drew pictures for and the judge took
 	// none out of, so there was nothing to compare them with.
 	Declined int `json:"declined"`
+	// Unseen is how many pictures the judge took out, under an object ours
+	// produced nothing for -- the direction the pairing could not see at all
+	// until it was counted. omitempty, so records written before it keep
+	// their shape.
+	Unseen int `json:"unseen,omitempty"`
+	// Repeated is how many of the judge's rows name an object we compared
+	// once. It is the scale of a difference in UNIT, not in fidelity:
+	// pdfimages lists one row per draw and Images returns one entry per
+	// object.
+	Repeated int `json:"repeated,omitempty"`
 	// Hung names the documents a poppler tool would not finish on, with the
 	// tool. A document that was skipped because the judge hung is not a
 	// document that scored badly, and the two are indistinguishable in a
@@ -1337,6 +1566,9 @@ type FilterCounts struct {
 	// Unmatched and Remapped are the pictures no comparison was made of.
 	Unmatched int `json:"unmatched"`
 	Remapped  int `json:"remapped"`
+	// SizePaired is how many were paired by size rather than by object. A
+	// large share here devalues every figure on the line beside it.
+	SizePaired int `json:"sizePaired,omitempty"`
 	// RawBits is the pictures the judge wrote as samples rather than as
 	// colour, which is a third way of not being asked the same question.
 	RawBits int `json:"rawBits,omitempty"`
@@ -1394,6 +1626,10 @@ func Summarize(population string, documents int, rs []Result) Summary {
 			s.Unopenable++
 		case Theirs:
 			s.Declined++
+		case Unseen:
+			s.Unseen++
+		case Repeated:
+			s.Repeated++
 		case Hung:
 			s.Hung = append(s.Hung, Hang{Path: r.Path, Page: r.Page, Tool: r.Tool})
 		}
@@ -1401,7 +1637,7 @@ func Summarize(population string, documents int, rs []Result) Summary {
 	by := Tally(rs)
 	for _, key := range order(by) {
 		c := by[key]
-		s.Filters = append(s.Filters, FilterCounts{Filter: key,
+		s.Filters = append(s.Filters, FilterCounts{Filter: key, SizePaired: c.SizePaired,
 			Pictures: c.Pictures, Unmatched: c.Unmatched, Remapped: c.Remapped,
 			RawBits: c.RawBits,
 			Direct:  bucketCounts(&c.Direct), Converted: bucketCounts(&c.Converted)})

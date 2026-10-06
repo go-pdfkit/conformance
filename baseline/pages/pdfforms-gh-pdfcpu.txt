@@ -1,0 +1,25 @@
+gh-pdfcpu	147 compared	0 not
+	pixels differing: median 0.0024  p90 0.0044  p99 0.0183  worst 0.0741
+	under 1% 141  under 2% 145  under 5% 145  under 10% 147
+	identical byte for byte 83.62%   mean |diff|  2.398 levels
+	colour, levels of 255: worst square mean 23.12  max 111.25  worst pixel 255
+	worst   7.41%  form_primitives_comboboxGroup.pdf page 1
+	worst   5.24%  form_primitives_combobox.pdf page 1
+	worst   1.83%  form_fill_person.pdf page 1
+	worst   1.72%  form_multifill_json_Jane.pdf page 1
+	worst   1.72%  form_multifill_json_merge_english.pdf page 1
+	worst   1.03%  form_multifill_json_Joe.pdf page 1
+	worst   0.63%  form_multifill_csv_Joe.pdf page 1
+	worst   0.56%  form_multifill_csv_person_25.pdf page 1
+	worst   0.55%  form_multifill_csv_person_10.pdf page 1
+	worst   0.49%  form_multifill_csv_Jane.pdf page 1
+	worst   0.49%  form_multifill_csv_merge_english.pdf page 1
+	worst   0.47%  form_multifill_csv_person_30.pdf page 1
+	time, 147 pages both were timed on: ours 1.788s  theirs 17.775s  (0.101x)
+	per page ours/theirs: median 0.090x  p90 0.160x   faster on 147 of 147
+	worst   0.24x faster ours     44ms  theirs    186ms  pkg_testdata_Acroforms2.pdf page 1
+	worst   0.20x faster ours     25ms  theirs    123ms  form_primitives_listbox.pdf page 1
+	worst   0.19x faster ours     19ms  theirs    100ms  form_demo_persian.pdf page 1
+	worst   0.19x faster ours     16ms  theirs     85ms  form_lock_arabic-locked.pdf page 1
+	worst   0.19x faster ours     25ms  theirs    131ms  form_primitives_textfieldGroup.pdf page 1
+	slowest page 44ms, 0 over the threshold

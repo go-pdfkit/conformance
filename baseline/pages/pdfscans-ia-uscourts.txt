@@ -1,0 +1,25 @@
+ia-uscourts	250 compared	0 not
+	pixels differing: median 0.0005  p90 0.0060  p99 0.0179  worst 0.0221
+	under 1% 237  under 2% 249  under 5% 250  under 10% 250
+	identical byte for byte 85.36%   mean |diff|  5.211 levels
+	colour, levels of 255: worst square mean 15.91  max 96.19  worst pixel 255
+	worst   2.21%  gov.uscourts.casd.850253.pdf page 1
+	worst   1.86%  gov.uscourts.cacd.1009689.pdf page 1
+	worst   1.85%  gov.uscourts.mnd.138153.pdf page 1
+	worst   1.79%  gov.uscourts.txnd.218305.pdf page 1
+	worst   1.78%  gov.uscourts.wvsd.62483.pdf page 1
+	worst   1.68%  gov.uscourts.nynd.21695.pdf page 1
+	worst   1.62%  gov.uscourts.txsd.1677780.pdf page 1
+	worst   1.54%  gov.uscourts.almd.64443.pdf page 1
+	worst   1.28%  gov.uscourts.vaeb.554034.pdf page 1
+	worst   1.25%  gov.uscourts.pamd.98522.pdf page 1
+	worst   1.19%  gov.uscourts.almd.58141.pdf page 1
+	worst   1.02%  gov.uscourts.dcd.262861.pdf page 1
+	time, 250 pages both were timed on: ours 6.555s  theirs 28.743s  (0.228x)
+	per page ours/theirs: median 0.132x  p90 0.487x   faster on 249 of 250
+	worst   1.02x SLOWER ours    229ms  theirs    225ms  gov.uscourts.msnb.180080.pdf page 1
+	worst   0.79x faster ours    100ms  theirs    126ms  gov.uscourts.txsd.2092352.pdf page 1
+	worst   0.78x faster ours     85ms  theirs    109ms  gov.uscourts.nced.112866.pdf page 1
+	worst   0.69x faster ours     57ms  theirs     82ms  gov.uscourts.txwd.1172889819.pdf page 1
+	worst   0.69x faster ours     72ms  theirs    105ms  gov.uscourts.paed.653779.pdf page 1
+	slowest page 229ms, 0 over the threshold
