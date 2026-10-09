@@ -72,6 +72,16 @@ var BentoPDF = []Claim{
 	{Tool: "rtf-to-pdf", Claim: "go-rtf/rtf#func Parse"},
 	{Tool: "markdown-to-pdf", Claim: "go-richdoc/markdown#func Parse"},
 
+	// --- the data formats, through go-richdoc/data -------------------------
+	// ⛔ Each claim names that format's own DECISION — the function that does
+	// the thing the format needs — rather than the repository. A single
+	// "go-richdoc/data exists" claim would go on saying yes after a reader had
+	// been dropped.
+	{Tool: "csv-to-pdf", Claim: "go-richdoc/data#func Sniff"},
+	{Tool: "json-to-pdf", Claim: "go-richdoc/data#func uniformObjects"},
+	{Tool: "xml-to-pdf", Claim: "go-richdoc/data#uniformKids"},
+	{Tool: "txt-to-pdf", Claim: "go-richdoc/data#func laidOut"},
+
 	// --- pictures both ways, through go-pdfkit/convert ---------------------
 	// ⛔ Each claim names the FORMAT, so an entry survives only while that
 	// format is still named in the source. A single "convert exists" claim
