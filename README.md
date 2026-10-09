@@ -755,6 +755,58 @@ described a hole rather than a corpus.
 strikes that too: the bound fired three times, and it is a property of the
 MACHINE and not of the corpus.**
 
+## How much of another toolkit we actually do: `bentoparity`
+
+The same question as the rest of this repository, asked of a feature list
+rather than of a page: **what can be shown**, by something that is not our own
+say-so.
+
+```
+bentoparity -tools ~/src/bentopdf/docs/tools -pdfops ./pdfops -src ~/src/go-pdfkit
+```
+
+```
+covered       56
+not covered   58
+parity       49.1% (56/114), every claim verified
+```
+
+⛔ **It refuses to report a figure if a single claim cannot be checked.** A
+parity number assembled from a mapping nobody verifies is a vibe with a decimal
+point in it. The previous version of this measurement was kept by hand, was
+wrong by under-counting, and the only reason anybody found out is that somebody
+said *"not sure that map is up to date"*.
+
+### Neither end of the fraction is anybody's recollection
+
+| | |
+| --- | --- |
+| the **denominator** | read from BentoPDF's own `docs/tools` directory, one Markdown file per tool. A list typed out here would be a snapshot of what somebody believed the day they typed it — and the denominator is exactly what must not quietly drift. |
+| a **verb** claim | has to appear in `pdfops --help`, read off a binary compiled from the source being measured. Not a README, not a note. |
+| a **symbol** claim | has to appear in that repository's **Go source**. A README saying a function exists is a claim, not the function. |
+
+A tool with no claim counts as **not covered**. Absence is the default and the
+conservative direction: this must never make the fleet look better than it is.
+
+### Three refusals before it counts anything
+
+- **a tool claimed twice.** Silent otherwise: the map keeps the last entry and
+  the total comes out short of what the table appears to say. The check exists
+  because ten entries were added and the figure rose by **nine**.
+- **a claim for a tool the other project does not have.** It inflates nothing by
+  itself, but it means the table is being written against something other than
+  the list, and that mistake has a direction nobody notices.
+- **a claim that cannot be shown.** An unverified claim is not a capability.
+
+And one in the other direction: a repository that is checked out but
+**unreadable** is reported as unreadable, never as *"does not contain X"*. That
+false negative reads exactly like a real gap, and a capability measurement must
+not fail in the direction that invents one.
+
+### Measured against
+
+BentoPDF **v2.8.8**, commit `3a5f146`, 2026-10-03 — **114** tools.
+
 ## What it comes to today
 
 A number that is not written down cannot be regressed against. `baseline/`
