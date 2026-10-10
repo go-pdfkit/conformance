@@ -89,6 +89,16 @@ var BentoPDF = []Claim{
 	// --- document converters, each through richdoc then a PDF writer -------
 	{Tool: "odt-to-pdf", Claim: "go-odf/odf#func Parse"},
 	{Tool: "ods-to-pdf", Claim: "go-odf/odf#office:spreadsheet"},
+	{Tool: "odp-to-pdf", Claim: "go-odf/odf#office:presentation"},
+
+	// ⛔ odg-to-pdf is NOT claimed, and the reason is the DIFFERENCE between
+	// the two formats rather than a gap in the reader: the same code reads
+	// both. A presentation IS largely its words, so a deck whose text comes
+	// through under a heading per slide is the document. A drawing IS its
+	// geometry — BentoPDF's own page says "diagrams, flowcharts, and vector
+	// illustrations" — and a PDF holding a flowchart's labels with no boxes or
+	// arrows is not that drawing. Absence is the conservative direction, and
+	// this must never make the fleet look better than it is.
 	{Tool: "rtf-to-pdf", Claim: "go-rtf/rtf#func Parse"},
 	{Tool: "markdown-to-pdf", Claim: "go-richdoc/markdown#func Parse"},
 
