@@ -75,6 +75,17 @@ var BentoPDF = []Claim{
 	{Tool: "edit-pdf", Claim: "go-pdfkit/app#func main"},
 	{Tool: "pdf-multi-tool", Claim: "go-pdfkit/app#func main"},
 
+	// --- archives, and the one tool that converts nothing -------------------
+	// ⛔ pdf-to-zip is NOT "a PDF's pages in a zip". BentoPDF's own page says
+	// "bundle multiple PDF FILES into a single ZIP archive — no conversion",
+	// which is a different tool entirely; reading the fiche is what stopped a
+	// claim that would have been plainly false, and a verifier that only
+	// checks a symbol exists could never have caught it.
+	{Tool: "cbz-to-pdf", Claim: "go-pdfkit/convert#func ArchiveToPDF"},
+	{Tool: "pdf-to-cbz", Claim: "go-pdfkit/convert#func writeComicInfo"},
+	{Tool: "pdf-to-zip", Claim: "go-pdfkit/convert#func Bundle"},
+	{Tool: "svg-to-pdf", Claim: "go-pdfkit/convert#func RasterizeSVG"},
+
 	// --- document converters, each through richdoc then a PDF writer -------
 	{Tool: "odt-to-pdf", Claim: "go-odf/odf#func Parse"},
 	{Tool: "ods-to-pdf", Claim: "go-odf/odf#office:spreadsheet"},
