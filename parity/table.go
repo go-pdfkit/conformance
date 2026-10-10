@@ -59,8 +59,17 @@ var BentoPDF = []Claim{
 	// --- forms -------------------------------------------------------------
 	{Tool: "form-filler", Claim: "verb:fill"},
 
-	// --- rasterising --------------------------------------------------------
+	// --- rasterising, and what can be done once a page is pixels ------------
+	// ⛔ Every one of these RASTERISES: what comes out has no text in it. That
+	// is what BentoPDF's own tools do for the same jobs, so the claims are
+	// honest — but it is why rotate, crop and stamp are NOT here. They keep
+	// the text, and they are verbs of pdfops above.
 	{Tool: "rasterize-pdf", Claim: "go-pdfkit/render#func Page"},
+	{Tool: "invert-colors", Claim: "go-pdfkit/convert#images.Invert"},
+	{Tool: "pdf-to-greyscale", Claim: "go-pdfkit/convert#images.Grayscale"},
+	{Tool: "adjust-colors", Claim: "go-pdfkit/convert#images.AdjustContrast"},
+	{Tool: "background-color", Claim: "go-pdfkit/convert#Background: bg"},
+	{Tool: "scanner-effect", Claim: "go-pdfkit/convert#type ScannerEffect"},
 
 	// --- the browser workbench ---------------------------------------------
 	{Tool: "edit-pdf", Claim: "go-pdfkit/app#func main"},
