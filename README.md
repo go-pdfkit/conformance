@@ -789,26 +789,37 @@ A tool with no claim counts as **not covered**. Absence is the default and the
 conservative direction: this must never make the fleet look better than it is.
 
 
-### ⛔ A library capability is not a CLI capability, and the figure hid the difference
 
-Twelve of the sixty-nine claims were written as `verb:` claims — `verb:poster`,
-`verb:outline`, `verb:resize`, `verb:move`, `verb:onepage`, `verb:interleave`,
-`verb:metadata`, `verb:attach`, `verb:detach`, `verb:attachments` — and **not
-one of those verbs is in `pdfops --help`**. They are all real: `Poster`,
-`SetOutline`, `Resize`, `Move`, `OnePage`, `Interleave`, `SetInfo`, `Info`,
-`Attach`, `Detach` and `Attachments` are methods on `go-pdfkit/ops`'s `Doc`,
-tested and merged. The **CLI is behind the library**, by twelve verbs.
+### ⛔ The figure was right, the verification was not, and a stale clone invented a defect
 
-They are now claimed as what they are — symbols in `go-pdfkit/ops` — and the
-figure comes out of the tool rather than out of arithmetic.
+This README published **"parity 60.5% (69/114), every claim verified"**. Re-running
+`bentoparity` before a merge, it **refused**:
 
-⛔ **The number was right and the verification was not.** 69/114 is also what
-you get by counting the rows of the table, so a figure kept by hand agreed with
-a figure that could not be produced: running `bentoparity` on an up-to-date
-`pdfops` refused outright, naming all twelve. A total that matches for the
-wrong reason is the hardest kind of wrong to notice, which is why the figure in
-this README is now only ever **pasted from the tool's own output**, together
-with the commits it was measured against.
+```
+no figure reported: an unverified claim is not a capability
+```
+
+Twelve `verb:` claims named verbs that were not in `pdfops --help` — `poster`,
+`outline` ×2, `resize`, `move`, `onepage`, `interleave`, `metadata` ×2,
+`attach`, `detach`, `attachments`.
+
+**Two separate faults, and they had been hiding each other.**
+
+| | |
+| --- | --- |
+| the figure was **arithmetic** | `69` is also the number of `{Tool:` rows in the table. A total kept by counting rows agreed exactly with one the tool would not print, so no amount of re-reading the number could reveal it — only re-running the instrument did. ⛔ A total that matches **for the wrong reason** is the hardest kind of wrong to see. |
+| the instrument read a **37-day-old** checkout | the clone the binary was built from sat 37 days behind `origin/main`, and `git pull` had failed silently on it — no upstream tracking, the error on stderr inside a chain whose output was tailed. The missing verbs had been added in the meantime by a PR titled *"Seven verbs over library functions that were already written and tested"*. |
+
+So the first conclusion — *"the CLI is twelve verbs behind the library"* — was
+**wrong, and it was filed as a bug against `go-pdfkit/ops` before being
+checked**. The up-to-date binary has every one of the twelve. The claims are
+`verb:` claims again, because a verb claim asks a **compiled binary** and is
+the stronger of the two forms.
+
+What the figure in this README now carries, and did not before: it is **pasted
+from the tool's own output**, together with **the commit of every repository it
+was measured against** — which is the only thing that would have caught the
+stale clone.
 ### Three refusals before it counts anything
 
 - **a tool claimed twice.** Silent otherwise: the map keeps the last entry and
