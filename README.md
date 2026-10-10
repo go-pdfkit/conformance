@@ -788,6 +788,27 @@ said *"not sure that map is up to date"*.
 A tool with no claim counts as **not covered**. Absence is the default and the
 conservative direction: this must never make the fleet look better than it is.
 
+
+### ⛔ A library capability is not a CLI capability, and the figure hid the difference
+
+Twelve of the sixty-nine claims were written as `verb:` claims — `verb:poster`,
+`verb:outline`, `verb:resize`, `verb:move`, `verb:onepage`, `verb:interleave`,
+`verb:metadata`, `verb:attach`, `verb:detach`, `verb:attachments` — and **not
+one of those verbs is in `pdfops --help`**. They are all real: `Poster`,
+`SetOutline`, `Resize`, `Move`, `OnePage`, `Interleave`, `SetInfo`, `Info`,
+`Attach`, `Detach` and `Attachments` are methods on `go-pdfkit/ops`'s `Doc`,
+tested and merged. The **CLI is behind the library**, by twelve verbs.
+
+They are now claimed as what they are — symbols in `go-pdfkit/ops` — and the
+figure comes out of the tool rather than out of arithmetic.
+
+⛔ **The number was right and the verification was not.** 69/114 is also what
+you get by counting the rows of the table, so a figure kept by hand agreed with
+a figure that could not be produced: running `bentoparity` on an up-to-date
+`pdfops` refused outright, naming all twelve. A total that matches for the
+wrong reason is the hardest kind of wrong to notice, which is why the figure in
+this README is now only ever **pasted from the tool's own output**, together
+with the commits it was measured against.
 ### Three refusals before it counts anything
 
 - **a tool claimed twice.** Silent otherwise: the map keeps the last entry and
