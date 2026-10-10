@@ -17,13 +17,13 @@ var BentoPDF = []Claim{
 	{Tool: "rotate-pdf", Claim: "verb:rotate"},
 	{Tool: "rotate-custom", Claim: "verb:rotate"},
 	{Tool: "crop-pdf", Claim: "verb:crop"},
-	{Tool: "fix-page-size", Claim: "go-pdfkit/ops#func (d *Doc) Resize("},
-	{Tool: "organize-pdf", Claim: "go-pdfkit/ops#func (d *Doc) Move("},
+	{Tool: "fix-page-size", Claim: "verb:resize"},
+	{Tool: "organize-pdf", Claim: "verb:move"},
 	{Tool: "n-up-pdf", Claim: "verb:nup"},
 	{Tool: "pdf-booklet", Claim: "verb:booklet"},
-	{Tool: "alternate-merge", Claim: "go-pdfkit/ops#func (d *Doc) Interleave("},
-	{Tool: "combine-single-page", Claim: "go-pdfkit/ops#func (d *Doc) OnePage("},
-	{Tool: "posterize-pdf", Claim: "go-pdfkit/ops#func (d *Doc) Poster("},
+	{Tool: "alternate-merge", Claim: "verb:interleave"},
+	{Tool: "combine-single-page", Claim: "verb:onepage"},
+	{Tool: "posterize-pdf", Claim: "verb:poster"},
 	{Tool: "add-blank-page", Claim: "verb:blank"},
 	{Tool: "page-dimensions", Claim: "verb:info"},
 
@@ -34,14 +34,14 @@ var BentoPDF = []Claim{
 	{Tool: "bates-numbering", Claim: "verb:bates"},
 
 	// --- the file itself ---------------------------------------------------
-	{Tool: "edit-metadata", Claim: "go-pdfkit/ops#func (d *Doc) SetInfo("},
-	{Tool: "view-metadata", Claim: "go-pdfkit/ops#func (d *Doc) Info("},
+	{Tool: "edit-metadata", Claim: "verb:metadata"},
+	{Tool: "view-metadata", Claim: "verb:metadata"},
 	{Tool: "remove-metadata", Claim: "verb:strip"},
 	{Tool: "sanitize-pdf", Claim: "verb:sanitize"},
 	{Tool: "compress-pdf", Claim: "verb:compress"},
 	{Tool: "flatten-pdf", Claim: "verb:flatten"},
-	{Tool: "bookmark", Claim: "go-pdfkit/ops#func (d *Doc) SetOutline("},
-	{Tool: "table-of-contents", Claim: "go-pdfkit/ops#func (d *Doc) SetOutline("},
+	{Tool: "bookmark", Claim: "verb:outline"},
+	{Tool: "table-of-contents", Claim: "verb:outline"},
 
 	// --- locks -------------------------------------------------------------
 	{Tool: "protect-pdf", Claim: "verb:encrypt"},
@@ -52,9 +52,9 @@ var BentoPDF = []Claim{
 	// --- what comes OUT of a PDF -------------------------------------------
 	{Tool: "pdf-to-text", Claim: "verb:text"},
 	{Tool: "extract-images", Claim: "verb:images"},
-	{Tool: "extract-attachments", Claim: "go-pdfkit/ops#func (d *Doc) Detach("},
-	{Tool: "add-attachments", Claim: "go-pdfkit/ops#func (d *Doc) Attach("},
-	{Tool: "edit-attachments", Claim: "go-pdfkit/ops#func (d *Doc) Attachments("},
+	{Tool: "extract-attachments", Claim: "verb:detach"},
+	{Tool: "add-attachments", Claim: "verb:attach"},
+	{Tool: "edit-attachments", Claim: "verb:attachments"},
 
 	// --- forms -------------------------------------------------------------
 	{Tool: "form-filler", Claim: "verb:fill"},
@@ -89,6 +89,16 @@ var BentoPDF = []Claim{
 	// --- document converters, each through richdoc then a PDF writer -------
 	{Tool: "odt-to-pdf", Claim: "go-odf/odf#func Parse"},
 	{Tool: "ods-to-pdf", Claim: "go-odf/odf#office:spreadsheet"},
+	{Tool: "odp-to-pdf", Claim: "go-odf/odf#office:presentation"},
+
+	// ⛔ odg-to-pdf is NOT claimed, and the reason is the DIFFERENCE between
+	// the two formats rather than a gap in the reader: the same code reads
+	// both. A presentation IS largely its words, so a deck whose text comes
+	// through under a heading per slide is the document. A drawing IS its
+	// geometry — BentoPDF's own page says "diagrams, flowcharts, and vector
+	// illustrations" — and a PDF holding a flowchart's labels with no boxes or
+	// arrows is not that drawing. Absence is the conservative direction, and
+	// this must never make the fleet look better than it is.
 	{Tool: "rtf-to-pdf", Claim: "go-rtf/rtf#func Parse"},
 	{Tool: "markdown-to-pdf", Claim: "go-richdoc/markdown#func Parse"},
 
@@ -116,4 +126,29 @@ var BentoPDF = []Claim{
 	{Tool: "pdf-to-jpg", Claim: `go-pdfkit/convert#"jpeg"`},
 	{Tool: "pdf-to-bmp", Claim: `go-pdfkit/convert#"bmp"`},
 	{Tool: "pdf-to-tiff", Claim: `go-pdfkit/convert#"tiff"`},
+
+	// --- two more that go-pdfkit/ops already had under another name --------
+	{Tool: "remove-annotations", Claim: "go-pdfkit/ops#func (d *Doc) RemoveAnnotations("},
+	// ⛔ The claim names the SUBSTITUTION, not the variable. A plain "{pages}"
+	// is in a doc comment two lines above, and a claim satisfied by prose is
+	// exactly what this table must not contain: a README saying a function
+	// exists is a claim, not the function. Stamp has all nine positions, which
+	// covers the six this tool offers, and {page}/{pages} are what make
+	// "Page 3 of 10" update per page.
+	{Tool: "header-footer", Claim: `go-pdfkit/ops#"{pages}", strconv.Itoa(pages)`},
+
+	// ⛔ THREE that look close and are not, each for a different reason. They
+	// are written down because "not covered" with no reason invites the next
+	// person to re-derive the same wrong claim:
+	//
+	//   - divide-pages. Poster(across, down) divides a page into a grid, but
+	//     "every sheet is the size of the page it came from" — it MAGNIFIES.
+	//     divide-pages cuts a page into halves that stay half-size. Same
+	//     grid, different output, and only the commit message says so.
+	//   - duplex-collate. Interleave joins two piles, and the library can
+	//     express the tool as SplitAt then Interleave — but no single entry
+	//     point does the job, and a composition a caller has to assemble is
+	//     not a capability this table can show. An ops method would close it.
+	//   - remove-blank-pages. It needs a blank DETECTOR over rendered pixels,
+	//     and a detector is a measurement, not a wiring job.
 }
