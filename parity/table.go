@@ -137,7 +137,13 @@ var BentoPDF = []Claim{
 	// "Page 3 of 10" update per page.
 	{Tool: "header-footer", Claim: `go-pdfkit/ops#"{pages}", strconv.Itoa(pages)`},
 
-	// ⛔ THREE that look close and are not, each for a different reason. They
+	// duplex-collate was in the list below as "the library can express it but
+	// no single entry point does the job". Writing the refusal down is what
+	// got it closed: go-pdfkit/ops v0.12.0 has DuplexCollate and a `duplex`
+	// verb, so the claim asks the binary.
+	{Tool: "duplex-collate", Claim: "verb:duplex"},
+
+	// ⛔ TWO that look close and are not, each for a different reason. They
 	// are written down because "not covered" with no reason invites the next
 	// person to re-derive the same wrong claim:
 	//
@@ -145,10 +151,6 @@ var BentoPDF = []Claim{
 	//     "every sheet is the size of the page it came from" — it MAGNIFIES.
 	//     divide-pages cuts a page into halves that stay half-size. Same
 	//     grid, different output, and only the commit message says so.
-	//   - duplex-collate. Interleave joins two piles, and the library can
-	//     express the tool as SplitAt then Interleave — but no single entry
-	//     point does the job, and a composition a caller has to assemble is
-	//     not a capability this table can show. An ops method would close it.
 	//   - remove-blank-pages. It needs a blank DETECTOR over rendered pixels,
 	//     and a detector is a measurement, not a wiring job.
 }
