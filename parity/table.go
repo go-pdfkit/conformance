@@ -126,4 +126,29 @@ var BentoPDF = []Claim{
 	{Tool: "pdf-to-jpg", Claim: `go-pdfkit/convert#"jpeg"`},
 	{Tool: "pdf-to-bmp", Claim: `go-pdfkit/convert#"bmp"`},
 	{Tool: "pdf-to-tiff", Claim: `go-pdfkit/convert#"tiff"`},
+
+	// --- two more that go-pdfkit/ops already had under another name --------
+	{Tool: "remove-annotations", Claim: "go-pdfkit/ops#func (d *Doc) RemoveAnnotations("},
+	// ⛔ The claim names the SUBSTITUTION, not the variable. A plain "{pages}"
+	// is in a doc comment two lines above, and a claim satisfied by prose is
+	// exactly what this table must not contain: a README saying a function
+	// exists is a claim, not the function. Stamp has all nine positions, which
+	// covers the six this tool offers, and {page}/{pages} are what make
+	// "Page 3 of 10" update per page.
+	{Tool: "header-footer", Claim: `go-pdfkit/ops#"{pages}", strconv.Itoa(pages)`},
+
+	// ⛔ THREE that look close and are not, each for a different reason. They
+	// are written down because "not covered" with no reason invites the next
+	// person to re-derive the same wrong claim:
+	//
+	//   - divide-pages. Poster(across, down) divides a page into a grid, but
+	//     "every sheet is the size of the page it came from" — it MAGNIFIES.
+	//     divide-pages cuts a page into halves that stay half-size. Same
+	//     grid, different output, and only the commit message says so.
+	//   - duplex-collate. Interleave joins two piles, and the library can
+	//     express the tool as SplitAt then Interleave — but no single entry
+	//     point does the job, and a composition a caller has to assemble is
+	//     not a capability this table can show. An ops method would close it.
+	//   - remove-blank-pages. It needs a blank DETECTOR over rendered pixels,
+	//     and a detector is a measurement, not a wiring job.
 }
