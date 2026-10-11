@@ -100,6 +100,20 @@ var BentoPDF = []Claim{
 	// arrows is not that drawing. Absence is the conservative direction, and
 	// this must never make the fleet look better than it is.
 	{Tool: "rtf-to-pdf", Claim: "go-rtf/rtf#func Parse"},
+
+	// --- Word, through go-ooxml -------------------------------------------
+	// ⛔ BentoPDF's own page says this tool takes "DOC, DOCX, ODT, and RTF".
+	// Three of the four are read here — DOCX by go-ooxml/ooxml, ODT by
+	// go-odf/odf, RTF by go-rtf/rtf — and the fourth, DOC, is NOT: the
+	// pre-2007 binary format is an OLE compound file and nothing in the fleet
+	// reads one. The gap is named rather than passed over, the way cbz-to-pdf
+	// names CBR, because a claim whose shortfall is written down can be
+	// closed by whoever reads it.
+	//
+	// The claim names the WordprocessingML reader rather than the repository:
+	// a "go-ooxml/ooxml exists" claim would go on saying yes after the Word
+	// reader had been dropped in favour of the other two.
+	{Tool: "word-to-pdf", Claim: "go-ooxml/ooxml#func ParseWord"},
 	{Tool: "markdown-to-pdf", Claim: "go-richdoc/markdown#func Parse"},
 
 	// --- the data formats, through go-richdoc/data -------------------------
