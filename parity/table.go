@@ -32,6 +32,7 @@ var BentoPDF = []Claim{
 	{Tool: "add-stamps", Claim: "verb:stamp"},
 	{Tool: "page-numbers", Claim: "verb:number"},
 	{Tool: "add-page-labels", Claim: "verb:labels"},
+	{Tool: "pdf-layers", Claim: "verb:layers"},
 	{Tool: "bates-numbering", Claim: "verb:bates"},
 
 	// --- the file itself ---------------------------------------------------
