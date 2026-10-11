@@ -766,9 +766,9 @@ bentoparity -tools ~/src/bentopdf/docs/tools -pdfops ./pdfops -src ~/src/go-pdfk
 ```
 
 ```
-covered       81
-not covered   33
-parity       71.1% (81/114), every claim verified
+covered       82
+not covered   32
+parity       71.9% (82/114), every claim verified
 ```
 
 ⛔ **It refuses to report a figure if a single claim cannot be checked.** A

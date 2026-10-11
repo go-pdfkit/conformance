@@ -33,6 +33,15 @@ var BentoPDF = []Claim{
 	{Tool: "page-numbers", Claim: "verb:number"},
 	{Tool: "add-page-labels", Claim: "verb:labels"},
 	{Tool: "pdf-layers", Claim: "verb:layers"},
+	// ⛔ text-color recolours the text in each page's OWN content stream.
+	// BentoPDF's page says the tool "identifies text regions on each page and
+	// recolors them"; text drawn through a Form XObject is not reached here,
+	// because an XObject is SHARED and recolouring one would change pages the
+	// caller did not name. The verb COUNTS what it could not reach and says
+	// so, which is why this is a claim rather than a refusal: the one failure
+	// that would make it dishonest — a document coming back unchanged while
+	// looking converted — is the one the tool reports out loud.
+	{Tool: "text-color", Claim: "verb:textcolour"},
 	{Tool: "bates-numbering", Claim: "verb:bates"},
 
 	// --- the file itself ---------------------------------------------------
