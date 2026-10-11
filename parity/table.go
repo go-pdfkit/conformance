@@ -143,14 +143,38 @@ var BentoPDF = []Claim{
 	// verb, so the claim asks the binary.
 	{Tool: "duplex-collate", Claim: "verb:duplex"},
 
-	// ⛔ TWO that look close and are not, each for a different reason. They
-	// are written down because "not covered" with no reason invites the next
-	// person to re-derive the same wrong claim:
+	// ⛔⛔ THREE REFUSALS BECAME VERBS. Each of these was written down here as
+	// "not covered", with the reason — and each time the reason turned out to
+	// be the SPECIFICATION. Writing down why a thing cannot be claimed is what
+	// got all three built, which is an argument for the practice and not just
+	// for the entries:
 	//
-	//   - divide-pages. Poster(across, down) divides a page into a grid, but
-	//     "every sheet is the size of the page it came from" — it MAGNIFIES.
-	//     divide-pages cuts a page into halves that stay half-size. Same
-	//     grid, different output, and only the commit message says so.
-	//   - remove-blank-pages. It needs a blank DETECTOR over rendered pixels,
-	//     and a detector is a measurement, not a wiring job.
+	//   - divide-pages said "Poster MAGNIFIES; divide-pages cuts a page into
+	//     halves that stay half-size". go-pdfkit/ops v0.13.0 has Divide.
+	//   - remove-blank-pages said "it needs a blank DETECTOR over rendered
+	//     pixels, and a detector is a measurement, not a wiring job". It is
+	//     now one, and the measurement moved the default resolution from 50
+	//     DPI to 150: at 50 an eight-point full stop covers exactly ONE pixel,
+	//     which is the mark a speck of dust makes.
+	//   - duplex-collate said "no single entry point does the job". It has one.
+	{Tool: "divide-pages", Claim: "verb:divide"},
+	{Tool: "remove-blank-pages", Claim: "verb:deblank"},
+
+	// repair-pdf is reader's repair, given a name. ⛔ The claim is the VERB
+	// and not reader's symbol, because the repair itself was always there and
+	// silent: every ops verb has been repairing files for as long as reader
+	// has, and a claim on the symbol would have been true and useless. What
+	// this table can now show is a tool that SAYS so and keeps the result.
+	{Tool: "repair-pdf", Claim: "verb:repair"},
+
+	// ⛔ ONE that looks close and is not, kept with its reason so that "not
+	// covered" does not invite the next person to re-derive it:
+	//
+	//   - compare-pdfs. conformance/compare already renders two pages, reduces
+	//     both to grey, blurs them and counts the pixels that differ — which
+	//     is the measurement this tool needs. But it compares OUR drawing
+	//     against poppler's, to judge us; it needs poppler installed, and it
+	//     pairs page i with page i rather than "intelligently". A claim on it
+	//     would be a claim that we can diff two files a caller brings, and we
+	//     cannot. Generalising it is real work, not a table entry.
 }
