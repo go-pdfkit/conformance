@@ -114,6 +114,22 @@ var BentoPDF = []Claim{
 	// a "go-ooxml/ooxml exists" claim would go on saying yes after the Word
 	// reader had been dropped in favour of the other two.
 	{Tool: "word-to-pdf", Claim: "go-ooxml/ooxml#func ParseWord"},
+	{Tool: "excel-to-pdf", Claim: "go-ooxml/ooxml#func ParseWorkbook"},
+	{Tool: "powerpoint-to-pdf", Claim: "go-ooxml/ooxml#func ParsePresentation"},
+
+	// ⛔ THE SAME SHORTFALL IN ALL THREE, named rather than passed over: each
+	// of BentoPDF's three Office tools takes the pre-2007 BINARY format as
+	// well, and nothing in the fleet reads one. They are OLE compound files —
+	// a different container entirely from OPC, with its own FAT and its own
+	// record streams — so this is a gap of one missing library and not of
+	// three missing readers.
+	//
+	//	word-to-pdf        DOC  (and DOCX ✓, ODT ✓, RTF ✓)
+	//	excel-to-pdf       XLS  (and XLSX ✓, ODS ✓, CSV ✓)
+	//	powerpoint-to-pdf  PPT  (and PPTX ✓, ODP ✓)
+	//
+	// Writing it down the way cbz-to-pdf names CBR: a claim whose shortfall is
+	// written down can be closed by whoever reads it, and the three share one.
 	{Tool: "markdown-to-pdf", Claim: "go-richdoc/markdown#func Parse"},
 
 	// --- the data formats, through go-richdoc/data -------------------------
