@@ -104,6 +104,17 @@ var BentoPDF = []Claim{
 	// repository could see.
 	{Tool: "pdf-to-word", Claim: "verb:word"},
 	{Tool: "pdf-to-excel", Claim: "verb:excel"},
+	// ⛔ pdf-to-json is NOT the text. BentoPDF's own page says so plainly —
+	// "the raw PDF object structure, not extracted text content" — and
+	// points anyone wanting the text at prepare-pdf-for-ai instead. So the
+	// claim is the object graph, which `pdfops objects` writes: the trailer
+	// and everything reachable from it, a stream's dictionary and length
+	// without its bytes.
+	//
+	// Reachable from the trailer, and not every object in the file: an
+	// object no reference points at is in the bytes and in nobody's
+	// document, and listing it beside the rest would say the two are alike.
+	{Tool: "pdf-to-json", Claim: "verb:objects"},
 	{Tool: "extract-images", Claim: "verb:images"},
 	{Tool: "extract-attachments", Claim: "verb:detach"},
 	{Tool: "add-attachments", Claim: "verb:attach"},
