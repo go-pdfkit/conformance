@@ -62,6 +62,19 @@ var BentoPDF = []Claim{
 
 	// --- what comes OUT of a PDF -------------------------------------------
 	{Tool: "pdf-to-text", Claim: "verb:text"},
+	// ⛔ Both of these are the SAME detector, and it is an inference: a page
+	// holds text put at places, and a table is what a reader sees when those
+	// places line up. BentoPDF's own two pages are the same thing twice as
+	// well — extract-tables writes one file per table, pdf-to-csv writes all
+	// of them into one — and `pdfops tables` does both, with -to and without.
+	//
+	// What it does NOT do is read ruled lines, which is the strategy
+	// PyMuPDF's find_tables uses by DEFAULT and falls back from. So a table
+	// held apart by rules rather than by whitespace is not found, and the
+	// claim is for the text strategy alone. Said in extract's README under
+	// "What it still gets wrong", and in ops's beside the verb.
+	{Tool: "extract-tables", Claim: "verb:tables"},
+	{Tool: "pdf-to-csv", Claim: "verb:tables"},
 	{Tool: "extract-images", Claim: "verb:images"},
 	{Tool: "extract-attachments", Claim: "verb:detach"},
 	{Tool: "add-attachments", Claim: "verb:attach"},
