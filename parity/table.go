@@ -87,6 +87,23 @@ var BentoPDF = []Claim{
 	// that bound is published rather than buried.
 	{Tool: "pdf-to-markdown", Claim: "verb:markdown"},
 	{Tool: "prepare-pdf-for-ai", Claim: "verb:markdown"},
+	// ⛔ The same reading as markdown above, written by a different writer —
+	// go-ooxml/ooxml, which is the fleet's first OOXML WRITER and sits on
+	// opc.Build. So what is claimed is again the inference and not a
+	// conversion: what comes out is the DOCUMENT, not the pages. The fonts,
+	// the margins and the page breaks are the typesetter's work, and a .docx
+	// reproducing them would be a picture of a PDF rather than something
+	// anybody can edit.
+	//
+	// excel writes the tables only, one sheet each: a spreadsheet is a grid
+	// of cells and a document is not.
+	//
+	// ⛔ And the judge is not our own reader. Where LibreOffice is installed
+	// the writer's own tests ask it, because a package go-ooxml is delighted
+	// with can be one Word refuses — and that is a failure nothing in this
+	// repository could see.
+	{Tool: "pdf-to-word", Claim: "verb:word"},
+	{Tool: "pdf-to-excel", Claim: "verb:excel"},
 	{Tool: "extract-images", Claim: "verb:images"},
 	{Tool: "extract-attachments", Claim: "verb:detach"},
 	{Tool: "add-attachments", Claim: "verb:attach"},
