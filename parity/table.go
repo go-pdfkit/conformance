@@ -196,6 +196,15 @@ var BentoPDF = []Claim{
 	// written down can be closed by whoever reads it, and the three share one.
 	{Tool: "markdown-to-pdf", Claim: "go-richdoc/markdown#func Parse"},
 
+	// ⛔ FictionBook, and the claim names Parse rather than the repository for
+	// the reason every other converter claim does. It is the one ebook format
+	// this fleet reads at all, and it is the one an `encoding/xml` reader can
+	// do: a single XML file, no ZIP, no package document, no spine, its images
+	// base64 inside the same file. EPUB and MOBI each need an HTML reader into
+	// richdoc, which nothing here has, so those two stay in the uncovered list
+	// rather than being quietly folded into "ebooks".
+	{Tool: "fb2-to-pdf", Claim: "go-richdoc/fb2#func Parse"},
+
 	// --- the data formats, through go-richdoc/data -------------------------
 	// ⛔ Each claim names that format's own DECISION — the function that does
 	// the thing the format needs — rather than the repository. A single
