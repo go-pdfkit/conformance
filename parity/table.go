@@ -75,6 +75,18 @@ var BentoPDF = []Claim{
 	// "What it still gets wrong", and in ops's beside the verb.
 	{Tool: "extract-tables", Claim: "verb:tables"},
 	{Tool: "pdf-to-csv", Claim: "verb:tables"},
+	// ⛔ One verb for both of these, because they are the same thing twice
+	// over: BentoPDF's prepare-pdf-for-ai is per-page MARKDOWN with the
+	// document's metadata beside it — PyMuPDF4LLM's LlamaMarkdownReader —
+	// which is `pdfops markdown -json`, and pdf-to-markdown is the same
+	// reading written out as one document.
+	//
+	// What is claimed is the inference, not a conversion: a PDF has no
+	// headings, and go-pdfkit/document says in its README what it will and
+	// will not see. Ruled lines and multi-column layouts are NOT read, and
+	// that bound is published rather than buried.
+	{Tool: "pdf-to-markdown", Claim: "verb:markdown"},
+	{Tool: "prepare-pdf-for-ai", Claim: "verb:markdown"},
 	{Tool: "extract-images", Claim: "verb:images"},
 	{Tool: "extract-attachments", Claim: "verb:detach"},
 	{Tool: "add-attachments", Claim: "verb:attach"},
