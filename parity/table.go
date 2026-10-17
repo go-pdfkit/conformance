@@ -198,12 +198,35 @@ var BentoPDF = []Claim{
 
 	// ⛔ FictionBook, and the claim names Parse rather than the repository for
 	// the reason every other converter claim does. It is the one ebook format
-	// this fleet reads at all, and it is the one an `encoding/xml` reader can
-	// do: a single XML file, no ZIP, no package document, no spine, its images
-	// base64 inside the same file. EPUB and MOBI each need an HTML reader into
-	// richdoc, which nothing here has, so those two stay in the uncovered list
-	// rather than being quietly folded into "ebooks".
+	// an `encoding/xml` reader can do on its own: a single XML file, no ZIP, no
+	// package document, no spine, its images base64 inside the same file.
 	{Tool: "fb2-to-pdf", Claim: "go-richdoc/fb2#func Parse"},
+
+	// --- what the HTML reader unlocked ------------------------------------
+	// ⛔ These three all needed the SAME missing piece, which is why the gap
+	// was worth naming rather than working around: EPUB's content documents
+	// are XHTML, MOBI's text is HTML, and the body of nearly every HTML email
+	// is HTML. go-richdoc/html v0.1.0 reads it, delegating the parse to
+	// golang.org/x/net/html, and two of the three followed the same afternoon.
+	//
+	// The claim for epub names readingOrder and not Parse, deliberately: the
+	// hard part of an EPUB is not opening the ZIP, it is that the SPINE is the
+	// only thing that says what order to read the chapters in. A claim on
+	// Parse alone would go on saying yes after a refactor dropped the spine
+	// and left an alphabetical walk of the archive — which is the defect every
+	// naive reader of a container format has.
+	{Tool: "epub-to-pdf", Claim: "go-richdoc/epub#func (p *opf) readingOrder"},
+
+	// And email names the multipart walker for the same reason: an
+	// alternative is the same message twice, and a reader that lost that
+	// distinction would print every HTML mail once as text and once as itself.
+	{Tool: "email-to-pdf", Claim: "go-richdoc/email#multipart/alternative"},
+
+	// ⛔ mobi-to-pdf stays UNCOVERED, with the shortfall named the way
+	// cbz-to-pdf names CBR: a .mobi is a PalmDB container whose text is
+	// compressed with PalmDOC LZ77 or with HUFF/CDIC, and a modern one is
+	// usually KF8 — a different format again, in the same file. The HTML
+	// reader is now there; the container and the two decompressors are not.
 
 	// --- the data formats, through go-richdoc/data -------------------------
 	// ⛔ Each claim names that format's own DECISION — the function that does
