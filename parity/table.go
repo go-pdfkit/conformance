@@ -6,7 +6,15 @@ package parity
 // BentoPDF maps BentoPDF's own tool names onto what this fleet can be SHOWN to
 // do. Every entry is checked; absence is the default.
 //
-// Measured against BentoPDF v2.8.8 (commit 3a5f146, 2026-10-03): 114 tools.
+// Measured against BentoPDF v2.8.8 at commit 6ce0d69 (its own last commit
+// 2026-10-17, read 2026-10-18): 114 tools.
+//
+// ⛔ The commit is part of the figure. This line named 3a5f146, and that
+// commit is not reachable in the clone the measurement actually reads — so
+// the denominator was attributed to something nobody here can check. The
+// count happens to be the same 114 at both readings, which is why it went
+// unnoticed and why it is worth writing down: it would have gone on agreeing
+// until the day BentoPDF added a tool.
 var BentoPDF = []Claim{
 	// --- the page verbs, all read off the pdfops binary --------------------
 	{Tool: "merge-pdf", Claim: "verb:merge"},
@@ -43,6 +51,14 @@ var BentoPDF = []Claim{
 	// looking converted — is the one the tool reports out loud.
 	{Tool: "text-color", Claim: "verb:textcolour"},
 	{Tool: "bates-numbering", Claim: "verb:bates"},
+	// ⛔ sign-pdf is a PICTURE, and a note of mine said otherwise. BentoPDF's
+	// page offers drawing a signature, typing one, or uploading an image of
+	// one, and then places it: there is no certificate anywhere in it. I had
+	// recorded the three signature tools as one cryptographic job, which would
+	// have kept this tool uncovered behind work it does not need —
+	// digital-sign-pdf and validate-signature-pdf are the cryptographic pair,
+	// and they are still uncovered.
+	{Tool: "sign-pdf", Claim: "verb:place"},
 
 	// --- the file itself ---------------------------------------------------
 	{Tool: "edit-metadata", Claim: "verb:metadata"},
