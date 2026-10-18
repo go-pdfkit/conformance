@@ -238,11 +238,22 @@ var BentoPDF = []Claim{
 	// distinction would print every HTML mail once as text and once as itself.
 	{Tool: "email-to-pdf", Claim: "go-richdoc/email#multipart/alternative"},
 
-	// ⛔ mobi-to-pdf stays UNCOVERED, with the shortfall named the way
-	// cbz-to-pdf names CBR: a .mobi is a PalmDB container whose text is
-	// compressed with PalmDOC LZ77 or with HUFF/CDIC, and a modern one is
-	// usually KF8 — a different format again, in the same file. The HTML
-	// reader is now there; the container and the two decompressors are not.
+	// ⛔ And mobi names the TRAILING-ENTRY stripper, which is the one thing in
+	// that format that fails silently. The bytes at the end of a text record
+	// are not text and are not compressed — indexing data, and the overlap of
+	// a multibyte character split across two records — and feeding them to the
+	// decompressor does not error: it produces plausible rubbish at the end of
+	// every record. A claim on Parse would go on saying yes after that was
+	// dropped, and the book would still open.
+	//
+	// What this entry said until now — "the container and the two
+	// decompressors are not there" — was true of the PalmDOC half and
+	// deliberately remains true of HUFF/CDIC and KF8: go-richdoc/mobi refuses
+	// both BY NAME. Measured against Project Gutenberg's own Pride and
+	// Prejudice with Gutenberg's plain text of the same book as the judge:
+	// 125 816 words against 126 630, and 3 638 of 4 215 long sentences found
+	// verbatim.
+	{Tool: "mobi-to-pdf", Claim: "go-richdoc/mobi#func stripTrailing"},
 
 	// --- the data formats, through go-richdoc/data -------------------------
 	// ⛔ Each claim names that format's own DECISION — the function that does
