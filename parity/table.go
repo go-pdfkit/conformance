@@ -248,6 +248,17 @@ var BentoPDF = []Claim{
 	{Tool: "bmp-to-pdf", Claim: "go-pdfkit/convert#x/image/bmp"},
 	{Tool: "tiff-to-pdf", Claim: "go-pdfkit/convert#x/image/tiff"},
 	{Tool: "webp-to-pdf", Claim: "go-pdfkit/convert#x/image/webp"},
+	// ⛔ The claim names the IMPORT, like the five above it, and that is the
+	// whole wiring: convert decodes through image.Decode, so a codec that
+	// registers itself is read without convert knowing its name. Remove the
+	// import and the claim goes with it — which is the point, because the
+	// capability leaves at the same moment.
+	//
+	// What go-images/psd reads is the flattened COMPOSITE, which is what
+	// BentoPDF's own page describes ("renders the flattened composite image")
+	// and what Photoshop itself shows. Measured against sips (ImageIO, and
+	// nothing to do with our code): exact on 2 073 600 pixels of a real file.
+	{Tool: "psd-to-pdf", Claim: "go-pdfkit/convert#go-images/psd"},
 	{Tool: "pdf-to-png", Claim: `go-pdfkit/convert#"png"`},
 	{Tool: "pdf-to-jpg", Claim: `go-pdfkit/convert#"jpeg"`},
 	{Tool: "pdf-to-bmp", Claim: `go-pdfkit/convert#"bmp"`},
