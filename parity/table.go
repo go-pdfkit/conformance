@@ -6,7 +6,15 @@ package parity
 // BentoPDF maps BentoPDF's own tool names onto what this fleet can be SHOWN to
 // do. Every entry is checked; absence is the default.
 //
-// Measured against BentoPDF v2.8.8 (commit 3a5f146, 2026-10-03): 114 tools.
+// Measured against BentoPDF v2.8.8 at commit 6ce0d69 (its own last commit
+// 2026-10-17, read 2026-10-18): 114 tools.
+//
+// ⛔ The commit is part of the figure. This line named 3a5f146, and that
+// commit is not reachable in the clone the measurement actually reads — so
+// the denominator was attributed to something nobody here can check. The
+// count happens to be the same 114 at both readings, which is why it went
+// unnoticed and why it is worth writing down: it would have gone on agreeing
+// until the day BentoPDF added a tool.
 var BentoPDF = []Claim{
 	// --- the page verbs, all read off the pdfops binary --------------------
 	{Tool: "merge-pdf", Claim: "verb:merge"},
@@ -43,6 +51,14 @@ var BentoPDF = []Claim{
 	// looking converted — is the one the tool reports out loud.
 	{Tool: "text-color", Claim: "verb:textcolour"},
 	{Tool: "bates-numbering", Claim: "verb:bates"},
+	// ⛔ sign-pdf is a PICTURE, and a note of mine said otherwise. BentoPDF's
+	// page offers drawing a signature, typing one, or uploading an image of
+	// one, and then places it: there is no certificate anywhere in it. I had
+	// recorded the three signature tools as one cryptographic job, which would
+	// have kept this tool uncovered behind work it does not need —
+	// digital-sign-pdf and validate-signature-pdf are the cryptographic pair,
+	// and they are still uncovered.
+	{Tool: "sign-pdf", Claim: "verb:place"},
 
 	// --- the file itself ---------------------------------------------------
 	{Tool: "edit-metadata", Claim: "verb:metadata"},
@@ -222,11 +238,22 @@ var BentoPDF = []Claim{
 	// distinction would print every HTML mail once as text and once as itself.
 	{Tool: "email-to-pdf", Claim: "go-richdoc/email#multipart/alternative"},
 
-	// ⛔ mobi-to-pdf stays UNCOVERED, with the shortfall named the way
-	// cbz-to-pdf names CBR: a .mobi is a PalmDB container whose text is
-	// compressed with PalmDOC LZ77 or with HUFF/CDIC, and a modern one is
-	// usually KF8 — a different format again, in the same file. The HTML
-	// reader is now there; the container and the two decompressors are not.
+	// ⛔ And mobi names the TRAILING-ENTRY stripper, which is the one thing in
+	// that format that fails silently. The bytes at the end of a text record
+	// are not text and are not compressed — indexing data, and the overlap of
+	// a multibyte character split across two records — and feeding them to the
+	// decompressor does not error: it produces plausible rubbish at the end of
+	// every record. A claim on Parse would go on saying yes after that was
+	// dropped, and the book would still open.
+	//
+	// What this entry said until now — "the container and the two
+	// decompressors are not there" — was true of the PalmDOC half and
+	// deliberately remains true of HUFF/CDIC and KF8: go-richdoc/mobi refuses
+	// both BY NAME. Measured against Project Gutenberg's own Pride and
+	// Prejudice with Gutenberg's plain text of the same book as the judge:
+	// 125 816 words against 126 630, and 3 638 of 4 215 long sentences found
+	// verbatim.
+	{Tool: "mobi-to-pdf", Claim: "go-richdoc/mobi#func stripTrailing"},
 
 	// --- the data formats, through go-richdoc/data -------------------------
 	// ⛔ Each claim names that format's own DECISION — the function that does

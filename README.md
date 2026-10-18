@@ -766,9 +766,11 @@ bentoparity -tools ~/src/bentopdf/docs/tools -pdfops ./pdfops -src ~/src/go-pdfk
 ```
 
 ```
-covered       93
-not covered   21
-parity       81.6% (93/114), every claim verified
+BentoPDF documents 114 tools; pdfops carries 53 verbs
+
+covered       95
+not covered   19
+parity       83.3% (95/114), every claim verified
 ```
 
 ⛔ **It refuses to report a figure if a single claim cannot be checked.** A
