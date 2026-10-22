@@ -133,9 +133,22 @@ func Verify(claim string, verbs []string, src fs.FS) error {
 	if !ok || repo == "" || sym == "" {
 		return fmt.Errorf("a claim is either verb:NAME or REPO#SYMBOL, not %q", claim)
 	}
-	dir := path.Base(repo)
+	// ⛔ THE ORG IS PART OF THE NAME. This looked up path.Base(repo) alone, so
+	// a claim on go-ooxml/ooxml could only be resolved in a flat directory of
+	// bare repository names — and in a tree laid out as <org>/<repo>, which is
+	// how this machine holds the fleet, EVERY cross-org claim came back "not
+	// checked out" while the repository sat right there. Worse, two orgs with
+	// the same repository name would have answered for each other, and the
+	// claim would have been "verified" against the wrong source.
+	//
+	// The full org/repo is tried first because it is the more specific of the
+	// two; the bare name stays for the flat layout the usage line documents.
+	dir := repo
 	if _, err := fs.Stat(src, dir); err != nil {
-		return fmt.Errorf("%s is not checked out, so this claim cannot be shown either way", repo)
+		dir = path.Base(repo)
+		if _, err := fs.Stat(src, dir); err != nil {
+			return fmt.Errorf("%s is not checked out, so this claim cannot be shown either way", repo)
+		}
 	}
 	found := false
 	// ⛔ A walk error is PROPAGATED, not swallowed. Returning nil for it would
