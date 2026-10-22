@@ -138,6 +138,11 @@ var BentoPDF = []Claim{
 
 	// --- forms -------------------------------------------------------------
 	{Tool: "form-filler", Claim: "verb:fill"},
+	// ⛔ The claim is the VERB, not the package: forms.Dict can build a field
+	// dictionary and still leave nobody able to make a form, because the
+	// widget references and the page links are allocated by whoever writes the
+	// file. `pdfops addfields` is the thing a person can actually run.
+	{Tool: "form-creator", Claim: "verb:addfields"},
 
 	// --- rasterising, and what can be done once a page is pixels ------------
 	// ⛔ Every one of these RASTERISES: what comes out has no text in it. That

@@ -766,12 +766,17 @@ bentoparity -tools ~/src/bentopdf/docs/tools -pdfops ./pdfops -src ~/src/go-pdfk
 ```
 
 ```
-BentoPDF documents 114 tools; pdfops carries 53 verbs
+BentoPDF documents 114 tools; pdfops carries 54 verbs
 
-covered       95
-not covered   19
-parity       83.3% (95/114), every claim verified
+covered       96
+not covered   18
+parity       84.2% (96/114), every claim verified
 ```
+
+Measured 2026-10-22 against BentoPDF at `v2.8.8-99-g5a5e155`, with `pdfops`
+built from `ops` at `v0.22.0`. The denominator is the tool pages in
+`docs/tools`: that directory holds 115 **files** and 114 **tool pages**, which
+is worth saying because the two get reported as one another.
 
 ⛔ **It refuses to report a figure if a single claim cannot be checked.** A
 parity number assembled from a mapping nobody verifies is a vibe with a decimal
@@ -791,6 +796,23 @@ A tool with no claim counts as **not covered**. Absence is the default and the
 conservative direction: this must never make the fleet look better than it is.
 
 
+
+### ⛔ The resolver threw away the org, and refused the whole measurement
+
+A symbol claim names `REPO#SYMBOL`, and the repository was looked up by
+`path.Base(repo)` — the bare name, with the organisation discarded. In a tree
+laid out as `<org>/<repo>`, which is how this machine holds the fleet, **every
+cross-org claim came back "not checked out"** while the repository sat right
+there: twenty of them in one run, so no figure was reported at all.
+
+That much was loud. The quiet half is worse: two organisations owning a
+repository of the same name would have **answered for each other**, and a claim
+would have been "verified" against source that is not the source it names — a
+false *positive*, in the one direction a capability figure must never fail in.
+`go-images/codec` and `go-audio/codec` are a test now.
+
+The full `org/repo` is tried first, since it is the more specific; the bare name
+stays for the flat layout the usage line documents.
 
 ### ⛔ The figure was right, the verification was not, and a stale clone invented a defect
 

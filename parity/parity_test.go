@@ -129,6 +129,39 @@ func TestASymbolClaimIsCheckedAgainstTheSource(t *testing.T) {
 	}
 }
 
+// ⛔ A tree laid out as <org>/<repo> is how this machine holds the fleet, and
+// looking up the bare repository name alone made EVERY cross-org claim report
+// "not checked out" while the repository sat right there — 20 of them in one
+// run, which is the whole measurement refusing to produce a figure.
+func TestASymbolClaimResolvesInATreeOfOrgDirectories(t *testing.T) {
+	src := fstest.MapFS{
+		"go-ooxml/ooxml/word.go": &fstest.MapFile{Data: []byte("func ParseWord(b []byte) {}")},
+	}
+	if err := Verify("go-ooxml/ooxml#func ParseWord", nil, src); err != nil {
+		t.Errorf("a repository held under its org was reported missing: %v", err)
+	}
+	if err := Verify("go-ooxml/ooxml#func Absent", nil, src); err == nil {
+		t.Error("a symbol that is not there was accepted")
+	}
+}
+
+// ⛔ AND THE ORG DECIDES WHICH REPOSITORY ANSWERS. With the bare name alone,
+// two orgs owning a repository of the same name answer for each other, so a
+// claim is "verified" against source that is not the source it names — a false
+// POSITIVE, which is the direction a capability figure must never fail in.
+func TestTwoOrgsWithTheSameRepositoryNameDoNotAnswerForEachOther(t *testing.T) {
+	src := fstest.MapFS{
+		"go-images/codec/codec.go": &fstest.MapFile{Data: []byte("func DecodePSD(b []byte) {}")},
+		"go-audio/codec/codec.go":  &fstest.MapFile{Data: []byte("func DecodeWAV(b []byte) {}")},
+	}
+	if err := Verify("go-images/codec#func DecodePSD", nil, src); err != nil {
+		t.Errorf("the right repository was not consulted: %v", err)
+	}
+	if err := Verify("go-audio/codec#func DecodePSD", nil, src); err == nil {
+		t.Error("a claim was verified against another org's repository of the same name")
+	}
+}
+
 func TestASourceTreeThatCannotBeWalkedIsNotAMissingCapability(t *testing.T) {
 	// ⛔ The false negative this guards. A repository that is checked out but
 	// unreadable must not come back as "does not contain X": that reads exactly
