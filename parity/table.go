@@ -295,6 +295,14 @@ var BentoPDF = []Claim{
 	{Tool: "pdf-to-jpg", Claim: `go-pdfkit/convert#"jpeg"`},
 	{Tool: "pdf-to-bmp", Claim: `go-pdfkit/convert#"bmp"`},
 	{Tool: "pdf-to-tiff", Claim: `go-pdfkit/convert#"tiff"`},
+	// ⛔ The claim is the ENCODER TABLE, as its siblings are, because that is
+	// what a page is written through. WebP was in convert's decodeOnly table
+	// until go-images/webp existed — the fleet could read it and not write it
+	// — so this entry could not have been made honestly before now.
+	//
+	// BentoPDF's tool has a quality slider, and so does this: 1 to 100 for the
+	// lossy codec, with 100 reaching the lossless one.
+	{Tool: "pdf-to-webp", Claim: `go-pdfkit/convert#"webp"`},
 
 	// --- two more that go-pdfkit/ops already had under another name --------
 	{Tool: "remove-annotations", Claim: "go-pdfkit/ops#func (d *Doc) RemoveAnnotations("},
