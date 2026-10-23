@@ -768,15 +768,23 @@ bentoparity -tools ~/src/bentopdf/docs/tools -pdfops ./pdfops -src ~/src/go-pdfk
 ```
 BentoPDF documents 114 tools; pdfops carries 54 verbs
 
-covered       96
-not covered   18
-parity       84.2% (96/114), every claim verified
+covered       97
+not covered   17
+parity       85.1% (97/114), every claim verified
 ```
 
-Measured 2026-10-22 against BentoPDF at `v2.8.8-99-g5a5e155`, with `pdfops`
-built from `ops` at `v0.22.0`. The denominator is the tool pages in
-`docs/tools`: that directory holds 115 **files** and 114 **tool pages**, which
-is worth saying because the two get reported as one another.
+Measured 2026-10-23 against BentoPDF at `v2.8.8-99-g5a5e155`, with `pdfops`
+built from `ops` at `v0.22.0` and `convert` at `v0.15.0`. The denominator is
+the tool pages in `docs/tools`: that directory holds 115 **files** and 114
+**tool pages**, which is worth saying because the two get reported as one
+another.
+
+The last one to land was `pdf-to-webp`, and it could not have been claimed
+honestly before: the fleet could **read** WebP and not write it, so `convert`
+listed it as decode-only. [go-images/webp](https://github.com/go-images/webp)
+encodes both of its codecs now — the lossless form is half the size of PNG on
+a rasterised page of text, and the lossy one 26× smaller again on a
+photograph.
 
 ⛔ **It refuses to report a figure if a single claim cannot be checked.** A
 parity number assembled from a mapping nobody verifies is a vibe with a decimal
