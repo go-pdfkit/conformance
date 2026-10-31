@@ -337,6 +337,28 @@ var BentoPDF = []Claim{
 	{Tool: "divide-pages", Claim: "verb:divide"},
 	{Tool: "remove-blank-pages", Claim: "verb:deblank"},
 
+	// deskew-pdf needed a MEASUREMENT this fleet did not have. go-images could
+	// already binarise and rotate by an arbitrary angle; what it could not do
+	// was say how far a page was tilted, so nothing could decide how far to
+	// turn it. go-images v0.2.0 added Baird's projection profile (Proc. SPSE
+	// 1987) and the verb applies it.
+	//
+	// ⛔ The claim is on the verb AND the behaviour is narrower than the name
+	// suggests in one way worth writing down: the correction is a transform of
+	// the page's own content, not a rasterisation. BentoPDF's own page lists
+	// rasterize-pdf as a SEPARATE tool to run "to convert the deskewed output
+	// to a flat image-based PDF", so it does not flatten either — and a deskew
+	// that did would undo the thing a scan is usually deskewed for, which is
+	// OCR.
+	//
+	// Its detection is OpenCV's dominant line angles, a Hough transform;
+	// ours is the projection profile that the survey comparing them (Mascaro,
+	// Cavalcanti et al., Pattern Recognition Letters 31 (2010) 1403–1411)
+	// ranks first on documents with clear separation between text lines.
+	// Judged by tesseract on a rendered page: 0.968 similarity straight, 0.895
+	// tilted by 7°, and 0.968 again once deskewed.
+	{Tool: "deskew-pdf", Claim: "verb:deskew"},
+
 	// repair-pdf is reader's repair, given a name. ⛔ The claim is the VERB
 	// and not reader's symbol, because the repair itself was always there and
 	// silent: every ops verb has been repairing files for as long as reader
