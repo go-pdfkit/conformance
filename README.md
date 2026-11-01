@@ -95,6 +95,46 @@ One difference from `compare` is deliberate. It asks **`pdfimages`, not
 and poppler's own resampling otherwise shows up as every decoder disagreeing
 with it slightly.
 
+## Sizing a converter before writing it
+
+`survey` also counts, per population, how many **pages** clip, draw a picture,
+paint a shading or set a colour from a pattern — and how many use none of
+them. A tool that turns a page into something else (SVG, outlined text, any
+vector export) can refuse what it cannot express, and whether that is a plan
+or a disappointment depends entirely on how common the refusals would be.
+
+```
+survey -dir /Users/Shared/pdfforms -pages 20
+```
+
+⛔ **And it immediately corrected the person who added it.** Measured over both
+corpora *together*, the answer was tidy: clipping on 32.1% of pages, images on
+33.3%, half of all pages using neither. Per population that number means
+nothing:
+
+| population | image | clip | neither |
+|---|---|---|---|
+| ia-biodiversity | 100.0% | 0.0% | 0.0% |
+| gh-pdfcpu | 100.0% | 1.3% | 0.0% |
+| fr-impots | 54.5% | **77.8%** | 16.2% |
+| fr-cerfa | 35.6% | **73.2%** | 20.4% |
+| ia-uscourts | 37.2% | 34.6% | 40.0% |
+| ca-cra | 21.8% | **0.0%** | 78.2% |
+
+French government forms clip on three pages in four; Canadian ones never clip
+at all. Scanned books are a hundred per cent pictures. The aggregate was an
+artefact of how many of each were in the directory — which is the thing this
+package was written to stop, and it caught its own author.
+
+What it settles for a vector converter: **clipping and images are both
+mandatory**, while shadings and patterns can be refused permanently — 5.3% in
+the worst population and under 1% everywhere else.
+
+⛔ It counts **presence, not harm**. A clip to the whole media box changes no
+pixel, so these are an upper bound — the same distinction this package already
+keeps between a filter that appears and one whose absence leaves a page blank.
+Fit for a lopsided answer; not fit for a close one.
+
 Measured that way, four JBIG2 decoders over 403 real streams: one was exact on
 every stream it read, and one decoded *more* streams and was wrong on 91% of
 them, with nothing in its output saying so.
