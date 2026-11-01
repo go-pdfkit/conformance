@@ -71,6 +71,16 @@ func report(out io.Writer, name string, c survey.Counts) {
 		fmt.Fprintf(out, "\t%-16s %5d documents (%5.1f%%)  %7d images  %5d pages blank without it\n",
 			f, c.UsedBy[f], share, c.Images[f], c.BlankWithout[f])
 	}
+	// ⛔ A share of PAGES, not of documents, because this answers a question
+	// about pages: what a converter would meet. The filters above are quoted
+	// per document because a filter is a property of a file's making.
+	for _, f := range c.FeatureNames() {
+		share := 0.0
+		if c.Pages > 0 {
+			share = 100 * float64(c.Features[f]) / float64(c.Pages)
+		}
+		fmt.Fprintf(out, "\tfeature %-10s %5d pages (%5.1f%%)\n", f, c.Features[f], share)
+	}
 }
 
 // populations groups a corpus's documents. The manifest is the authority; a

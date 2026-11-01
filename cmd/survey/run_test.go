@@ -209,6 +209,43 @@ func TestTheMasksAreReportedBesideTheFilters(t *testing.T) {
 	}
 }
 
+// TestTheReportSaysWhatAPageIsMadeOf covers the lines that size a converter:
+// how many PAGES clip, draw a picture, paint a shading or use a pattern.
+//
+// ⛔ The share is of pages, while the filter lines above are a share of
+// documents, and the two sit next to each other in the same report. The test
+// pins which denominator each uses: a percentage whose denominator is not the
+// one the reader assumes is a wrong number that looks right.
+func TestTheReportSaysWhatAPageIsMadeOf(t *testing.T) {
+	var out bytes.Buffer
+	report(&out, "alpha", survey.Counts{
+		Files: 3, Documents: 3, Pages: 200,
+		Features: map[string]int{"clip": 64, "image": 66, "plain": 100},
+	})
+	for _, want := range []string{
+		"feature clip          64 pages ( 32.0%)",
+		"feature image         66 pages ( 33.0%)",
+		"feature plain        100 pages ( 50.0%)",
+	} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("the report does not say %q:\n%s", want, out.String())
+		}
+	}
+}
+
+func TestTheReportSurvivesAPopulationWithNoPages(t *testing.T) {
+	// Every file refused to open, so the denominator is zero: a share is not
+	// computable and must not be a division by it.
+	var out bytes.Buffer
+	report(&out, "alpha", survey.Counts{
+		Files: 2, Pages: 0,
+		Features: map[string]int{"clip": 0},
+	})
+	if !strings.Contains(out.String(), "feature clip           0 pages (  0.0%)") {
+		t.Errorf("a population with no pages did not report cleanly:\n%s", out.String())
+	}
+}
+
 // TestTheReportSaysWhatColourProfilesAPopulationCarries covers the line a
 // reader of this command wants when the question is colour rather than
 // filters: how many documents carry a profile that needs a table.

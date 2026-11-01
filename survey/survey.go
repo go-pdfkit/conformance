@@ -69,7 +69,43 @@ type Counts struct {
 	// seen it, and the profile it misses was for two versions the largest
 	// mean squared error in the corpus.
 	Profiles map[string]int
+
+	// Features is, per feature, how many PAGES use it — and it exists to size
+	// a converter's scope before the converter is written.
+	//
+	// A tool that turns a page into something else (SVG, outlined text, a
+	// vector export) can refuse what it cannot express, and whether that is a
+	// sound plan depends entirely on how common the refusals would be.
+	// Measured over 9 250 pages of 2 245 documents: clipping on 32.1%, images
+	// on 33.3%, shadings on 0.4%, pattern colours on 0.3%, and half of all
+	// pages using none of them. Refusing shadings and patterns costs under one
+	// page in a hundred; refusing clips turns away a third of the corpus.
+	// That is the difference between a tool and a disappointment, and it is
+	// cheaper to count than to discover.
+	//
+	// ⛔ IT COUNTS PRESENCE, NOT HARM — the distinction this package exists to
+	// keep (see MaskedBy). A clip to the whole media box changes no pixel, so
+	// these are an UPPER bound on what a converter would have to refuse. Use
+	// them when the answer is lopsided enough that the difference cannot
+	// change the decision, and measure the harm when it is not.
+	Features map[string]int
 }
+
+// The features a page may use that a converter has to be able to express.
+// Named here rather than spelled at each use, so the counter and whatever
+// reads it cannot drift apart.
+const (
+	// FeatureClip is a page that clips (W or W*).
+	FeatureClip = "clip"
+	// FeatureImage is a page that draws an XObject or an inline image.
+	FeatureImage = "image"
+	// FeatureShading is a page that paints a shading directly (sh).
+	FeatureShading = "shading"
+	// FeaturePattern is a page that sets a colour from a pattern.
+	FeaturePattern = "pattern"
+	// FeaturePlain is a page using none of the above: paths and text only.
+	FeaturePlain = "plain"
+)
 
 // newCounts makes the maps, so a caller never has to.
 func newCounts() Counts {
@@ -80,8 +116,12 @@ func newCounts() Counts {
 		MaskedBy:     map[string]int{},
 		Refused:      map[string]int{},
 		Profiles:     map[string]int{},
+		Features:     map[string]int{},
 	}
 }
+
+// FeatureNames returns the features seen, in a stable order.
+func (c Counts) FeatureNames() []string { return keys(c.Features) }
 
 // Filters returns the filter names seen, in a stable order.
 func (c Counts) Filters() []string { return keys(c.UsedBy) }
@@ -178,6 +218,15 @@ func surveyOne(path string, pagesPerDoc int, c *Counts) (opened bool) {
 // branch that cannot be reached cannot be tested, and an untested branch in the
 // code that decides what a measurement says is worse than no branch.
 func surveyPage(d *reader.Document, p int, c *Counts, inThisDocument, profiles map[string]bool, walked map[reader.Ref]bool) {
+	// ⛔ The operators are read FIRST, and their features recorded, because the
+	// returns below are about images and this count is about every page. A
+	// page with no resource dictionary still has content, and leaving it out
+	// would quietly measure a different population from the one Pages counts.
+	marks, feat := scanOps(d, p)
+	for _, name := range feat.names() {
+		c.Features[name]++
+	}
+
 	page, _ := d.Page(p)
 	res, _ := d.Resolve(page["Resources"])
 	rd, ok := reader.ToDict(res)
@@ -204,7 +253,7 @@ func surveyPage(d *reader.Document, p int, c *Counts, inThisDocument, profiles m
 			}
 		}
 	}
-	if images == 0 || marks(d, p) > 0 {
+	if images == 0 || marks > 0 {
 		return
 	}
 	// Nothing on this page but pictures: it is a scan, and whichever filter
@@ -264,16 +313,69 @@ func maskFilter(d *reader.Document, st *reader.Stream) (string, bool) {
 	return "", false
 }
 
-// marks counts the operators on a page that put something on it.
-func marks(d *reader.Document, p int) int {
+// pageFeatures is what one page's operators said it uses.
+type pageFeatures struct{ clip, image, shading, pattern bool }
+
+// names is the features present, or FeaturePlain when none are.
+func (f pageFeatures) names() []string {
+	var out []string
+	for _, c := range []struct {
+		on   bool
+		name string
+	}{
+		{f.clip, FeatureClip},
+		{f.image, FeatureImage},
+		{f.shading, FeatureShading},
+		{f.pattern, FeaturePattern},
+	} {
+		if c.on {
+			out = append(out, c.name)
+		}
+	}
+	if out == nil {
+		return []string{FeaturePlain}
+	}
+	return out
+}
+
+// scanOps reads a page's operators once and answers both questions asked of
+// them: how many put something on the page, and which features a converter
+// would have to be able to express.
+//
+// ⛔ ONE PASS. These were two walks over the same operators, and a corpus
+// census of this size already went from under a minute to over ten once for
+// walking something twice.
+func scanOps(d *reader.Document, p int) (int, pageFeatures) {
 	ops, _ := d.PageOperations(p)
 	n := 0
+	var f pageFeatures
 	for _, op := range ops {
 		if marking[op.Operator] {
 			n++
 		}
+		switch op.Operator {
+		case "W", "W*":
+			f.clip = true
+		case "Do", "BI":
+			// ⛔ `Do` also draws a FORM, not only an image, so this is an
+			// upper bound of the same kind as the rest: a page counted for an
+			// image may be drawing a form full of paths. Separating them means
+			// resolving every XObject's Subtype, which is a different and much
+			// slower measurement.
+			f.image = true
+		case "sh":
+			f.shading = true
+		case "scn", "SCN":
+			// A pattern colour names the pattern last; a plain colour in the
+			// same operator is numbers only.
+			if len(op.Operands) > 0 {
+				if _, ok := op.Operands[len(op.Operands)-1].(reader.Name); ok {
+					f.pattern = true
+				}
+			}
+		}
 	}
-	return n
+	return n, f
 }
 
 // profileShapes adds the shape of every ICC profile reachable from a colour
