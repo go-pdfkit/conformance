@@ -4,7 +4,7 @@ go 1.27.1
 
 require (
 	github.com/go-gfx/gfx v0.41.0
-	github.com/go-pdfkit/reader v0.10.0
+	github.com/go-pdfkit/reader v0.11.0
 	github.com/go-pdfkit/render v0.69.1
 )
 
